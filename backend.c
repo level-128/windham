@@ -4,7 +4,7 @@
 
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
-#include "library/SHA256/sha256.h"
+#include "sha256.h"
 
 struct SystemInfo {
 	unsigned long free_ram;
@@ -101,23 +101,16 @@ uint8_t * read_key_file(const Key * key, size_t * length) {
 	return buffer;
 }
 
-void sha256_digest_key(void * key_buffer, size_t key_size, uint8_t inited_key[HASHLEN]) {
-	SHA256_CTX * sha_256_ctx;
-	sha256_init(sha_256_ctx);
-	sha256_update(sha_256_ctx, key_buffer, key_size);
-	
-	sha256_final(sha_256_ctx, inited_key);
-}
 
 
 void init_key(const Key * key, uint8_t inited_key[HASHLEN]) {
 	size_t key_size;
 	if (key->key_type == EMOBJ_key_file_type_file) {
 		uint8_t * key_buffer = read_key_file(key, &key_size);
-		sha256_digest_key(key_buffer, key_size, inited_key);
+		sha256_digest_all(key_buffer, key_size, inited_key);
 		free(key_buffer);
 	} else {
-		sha256_digest_key(key->key_or_keyfile_location, key->key_len, inited_key);
+		sha256_digest_all(key->key_or_keyfile_location, key->key_len, inited_key);
 	}
 	if (key->key_type == EMOBJ_key_file_type_input) {
 		free(key->key_or_keyfile_location);
@@ -126,6 +119,8 @@ void init_key(const Key * key, uint8_t inited_key[HASHLEN]) {
 
 uint64_t calc_initial_pw_hash_and_iter_cnt(Data * self, uint8_t * inited_key, int target_slot, uint64_t max_mem_size, double time_limit, uint8_t
 password_hash[KEY_SLOT_COUNT][HASHLEN]) {
+	// password hash is password_hash[KEY_SLOT_COUNT][HASHLEN] if target_slot == -1, else use &password_hash[HASHLEN]
+	
 	double time_cost = 0;
 	
 	if (target_slot == -1) { // all slots
@@ -177,15 +172,47 @@ void get_master_key(Data * self, uint8_t master_key[HASHLEN], const Key * key, i
 
 }
 
-void read_metadata(Data * self, const uint8_t master_key[HASHLEN], Metadata * metadata){
 
+
+void add_key_from_master_key(Data * self, const uint8_t master_key[HASHLEN], const Key * key, uint64_t max_unlock_mem, double max_unlock_time) {
+	uint8_t password_hash[HASHLEN];
+	uint8_t inited_key[HASHLEN];
+	
+	operate_metadata_using_master_key(&self->metadata, master_key, self->master_key_mask, true);
+	int target_slot = -1;
+	for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--){
+		if (self->metadata.key_slot_usage[i] == Key_slot_unused){
+			target_slot = i;
+		}
+	}
+	if (target_slot == -1){
+		for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--){
+			if (self->metadata.key_slot_usage[i] == Key_slot_revoked){
+				target_slot = i;
+			}
+		}
+	}
+	if (target_slot == -1){
+		print_error("No free slots. Remove a key first.");
+	}
+	self->metadata.key_slot_usage[target_slot] = Key_slot_used;
+	operate_metadata_using_master_key(&self->metadata, master_key, self->master_key_mask, false);
+	
+	init_key(key, inited_key);
+	
+	uint64_t mem_size_limit = calc_initial_pw_hash_and_iter_cnt(self, inited_key, target_slot, max_unlock_mem, max_unlock_time, &password_hash);
+	set_master_key_to_slot(&self->keys[target_slot], password_hash, mem_size_limit, master_key);
+	
 }
 
-void add_key_from_master_key(Data * self, const uint8_t master_key[HASHLEN], const Key * key, uint64_t max_unlock_mem, double max_unlock_time, int target_slot, uint64_t
-target_memory, double target_time) {
-
-	
-	
-	uint64_t mem_size_limit = calc_initial_pw_hash_and_iter_cnt(self, inited_key, max_unlock_mem, max_unlock_time, password_hash);
+void create_header_and_master_key(Data * self, uint8_t master_key[HASHLEN], const char * enc_type){
+	fill_secure_random_bits(self, sizeof(Data));
+	memset(self->metadata.key_slot_usage, Key_slot_unused, sizeof(self->metadata.key_slot_usage));
+	if (enc_type != NULL){
+		strcpy(self->metadata.enc_type, enc_type);
+	} else {
+		strcpy(self->metadata.enc_type, DEFAULT_DISK_ENC_MODE);
+	}
+	operate_metadata_using_master_key(&self->metadata, master_key, self->master_key_mask, false);
 	
 }

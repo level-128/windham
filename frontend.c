@@ -161,8 +161,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 
 
 int main(int argc, char * argv[]) {
-	enclib_main();
-	exit(0);
+
 	
 	if (argc == 1) {
 		print(THE_NAME_OF_THIS_SOFTWARE"  Copyright (C) 2023-  Weizheng Wang (level-128)\n");

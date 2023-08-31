@@ -59,6 +59,7 @@ extern "C" {
 void sha256_init (SHA256_CTX *sc);
 void sha256_update (SHA256_CTX *sc, const void *data, uint32_t len);
 void sha256_final (SHA256_CTX *sc, uint8_t hash[SHA256_HASH_SIZE]);
+void sha256_digest_all(const void * vdata, size_t vdata_size, uint8_t * hash);
 
 #ifdef __cplusplus
 }

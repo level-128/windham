@@ -6,25 +6,37 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdatomic.h>
+
 
 #define KEY_SLOT_COUNT 6
 #define KEY_SLOT_EXP_MAX 16
 #define HASHLEN 32
 #define BASE_MEM_COST 128
 #define PARALLELISM 1
-#define SPECK_ROUNDS 12
 #define DEFAULT_ENC_TARGET_TIME 0.75
+#define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
+
+#define ECB 0
+#define CTR 0
 
 #include "print.c"
-#include "library/Argon2/argon2.h"
-#include "library/speck/speck.h"
+#include "argon2.h"
+#include "speck.h"
+#include "aes.h"
+#include "sha256.h"
 
 #ifndef UINT8_MAX
 #error "the program only supports platform with uint8_t defined"
 #endif
 
+enum key_slot_status{
+	Key_slot_unused,
+	Key_slot_used,
+	Key_slot_revoked,
+};
 
-int random_fd;
+FILE * random_fd;
 
 typedef struct __attribute__((packed)) {
 	uint8_t hash_salt[HASHLEN];
@@ -33,17 +45,19 @@ typedef struct __attribute__((packed)) {
 } Key_slot;
 
 typedef struct __attribute__((packed)) {
-	uint8_t enc_type[32];
-	bool key_slot_usage[KEY_SLOT_COUNT];
-	time_t raw_creat_time;
 	uint32_t payload_offset;
+	uint32_t header_size;
+	char enc_type[32];
+	uint8_t key_slot_usage[KEY_SLOT_COUNT];
 } Metadata;
 
-typedef struct __attribute__((packed)) {
+typedef struct __attribute__((packed)) STR_data {
 	__attribute__((unused)) uint8_t head[16]; // '\xe8' '\xb4' '\xb4' '\xe8' '\xb4' '\xb4' 'l' 'e' 'v' 'e' 'l' '-' '1' '2' '8' '!'
-	char master_key_mask[32];
+	uint8_t master_key_mask[HASHLEN];
 	Key_slot keys[KEY_SLOT_COUNT];
 	Metadata metadata;
+	__attribute__((unused)) uint8_t AES_align[
+			( AES_BLOCKLEN - (sizeof(Metadata) % AES_BLOCKLEN) ) % AES_BLOCKLEN];
 } Data;
 
 #pragma once
@@ -69,11 +83,17 @@ void print_hex_array(const uint8_t * arr, size_t length) {
 	printf("\n");
 }
 
-void fill_secure_random_bits(void * address, size_t size) {
-	ssize_t read_size = read(random_fd, address, size);
+void init_random_generator(void * generator_addr){
+	random_fd = fopen(generator_addr, "r");
+	if (random_fd == NULL) {
+		print_error("Failed to open", generator_addr);
+	}
+}
+
+void fill_secure_random_bits(void * address, ssize_t size) {
+	size_t read_size = fread(address, 1, size, random_fd);
 	if (read_size != (ssize_t) size) {
-		print("IO error while reading /dev/urandom.");
-		*((volatile int *) NULL) = 0; // generate core dump
+		print_error("IO error while reading random generator.");
 	}
 }
 
@@ -95,7 +115,7 @@ void generate_random_numbers(uint8_t x, uint8_t numbers[4]) {
 	numbers[3] - rand2 - rand3;
 }
 
-void calc_cnt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint64_t * mem_size, bool is_write) {
+void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint64_t * mem_size, bool is_write) {
 	uint8_t plain_text[4];
 	if (is_write) {
 		*mem_size >>= len_exp_index;
@@ -103,18 +123,18 @@ void calc_cnt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len
 		*mem_size <<= len_exp_index;
 		speck_encrypt_combined((const uint16_t *) plain_text, (uint16_t *) key_slot->len_exp[len_exp_index],
 									  (const uint16_t *) hash);
-		print("calc_int_write", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
+//		print("calc_int_write", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
 	} else {
 		speck_decrypt_combined((uint16_t *) key_slot->len_exp[len_exp_index], (uint16_t *) plain_text,
 									  (const uint16_t *) hash);
 		*mem_size = plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3];
 		*mem_size = ((*mem_size / 4) << len_exp_index);
-		print("calc_int_read", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
+//		print("calc_int_read", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
 	}
 }
 
 
-void argon2id_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_fast8_t len_exp_index, void * hash) {
+void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_fast8_t len_exp_index, void * hash) {
 	if (m_cost < BASE_MEM_COST) {
 		m_cost = BASE_MEM_COST;
 	}
@@ -125,29 +145,29 @@ void argon2id_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_
 
 bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint64_t max_mem_size) {
 	uint8_t new_hash[HASHLEN];
-	print("calc_key_one_step:", len_exp_index, max_mem_size);
+//	print("calc_key_one_step:", len_exp_index, max_mem_size);
 	uint64_t required_mem_size;
-	calc_cnt(key_slot, password_hash, len_exp_index, &required_mem_size, false);
+	write_or_read_mem_count_from_len_exp(key_slot, password_hash, len_exp_index, &required_mem_size, false);
 	if (required_mem_size > max_mem_size) {
 		return false;
 	}
-	argon2id_calc(key_slot, required_mem_size, password_hash, len_exp_index, new_hash);
+	argon2id_hash_calc(key_slot, required_mem_size, password_hash, len_exp_index, new_hash);
 	memcpy(password_hash, new_hash, HASHLEN);
 	return true;
 }
 
 void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t pwd[HASHLEN], uint64_t target_mem_size) {
-	print("write_key_one_step:", len_exp_index, target_mem_size);
+//	print("write_key_one_step:", len_exp_index, target_mem_size);
 	uint8_t new_pwd[HASHLEN];
-	calc_cnt(key_slot, pwd, len_exp_index, &target_mem_size, true);
-	argon2id_calc(key_slot, target_mem_size, pwd, len_exp_index, new_pwd);
+	write_or_read_mem_count_from_len_exp(key_slot, pwd, len_exp_index, &target_mem_size, true);
+	argon2id_hash_calc(key_slot, target_mem_size, pwd, len_exp_index, new_pwd);
 	memcpy(pwd, new_pwd, HASHLEN);
 }
 
 double hash_firstpass_and_benchmark(Key_slot * key_slot, uint8_t inited_key[HASHLEN], uint8_t password_hash[HASHLEN]) {
 	clock_t start_time, stop_time;
 	start_time = clock();
-	argon2id_calc(key_slot, BASE_MEM_COST * 4, inited_key, 0, password_hash);
+	argon2id_hash_calc(key_slot, BASE_MEM_COST * 4, inited_key, 0, password_hash);
 	stop_time = clock();
 	return (double) (stop_time - start_time) / (CLOCKS_PER_SEC);
 }
@@ -156,7 +176,7 @@ double hash_firstpass_and_benchmark(Key_slot * key_slot, uint8_t inited_key[HASH
 bool argon2id_calc_key_one_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint8_t new_hash[HASHLEN], uint64_t max_mem_size, bool is_new_pw) {
 	memcpy(new_hash, password_hash, HASHLEN);
 	bool is_memory_enough = true;
-	for (int_fast8_t i; i < KEY_SLOT_EXP_MAX; i++) {
+	for (int_fast8_t i = 0; i < KEY_SLOT_EXP_MAX; i++) {
 		if (is_memory_enough) {
 			is_memory_enough = calc_key_one_step(key_slot, i, new_hash, max_mem_size);
 		}
@@ -175,8 +195,8 @@ bool get_master_key_from_slot(Key_slot * key_slot, const uint8_t password_hash[H
 	if (argon2id_calc_key_one_slot(key_slot, password_hash, new_hash, max_mem_size, false) == false) {
 		return false;
 	}
-	print("get hashed password:");
-	print_hex_array(new_hash, HASHLEN);
+//	print("get hashed password:");
+//	print_hex_array(new_hash, HASHLEN);
 	for (int i = 0; i < HASHLEN; i++) {
 		master_key[i] = new_hash[i] ^ key_slot->key_mask[i];
 	}
@@ -187,31 +207,41 @@ bool get_master_key_from_slot(Key_slot * key_slot, const uint8_t password_hash[H
 void set_master_key_to_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t target_mem_size, const uint8_t master_key[HASHLEN]) {
 	uint8_t new_hash[HASHLEN];
 	argon2id_calc_key_one_slot(key_slot, password_hash, new_hash, target_mem_size, true);
-	print("set hashed password:");
-	print_hex_array(new_hash, HASHLEN);
+//	print("set hashed password:");
+//	print_hex_array(new_hash, HASHLEN);
 	for (int i = 0; i < HASHLEN; i++) {
 		key_slot->key_mask[i] = new_hash[i] ^ master_key[i];
 	}
 }
 
+void get_metadata_key_and_disk_key_from_master_key(const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN], uint8_t metadata_key[HASHLEN], uint8_t
+disk_key[HASHLEN]){
+	uint8_t inter_key[HASHLEN];
+	memcpy(inter_key, master_key, HASHLEN);
+	for (int i = 0; i < HASHLEN; i++){
+		inter_key[i] = master_key[i] ^ master_key_mask[i];
+	}
+	if (metadata_key != NULL) {
+		argon2id_hash_raw(1, BASE_MEM_COST * 2, PARALLELISM, master_key, HASHLEN, "the hash of metadata key", strlen("the hash of metadata key"), metadata_key, HASHLEN);
+	}
+	if (disk_key != NULL) {
+		argon2id_hash_raw(1, BASE_MEM_COST * 2, PARALLELISM, master_key, HASHLEN, "the hash of disk key", strlen("the hash of disk key"), disk_key, HASHLEN);
+	}
+}
 
-int enclib_main() {
-//    int fd = open("/dev/urandom", O_RDONLY);
-//    if (fd == -1) {
-//        return 1;
-//    }
+void operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN], bool is_unlock){
+	uint8_t metadata_key[HASHLEN];
+	uint8_t iv[HASHLEN];
 	
-	Data * my_data = malloc(sizeof(Data));
+	get_metadata_key_and_disk_key_from_master_key(master_key, master_key_mask, metadata_key, NULL);
+	sha256_digest_all(metadata_key, HASHLEN, iv);
+
+	struct AES_ctx ctx;
+	AES_init_ctx_iv(&ctx, metadata_key, iv);
 	
-	// test case
-	print("new pw:\n");
-	void * password = calloc(HASHLEN, 1);
-	strcpy(password, "hello world!");
-	set_master_key_to_slot(&my_data->keys[0], password, 4000, (uint8_t *) "a master key example. ");
-	
-	password = calloc(HASHLEN, 1);
-	uint8_t * masterkey = malloc(HASHLEN);
-	strcpy(password, "hello world!");
-	if (!get_master_key_from_slot(&my_data->keys[0], password, 20000, masterkey)) { print_error("wrong master key"); }
-	print((char *) masterkey);
+	if (is_unlock){
+		AES_CBC_decrypt_buffer(&ctx, (uint8_t *) metadata, sizeof(Metadata));
+	} else {
+		AES_CBC_encrypt_buffer(&ctx, (uint8_t *) metadata, sizeof(Metadata));
+	}
 }

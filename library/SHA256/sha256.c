@@ -423,6 +423,15 @@ sha256_final (SHA256_CTX *sc, uint8_t hash[SHA256_HASH_SIZE])
   }
 }
 
+void sha256_digest_all(const void * vdata, size_t vdata_size, uint8_t * hash) {
+  SHA256_CTX sha_256_ctx;
+  sha256_init(&sha_256_ctx);
+  sha256_update(&sha_256_ctx, vdata, vdata_size);
+  
+  sha256_final(&sha_256_ctx, hash);
+}
+
+
 #ifdef SHA256_TEST
 
 #include <stdio.h>

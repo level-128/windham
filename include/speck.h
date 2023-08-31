@@ -32,26 +32,8 @@ extern "C" {
 
 #ifdef SPECK_32_64
 #define SPECK_TYPE uint16_t
-
-#ifndef SPECK_ROUNDS
 #define SPECK_ROUNDS 22
-#endif
-
 #define SPECK_KEY_LEN 4
-#endif
-
-#ifdef SPECK_48_72
-#define SPECK_TYPE uint32_t
-#define SPECK_ROUNDS 22
-#define SPECK_KEY_LEN 3
-#define WORDSIZE 24
-#endif
-
-#ifdef SPECK_48_96
-#define SPECK_TYPE uint32_t
-#define SPECK_ROUNDS 23
-#define SPECK_KEY_LEN 4
-#define WORDSIZE 24
 #endif
 
 #ifdef SPECK_64_128
@@ -60,25 +42,12 @@ extern "C" {
 #define SPECK_KEY_LEN 4
 #endif
 
-#ifdef SPECK_96_96
-#define SPECK_TYPE uint64_t
-#define SPECK_ROUNDS 28
-#define SPECK_KEY_LEN 2
-#define WORDSIZE 48
-#endif
-
-#ifdef SPECK_96_144
-#define SPECK_TYPE uint64_t
-#define SPECK_ROUNDS 29
-#define SPECK_KEY_LEN 3
-#define WORDSIZE 48
-#endif
-
 #ifdef SPECK_128_256
 #define SPECK_TYPE uint64_t
 #define SPECK_ROUNDS 34
 #define SPECK_KEY_LEN 4
 #endif
+
 
 void speck_expand(SPECK_TYPE const K[static SPECK_KEY_LEN], SPECK_TYPE S[static SPECK_ROUNDS]);
 void speck_encrypt(SPECK_TYPE const pt[static 2], SPECK_TYPE ct[static 2], SPECK_TYPE const K[static SPECK_ROUNDS]);
