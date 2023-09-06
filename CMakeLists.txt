@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.24)
 project(windham C)
 
+option(USE_SPECIFIC_COMPILER "Use a specific compiler" OFF)
+
+if(USE_SPECIFIC_COMPILER)
+    set(CMAKE_C_COMPILER "/path/to/c/compiler")
+endif()
+
 set(CMAKE_C_STANDARD 23)
 
 # Add the directory containing the aaa library to the include path
@@ -25,8 +31,8 @@ add_executable(windham frontend.c )
 add_executable(windham_test test/test.c )
 
 # Link the library to the main program
-target_link_libraries(windham Argon2 speck SHA256 tiny_AES_c)
-target_link_libraries(windham_test Argon2 speck SHA256 tiny_AES_c)
+target_link_libraries(windham Argon2 speck SHA256 tiny_AES_c devmapper)
+target_link_libraries(windham_test Argon2 speck SHA256 tiny_AES_c devmapper)
 #target_link_libraries(windham speck)
 #target_link_libraries(windham SHA256)
 #target_link_libraries(windham tiny_AES_c)

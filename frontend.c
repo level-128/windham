@@ -53,7 +53,7 @@ struct option long_options[] = {
 };
 
 void frontend_check_actions(char * input) {
-	for (int i = 0; i < sizeof(actions) / sizeof(char *); i++) {
+	for (int i = 0; i < (int)sizeof(actions) / sizeof(char *); i++) {
 		if (strcmp(actions[i], input) == 0) {
 			return;
 		}

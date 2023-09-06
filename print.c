@@ -71,6 +71,12 @@
     printf("\033[0m");   \
     exit(EXIT_FAILURE)
 
+#define print_error_no_exit(...) \
+    printf("\033[1;31mERROR: "); \
+    print(__VA_ARGS__);           \
+    printf("\033[0m")
+    
+    
 typedef enum{
 	T_INT,
 	T_DOUBLE,

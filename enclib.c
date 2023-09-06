@@ -16,6 +16,7 @@
 #define PARALLELISM 1
 #define DEFAULT_ENC_TARGET_TIME 0.75
 #define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
+#define CHECK_KEY_MAGIC_NUMBER 0x1373112813731128
 
 #define ECB 0
 #define CTR 0
@@ -45,10 +46,12 @@ typedef struct __attribute__((packed)) {
 } Key_slot;
 
 typedef struct __attribute__((packed)) {
+	bool key_slot_is_used[KEY_SLOT_COUNT];
+	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
 	uint32_t payload_offset;
 	uint32_t header_size;
 	char enc_type[32];
-	uint8_t key_slot_usage[KEY_SLOT_COUNT];
+	uint64_t check_key_magic_number;
 } Metadata;
 
 typedef struct __attribute__((packed)) STR_data {
@@ -62,7 +65,7 @@ typedef struct __attribute__((packed)) STR_data {
 
 #pragma once
 
-static uint64_t rdtsc() {
+static __attribute_maybe_unused__ uint64_t rdtsc() {
 #if defined(__amd64__) || defined(__x86_64__)
 	uint64_t rax, rdx;
 	__asm__ __volatile__("rdtsc" : "=a"(rax), "=d"(rdx) : :);
@@ -76,13 +79,6 @@ static uint64_t rdtsc() {
 #endif
 }
 
-void print_hex_array(const uint8_t * arr, size_t length) {
-	for (size_t i = 0; i < length; ++i) {
-		printf("%02x ", arr[i]);
-	}
-	printf("\n");
-}
-
 void init_random_generator(void * generator_addr){
 	random_fd = fopen(generator_addr, "r");
 	if (random_fd == NULL) {
@@ -90,10 +86,16 @@ void init_random_generator(void * generator_addr){
 	}
 }
 
-void fill_secure_random_bits(void * address, ssize_t size) {
+void fill_secure_random_bits(uint8_t * address, size_t size) {
 	size_t read_size = fread(address, 1, size, random_fd);
-	if (read_size != (ssize_t) size) {
+	if (read_size != size) {
 		print_error("IO error while reading random generator.");
+	}
+}
+
+void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b[length], uint8_t c[length]){
+	for (size_t i = 0; i < length; i++){
+		c[i] = a[i] ^ b[i];
 	}
 }
 
@@ -103,17 +105,15 @@ void generate_random_numbers(uint8_t x, uint8_t numbers[4]) {
 		return;
 	}
 	uint8_t rand1 = random();
-	uint8_t rand2 = random();
-	uint8_t rand3 = random();
+
 	numbers[0] = x + (rand1 % x);
 	numbers[1] = x - (rand1 % x);
 	numbers[2] = x + (rand1 % x);
 	numbers[3] = x - (rand1 % x);
-	numbers[0] + rand2 + rand3;
-	numbers[1] + rand2 - rand3;
-	numbers[2] - rand2 + rand3;
-	numbers[3] - rand2 - rand3;
+
 }
+
+
 
 void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint64_t * mem_size, bool is_write) {
 	uint8_t plain_text[4];
@@ -121,12 +121,16 @@ void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t has
 		*mem_size >>= len_exp_index;
 		generate_random_numbers(*mem_size, plain_text);
 		*mem_size <<= len_exp_index;
+		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
 		speck_encrypt_combined((const uint16_t *) plain_text, (uint16_t *) key_slot->len_exp[len_exp_index],
 									  (const uint16_t *) hash);
+		
+		// hash has uint8_t[8] len, plain_text and cipher text has uint8_t[4]
 //		print("calc_int_write", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
 	} else {
-		speck_decrypt_combined((uint16_t *) key_slot->len_exp[len_exp_index], (uint16_t *) plain_text,
+		speck_decrypt_combined((const uint16_t *) key_slot->len_exp[len_exp_index], (uint16_t *) plain_text,
 									  (const uint16_t *) hash);
+		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
 		*mem_size = plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3];
 		*mem_size = ((*mem_size / 4) << len_exp_index);
 //		print("calc_int_read", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
@@ -173,7 +177,7 @@ double hash_firstpass_and_benchmark(Key_slot * key_slot, uint8_t inited_key[HASH
 }
 
 
-bool argon2id_calc_key_one_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint8_t new_hash[HASHLEN], uint64_t max_mem_size, bool is_new_pw) {
+bool argon2id_iter_hash_one_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint8_t new_hash[HASHLEN], uint64_t max_mem_size, bool is_new_pw) {
 	memcpy(new_hash, password_hash, HASHLEN);
 	bool is_memory_enough = true;
 	for (int_fast8_t i = 0; i < KEY_SLOT_EXP_MAX; i++) {
@@ -192,26 +196,21 @@ bool argon2id_calc_key_one_slot(Key_slot * key_slot, const uint8_t password_hash
 
 bool get_master_key_from_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t max_mem_size, uint8_t master_key[HASHLEN]) {
 	uint8_t new_hash[HASHLEN];
-	if (argon2id_calc_key_one_slot(key_slot, password_hash, new_hash, max_mem_size, false) == false) {
+	if (argon2id_iter_hash_one_slot(key_slot, password_hash, new_hash, max_mem_size, false) == false) {
 		return false;
 	}
 //	print("get hashed password:");
 //	print_hex_array(new_hash, HASHLEN);
-	for (int i = 0; i < HASHLEN; i++) {
-		master_key[i] = new_hash[i] ^ key_slot->key_mask[i];
-	}
-	
+	xor_with_len(HASHLEN, new_hash, key_slot->key_mask, master_key);
 	return true;
 }
 
 void set_master_key_to_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t target_mem_size, const uint8_t master_key[HASHLEN]) {
 	uint8_t new_hash[HASHLEN];
-	argon2id_calc_key_one_slot(key_slot, password_hash, new_hash, target_mem_size, true);
+	argon2id_iter_hash_one_slot(key_slot, password_hash, new_hash, target_mem_size, true);
 //	print("set hashed password:");
 //	print_hex_array(new_hash, HASHLEN);
-	for (int i = 0; i < HASHLEN; i++) {
-		key_slot->key_mask[i] = new_hash[i] ^ master_key[i];
-	}
+	xor_with_len(HASHLEN, new_hash, master_key, key_slot->key_mask);
 }
 
 void get_metadata_key_and_disk_key_from_master_key(const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN], uint8_t metadata_key[HASHLEN], uint8_t
@@ -229,7 +228,7 @@ disk_key[HASHLEN]){
 	}
 }
 
-void operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN], bool is_unlock){
+bool operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN], bool is_decrypt){
 	uint8_t metadata_key[HASHLEN];
 	uint8_t iv[HASHLEN];
 	
@@ -239,9 +238,56 @@ void operate_metadata_using_master_key(Metadata * metadata, const uint8_t master
 	struct AES_ctx ctx;
 	AES_init_ctx_iv(&ctx, metadata_key, iv);
 	
-	if (is_unlock){
+	if (is_decrypt){
 		AES_CBC_decrypt_buffer(&ctx, (uint8_t *) metadata, sizeof(Metadata));
+		return metadata->check_key_magic_number == CHECK_KEY_MAGIC_NUMBER;
 	} else {
 		AES_CBC_encrypt_buffer(&ctx, (uint8_t *) metadata, sizeof(Metadata));
+		return true;
 	}
+}
+
+void initialize_header_and_master_key(Data * uninitialized_header, uint8_t master_key[HASHLEN], const char * enc_type){
+	fill_secure_random_bits((uint8_t *) uninitialized_header, sizeof(Data));
+	
+	operate_metadata_using_master_key(&uninitialized_header->metadata, master_key, uninitialized_header->master_key_mask, true);
+	memset(uninitialized_header->metadata.key_slot_is_used, false, sizeof(uninitialized_header->metadata.key_slot_is_used));
+	if (enc_type != NULL){
+		strcpy(uninitialized_header->metadata.enc_type, enc_type);
+	} else {
+		strcpy(uninitialized_header->metadata.enc_type, DEFAULT_DISK_ENC_MODE);
+	}
+	uninitialized_header->metadata.check_key_magic_number = CHECK_KEY_MAGIC_NUMBER;
+}
+
+void finalize_header_and_master_key(Data * initialized_header, uint8_t master_key[HASHLEN]){
+	operate_metadata_using_master_key(&initialized_header->metadata, master_key, initialized_header->master_key_mask, false);
+}
+
+void revoke_given_key_slot(Data * initialized_header, int target_slot){
+	fill_secure_random_bits(initialized_header->keys[target_slot].key_mask, HASHLEN);
+}
+
+
+
+void register_key_slot_as_used(Metadata * decrypted_metadata, Key_slot keys[KEY_SLOT_COUNT], int slot){
+	decrypted_metadata->key_slot_is_used[slot] = true;
+	memcpy(decrypted_metadata->all_key_mask[slot], keys[slot].key_mask, HASHLEN);
+}
+
+int select_available_key_slot(const Metadata decrypted_metadata, Key_slot keys[KEY_SLOT_COUNT]){
+	int target_slot = -1;
+	for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--){
+		if (decrypted_metadata.key_slot_is_used[i] == false){
+			target_slot = i;
+		}
+	}
+	if (target_slot == -1){
+		for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--){
+			if (memcmp(keys[i].key_mask, decrypted_metadata.all_key_mask[i], HASHLEN) != 0){
+				target_slot = i;
+			}
+		}
+	}
+	return target_slot;
 }
