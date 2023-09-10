@@ -10,6 +10,7 @@
 
 
 #include "sha256.h"
+#include "mapper.c"
 
 struct SystemInfo {
 	unsigned long free_ram;
@@ -89,26 +90,35 @@ void check_file(const char * filename, bool is_block) {
 	off_t file_size = file_stat.st_size;
 	
 	
-	if (file_size < 4096) {
+	if (is_block && file_size < 4096) {
 		print_error("block device is less than 4 KiB");
 	}
 }
 
 
-
-void get_key_input_from_the_console(char key_buffer[MAX_KEY_CHAR]){
-	char verify_buffer[MAX_KEY_CHAR];
-	memset(key_buffer, 0, MAX_KEY_CHAR);
-	memset(verify_buffer, 0, MAX_KEY_CHAR);
-	print("key:");
-	fgets(key_buffer, MAX_KEY_CHAR, stdin);
-	print("Again:");
-	fgets(verify_buffer, MAX_KEY_CHAR, stdin);
-	if (memcmp(key_buffer, verify_buffer, MAX_KEY_CHAR)){
-		print_error("Passwords do not match.");
-	}
+char* get_input() {
+	int size = 20;
+	char *input = (char *) malloc(size * sizeof(char));
+	char ch;
+	int index = 0;
 	
+	while (1) {
+		ch = getchar();
+		
+		if (ch == '\n') {
+			break;
+		}
+		input[index++] = ch;
+		
+		if (index == size) {
+			size += 20;
+			input = (char *) realloc(input, size * sizeof(char));
+		}
+	}
+	input[index] = '\0';
+	return input;
 }
+
 
 uint8_t * read_key_file(const Key key, size_t * length) {
 	char * filename = key.key_or_keyfile_location;
@@ -129,6 +139,9 @@ uint8_t * read_key_file(const Key key, size_t * length) {
 	return buffer;
 }
 
+void check_iter_count(uint64_t ){
+	// TODO
+}
 
 
 void init_key(const Key key, uint8_t inited_key[HASHLEN]) {
@@ -145,29 +158,6 @@ void init_key(const Key key, uint8_t inited_key[HASHLEN]) {
 	}
 }
 
-uint64_t calc_initial_pw_hash_and_iter_cnt(Data * self, uint8_t * inited_key, int target_slot, uint64_t max_mem_size, double time_limit, uint8_t
-password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN], uint8_t password_hash[HASHLEN]) {
-	// password hash is password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN] if target_slot == -1, else use &password_hash_all_slots[HASHLEN]
-	double time_cost = 0;
-	
-	if (target_slot == -1) { // all slots
-		// initial hash and benchmarking
-		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
-			Key_slot * key_slot = &self->keys[i];
-			time_cost += hash_firstpass_and_benchmark(key_slot, inited_key, password_hash_all_slots[i]);
-		}
-		time_cost /= 4;
-	} else {
-		time_cost = hash_firstpass_and_benchmark(&self->keys[target_slot], inited_key, password_hash);
-	}
-	
-	if (time_limit > 0) {
-		if (time_limit / time_cost * BASE_MEM_COST * 2 < (double) max_mem_size || max_mem_size == 0) {
-			max_mem_size = (uint64_t) (time_limit / time_cost * BASE_MEM_COST * 2);
-		}
-	}
-	return max_mem_size;
-}
 
 int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
 	uint8_t password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN]; // calculating hash in password_hash_all_slots
@@ -189,9 +179,6 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 		if (! get_master_key_from_slot(&self.keys[target_slot], password_hash_all_slots[target_slot], mem_size_limit, master_key)) {
 			continue;
 		}
-		if (! operate_metadata_using_master_key(&self.metadata, master_key, self.master_key_mask, true)){
-			print_error("This key has been revoked. ");
-		}
 		return target_slot;
 	}
 	
@@ -205,7 +192,7 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 }
 
 
-void add_key_using_master_key(Data * decrypted_self, const uint8_t master_key[HASHLEN], const Key key, uint64_t max_unlock_mem, double max_unlock_time) {
+void add_key_from_decrypted_data_using_master_key(Data * decrypted_self, const uint8_t master_key[32], const Key key, uint64_t max_unlock_mem, double max_unlock_time) {
 	uint8_t password_hash[HASHLEN];
 	uint8_t inited_key[HASHLEN];
 	
@@ -222,9 +209,46 @@ void add_key_using_master_key(Data * decrypted_self, const uint8_t master_key[HA
 	set_master_key_to_slot(&decrypted_self->keys[target_slot], password_hash, mem_size_limit, master_key);
 }
 
-void revoke_key_using_master_key(Data * decrypted_self, const uint8_t master_key[HASHLEN]){
-	int active_key_slot_count = 0;
-	for (int i = 0; i < KEY_SLOT_COUNT; i++){
-		if (decrypted_self->metadata.key_slot_is_used)
+
+void action_create(const char * device, const char * enc_type, const Key key, uint64_t max_unlock_mem, double max_unlock_time){
+	Data data;
+	uint8_t master_key[HASHLEN];
+	
+	fill_secure_random_bits(master_key, HASHLEN);
+	initialize_unlock_header_and_master_key(&data, master_key, enc_type, sizeof(Data));
+	add_key_from_decrypted_data_using_master_key(&data, master_key, key, max_unlock_mem, max_unlock_time);
+	operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, false);
+	write_header_to_device(&data, device);
+}
+
+void action_open(const char * device, const char * target_name, const Key * key, const uint8_t master_key[32], int target_slot, uint64_t max_unlock_mem, double
+max_unlock_time, bool is_dry_run, bool is_target_readonly){
+
+	uint8_t master_key_ [HASHLEN];
+	Data data;
+	uint8_t disk_key[HASHLEN];
+	get_header_from_device(&data, device);
+	
+	if (key != NULL){
+		get_master_key(data, master_key_, *key, target_slot, max_unlock_mem, max_unlock_time);
+	} else {
+		memcpy(master_key_, master_key, HASHLEN);
 	}
+	operate_metadata_using_master_key(&data.metadata, master_key_, data.master_key_mask, true);
+	if (data.metadata.check_key_magic_number != CHECK_KEY_MAGIC_NUMBER) {
+		if (key != NULL){print_error("This key has been revoked. ");}
+		else {print_error("Wrong master key.");}
+	}
+	
+	get_metadata_key_and_disk_key_from_master_key(master_key_, data.master_key_mask, NULL, disk_key);
+	if (! is_dry_run){
+		create_crypt_mapping_from_disk_key(device, target_name, data.metadata.enc_type, disk_key, data.metadata.payload_offset, is_target_readonly);
+	} else {
+		print("Dry run complete. Disk key:");
+		
+	}
+}
+
+void action_close(const char * device){
+	remove_crypt_mapping(device);
 }

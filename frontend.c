@@ -1,6 +1,5 @@
 #include "enclib.c"
 #include "backend.c"
-#include "mapper.c"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -14,74 +13,94 @@ enum {
 	NMOBJ_map_to,
 	NMOBJ_key,
 	NMOBJ_key_file,
+	NMOBJ_master_key,
 	NMOBJ_target_slot,
 	NMOBJ_max_unlock_mem,
 	NMOBJ_max_unlock_time,
-	NMOBJ_target_mem,
-	NMOBJ_target_time,
+	NMOBJ_target_mem, //AddKey only
+	NMOBJ_target_time, //AddKey only
+	NMOBJ_encrypt_type,
 	
 	NMOBJ_target_dry_run,
 	NMOBJ_target_readonly,
 	NMOBJ_target_noadmin,
-	NMOBJ_target_visible,
 	NMOBJ_target_yes,
-	NMOBJ_target_license,
 	
 	NMOBJ_target_SIZE,
 };
 
-const char * const actions[] = {"Open", "Close", "Create", "AddKey", "RemoveKey", "Backup", "Destroy", "Help"};
+const char * const actions[] = {"Open", "Close", "Create", "AddKey", "RevokeKey", "Backup", "Destroy", "Help"};
 int options[NMOBJ_target_SIZE] = {0};
 
 struct option long_options[] = {
-		{"map-to",            required_argument, &options[NMOBJ_map_to],          1},
+		{"map-to", required_argument, &options[NMOBJ_map_to], 1},
 		{"key",               required_argument, &options[NMOBJ_key],             1},
 		{"key-file",          required_argument, &options[NMOBJ_key_file],        1},
+		{"master-key",          required_argument, &options[NMOBJ_master_key],        1},
 		{"target-slot",       required_argument, &options[NMOBJ_target_slot],     1},
 		{"max-unlock-memory", required_argument, &options[NMOBJ_max_unlock_mem],  1},
 		{"max-unlock-time",   required_argument, &options[NMOBJ_max_unlock_time], 1},
 		{"target-memory",     required_argument, &options[NMOBJ_target_mem],      1},
 		{"target-time",       required_argument, &options[NMOBJ_target_time],     1},
+		{"encrypt-type", required_argument, &options[NMOBJ_encrypt_type], 1},
 		
 		{"dry-run",           no_argument,       &options[NMOBJ_target_dry_run],  1},
 		{"readonly",          no_argument,       &options[NMOBJ_target_readonly], 1},
 		{"no-admin",          no_argument,       &options[NMOBJ_target_noadmin],  1},
-		{"visible",           no_argument,       &options[NMOBJ_target_visible],  1},
 		{"yes",               no_argument,       &options[NMOBJ_target_yes],      1},
-		{"license",           no_argument,       &options[NMOBJ_target_license],  1},
 		{0, 0,                                   0,                               0}
 };
 
-void frontend_check_actions(char * input) {
+int8_t check_allowed[] =
+		{NMOBJ_map_to, NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_target_readonly,
+		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
+		 
+		 NMOBJ_target_noadmin, -1,
+		 
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_encrypt_type, NMOBJ_target_dry_run,
+		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
+		 
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_target_dry_run,
+		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
+		 
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_dry_run,
+		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
+		 
+		 NMOBJ_target_noadmin, -1,
+		 
+		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1};
+
+int frontend_check_actions(char * input) {
 	for (int i = 0; i < (int)sizeof(actions) / sizeof(char *); i++) {
 		if (strcmp(actions[i], input) == 0) {
-			return;
+			return i;
 		}
 	}
-	print_error("<target> not recognized. type '"THE_NAME_OF_THIS_SOFTWARE" Help' to view help");
+	print_error("<action> not recognized. type '"THE_NAME_OF_THIS_SOFTWARE" Help' to view help");
 }
 
 noreturn void frontend_help(const char * the_3rd_argv) {
 	if (!the_3rd_argv) {
 		print("usage: '" THE_NAME_OF_THIS_SOFTWARE " <action> <target>'\n");
-		print("possible actions are: ", "Open", "Close", "Create", "AddKey", "RemoveKey", "Backup", "Destroy\n"
+		print("possible actions are: ", "Open", "Close", "Create", "AddKey", "RevokeKey", "Backup", "Destroy\n"
 																																  "\n"
 				THE_NAME_OF_THIS_SOFTWARE" Open <target>: open a target and create a mapper. The key is read from the terminal by default\n"
 				THE_NAME_OF_THIS_SOFTWARE" Close <target>: close the target. The target should be a mapper object.\n"
 				THE_NAME_OF_THIS_SOFTWARE" Create <target>: create a new encrypted object\n"
 				THE_NAME_OF_THIS_SOFTWARE" AddKey <target>: add a key to the object.\n"
-				THE_NAME_OF_THIS_SOFTWARE" RemoveKey <target>: remove a key to the object.\n"
+				THE_NAME_OF_THIS_SOFTWARE" RevokeKey <target>: revoke a key from the object.\n"
 				THE_NAME_OF_THIS_SOFTWARE" Backup <target>: backup the master key of the object.\n"
 				THE_NAME_OF_THIS_SOFTWARE" Destroy <target>: destroy the object and make it inaccessible under any form.\n\n");
 		
 		print("pre-compiled arguments. These arguments serve an informative purpose; changing them may render your\n"
-				"partitions inaccessible by other devices. ");
+				"device inaccessible.");
 		print("number of keyslots: ", KEY_SLOT_COUNT);
 		print("Length of the hash (bit): ", HASHLEN * CHAR_BIT);
-		print("Argon2id memory size exponential count: ", KEY_SLOT_COUNT);
-		print("Argon2id base memory size: ", BASE_MEM_COST);
+		print("Argon2id memory size exponential count: ", KEY_SLOT_EXP_MAX);
+		print("Argon2id base memory size (KiB): ", BASE_MEM_COST);
 		print("Argon2id parallelism: ", PARALLELISM);
-		print("Default encryption target time: ", DEFAULT_ENC_TARGET_TIME);
+		print("Default encryption target time multiplier: ", DEFAULT_ENC_TARGET_TIME);
+		print("Default encryption type: ", DEFAULT_DISK_ENC_MODE);
 		print("\n");
 	} else if (strcmp("--license", the_3rd_argv) == 0) {
 		print("    Copyright (C) 2023-  W. Wang (level-128)\n"
@@ -159,40 +178,237 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 	exit(0);
 }
 
+noreturn void frontend_no_input(){
+	print(THE_NAME_OF_THIS_SOFTWARE"  Copyright (C) 2023-  Weizheng Wang (level-128)\n");
+	
+	print("usage: '" THE_NAME_OF_THIS_SOFTWARE " <action> <target>'");
+	print("For help, type '"THE_NAME_OF_THIS_SOFTWARE" Help' to view help for all possible actions, or '"THE_NAME_OF_THIS_SOFTWARE" Help <action>'\n"
+																																											"to view help info for individual action.\n");
+	
+	print("possible actions are: ", "Open", "Close", "Create", "AddKey", "RevokeKey", "Backup", "Restore", "Destroy\n");
+	print("This program comes with ABSOLUTELY NO WARRANTY; for details type 'Help --license'.\n"
+			"This is free software, and you are welcome to redistribute it under certain conditions;\n");
+	exit(0);
+}
+
+
+void frontend_check_unvalid_param(int action_num){
+	int cnt = 0;
+	for (int i = 0; i < (int)sizeof(actions) / sizeof(char *); i++) {
+		if (i == action_num){
+			goto CHECK_ACTION_ARGS;
+		}
+		for (; check_allowed[cnt] != -1; cnt++);
+		cnt++;
+	}
+	
+	CHECK_ACTION_ARGS:
+	for (int i = 0; i < NMOBJ_target_SIZE; i++){
+		if (options[i] == 1){
+			int j;
+			for (j = cnt; check_allowed[j] != -1 ; j++){
+				if (check_allowed[j] == i){
+					break;
+				}
+			}
+			if (check_allowed[j] == -1){
+				print_error("argument:", (char *)long_options[i].name, "is not valid under action:", (char *)actions[action_num]);
+			}
+		}
+	}
+}
+
+
+char * get_key_input_from_the_console(){
+	char * key, * check_key;
+	print("key:");
+	key = get_input();
+	print("Again:");
+	check_key = get_input();
+	if (strcmp(key, check_key) != 0){
+		print_error("Passwords do not match.");
+	}
+	free(check_key);
+	return key;
+}
+
+
+uint8_t hex_char_to_int(char ch) {
+	if (ch == 0) {
+		print_error("error length of the string.");
+	}
+	if ('0' <= ch && ch <= '9') return ch - '0';
+	if ('a' <= ch && ch <= 'f') return ch - 'a' + 10;
+	print_error("invalid character in string.");
+}
+
+
+void master_key_to_byte_array(const char *hex_string, uint8_t byte_array[HASHLEN]) {
+	int str_index = 0, byte_index = 0;
+	while (byte_index != HASHLEN) {
+		while (hex_string[str_index] == ' ' || hex_string[str_index] == '-') {
+			++str_index;
+		}
+		
+		int high_nibble = hex_char_to_int(hex_string[str_index]);
+		++str_index;
+		while (hex_string[str_index] == ' ' || hex_string[str_index] == '-') {
+			++str_index;
+		}
+		
+		int low_nibble = hex_char_to_int(hex_string[str_index]);
+		
+		byte_array[byte_index] = (high_nibble << 4) + low_nibble;
+		str_index++;
+		++byte_index;
+	}
+	while (hex_string[str_index] == ' ' || hex_string[str_index] == '-') {
+		++str_index;
+	}
+	if (hex_string[str_index] != 0) {
+		printf("error length of the string.");
+		exit(1);
+	}
+}
+
+void frontend_create_key(char * params[], Key * key){
+	if (options[NMOBJ_key] == 1){
+		key->key_or_keyfile_location = params[NMOBJ_key];
+		key->key_type = EMOBJ_key_file_type_key;
+	} else if (options[NMOBJ_key_file] == 1){
+		key->key_or_keyfile_location = params[NMOBJ_key_file];
+		key->key_type = EMOBJ_key_file_type_file;
+	} else {
+		key->key_or_keyfile_location = get_key_input_from_the_console();
+		key->key_type = EMOBJ_key_file_type_input;
+	}
+}
+
+void frontend_check_validity_and_execute(int action_num, char * device, char * params[]){
+	uint8_t master_key[HASHLEN];
+	Key key;
+	int target_slot = -1;
+	uint64_t target_mem = 0;
+	uint64_t max_unlock_mem = 0;
+	double target_time = 0;
+	double max_unlock_time = 0;
+	
+	
+	
+	frontend_check_unvalid_param(action_num);
+	if (options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] > 1){
+		print_error("argument --key, --key-file and --master-key are mutually exclusive.");
+	}
+	if (action_num == 4 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] > 1){
+		print_error("argument --key, --key-file, --master-key and --target-slot are mutually exclusive under action: RevokeKey.");
+	}
+	
+	if (action_num == 0 && options[NMOBJ_map_to] == 0){
+		print_error("argument --map-to is required under action: Open");
+	}
+	
+	char * end;
+	if (options[NMOBJ_target_slot] == 1){
+		target_slot = (int) strtoimax(params[NMOBJ_target_slot], &end, 10);
+		if (*end != '\0'){ print_error("bad input for argument --target-slot: not an integer"); }
+		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT){print_error("bad input for argument --target-slot: slot out of range");}
+	}
+	if (options[NMOBJ_target_mem] == 1){
+		target_mem = strtoull(params[NMOBJ_target_mem], &end, 10);
+		if (*end != '\0'){ print_error("bad input for argument --target-memory: not an positive integer"); }
+	}
+	if (options[NMOBJ_target_time] == 1){
+		target_time = strtod(params[NMOBJ_target_time], &end);
+		if (*end != '\0' || target_time < 0){ print_error("bad input for argument --target-time: not an positive number"); }
+	}
+	if (options[NMOBJ_max_unlock_mem] == 1){
+		max_unlock_mem = strtoull(params[NMOBJ_max_unlock_mem], &end, 10);
+		if (*end != '\0'){ print_error("bad input for argument --max-unlock-memory: not an positive integer"); }
+	}
+	if (options[NMOBJ_max_unlock_time] == 1){
+		max_unlock_time = strtod(params[NMOBJ_max_unlock_time], &end);
+		if (*end != '\0' || target_time < 0){ print_error("bad input for argument --max-unlock-time: not an positive number"); }
+	}
+	
+	if (!options[NMOBJ_target_noadmin]){
+		is_running_as_root();
+	}
+	
+	if (options[NMOBJ_master_key]){
+		master_key_to_byte_array(params[NMOBJ_master_key], master_key);
+	}
+	else {
+		frontend_create_key(params, &key);
+	}
+	
+	init_random_generator("/dev/urandom");
+	
+	switch (action_num){
+		case 0:
+			action_open(device, params[NMOBJ_map_to], options[NMOBJ_master_key]? NULL:&key, master_key, target_slot, target_mem, target_time, options[NMOBJ_target_dry_run],
+							options[NMOBJ_target_readonly]);
+			break;
+		case 1:
+			action_close(device);
+			break;
+		case 2:
+			action_create(device, params[NMOBJ_encrypt_type], key, target_mem, target_time);
+			break;
+		case 3:
+			break;
+		case 4:
+			break;
+		case 5:
+			break;
+	}
+	
+	
+}
 
 int main(int argc, char * argv[]) {
 
 	
+	char * params[NMOBJ_target_SIZE] = {NULL}; // the number of required arguments.
+	
 	if (argc == 1) {
-		print(THE_NAME_OF_THIS_SOFTWARE"  Copyright (C) 2023-  Weizheng Wang (level-128)\n");
-		
-		print("usage: '" THE_NAME_OF_THIS_SOFTWARE " <action> <target>'");
-		print("For help, type '"THE_NAME_OF_THIS_SOFTWARE" Help' to view help for all possible actions, or '"THE_NAME_OF_THIS_SOFTWARE" Help <action>'\n"
-																																												"to view help info for individual action.\n");
-		
-		print("possible actions are: ", "Open", "Close", "Create", "AddKey", "RemoveKey", "Backup", "Restore", "Destroy\n");
-		print("This program comes with ABSOLUTELY NO WARRANTY; for details type 'Help --license'.\n"
-				"This is free software, and you are welcome to redistribute it under certain conditions;\n");
-		exit(0);
+		frontend_no_input();
 	}
 	
-	frontend_check_actions(argv[1]);
+	int action_num = frontend_check_actions(argv[1]);
 	
 	if (argc == 2) {
-		if (strcmp(argv[1], "Help") == 0) {
+		if (action_num == 7) {
 			frontend_help(NULL);
 		} else {
 			print_error("<target> not provided. type '"THE_NAME_OF_THIS_SOFTWARE" Help' to view help");
 		}
-		exit(0);
 	}
 	
-	char * target;
-	target = argv[2];
-	
-	if (argc == 3) {
-		if (strcmp(argv[1], "Help") == 0) {
-			frontend_help(target);
+	if (argc >= 3)
+	{
+		if (action_num == 7)
+		{
+			frontend_help(argv[2]);
+		}
+		else
+		{
+			int opt;
+			int long_index = 0;
+			optind = 3;
+			opterr = 0;
+			
+			while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1)
+			{
+				if (opt == 0)
+				{
+					params[long_index] = optarg;
+				} else {
+					print_error("Unknown option or missing parameter for:", argv[optind - 1]);
+				}
+			}
+			
+			frontend_check_validity_and_execute(action_num, argv[2], params);
+			exit(EXIT_SUCCESS);
 		}
 	}
 }
