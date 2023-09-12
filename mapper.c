@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <assert.h>
+#include <errno.h>
 
 #define SECTOR_SIZE 512
 
@@ -20,10 +21,10 @@ size_t get_device_sector_cnt(const char * device) {
 		print_error("can not open device:", device);
 	}
 	
-	size_t size;
+	unsigned long size;
 	if (ioctl(fd, BLKGETSIZE, &size) == -1) {
 		close(fd);
-		print_error("can not get size from block device:", device);
+		print_error("can not get size from block device:", (char *)device, "reasion:", strerror(errno));
 	}
 	
 	close(fd);
@@ -68,13 +69,10 @@ int create_crypt_mapping(const char * device, const char * name, const char * en
 	size_t start_sector = ((start_byte + SECTOR_SIZE - 1) / SECTOR_SIZE);
 	start_sector = (start_sector + 3) / 4 * 4;
 	
-	if (device_size == 0) {
-		print_error("Failed to get device size");
-	}
-	print("device size", device_size, " start sector", start_sector);
+//	print("device size", device_size, " start sector", start_sector);
 	
 	snprintf(params, sizeof(params), "%s %s 0 %s %zu", enc_type, password, device, start_sector);
-	print("crypt_map argument:", params);
+//	print("crypt_map argument:", params);
 	
 	if (!(dmt = dm_task_create(DM_DEVICE_CREATE))) {
 		print_error("dm_task_create failed");

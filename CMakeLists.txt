@@ -40,8 +40,8 @@ add_executable(windham frontend.c )
 add_executable(windham_test test/test.c )
 
 # Link the library to the main program
-target_link_libraries(windham Argon2 speck SHA256 tiny_AES_c devmapper)
-target_link_libraries(windham_test Argon2 speck SHA256 tiny_AES_c devmapper)
+target_link_libraries(windham Argon2 speck SHA256 tiny_AES_c devmapper m)
+target_link_libraries(windham_test Argon2 speck SHA256 tiny_AES_c devmapper m)
 
 if((CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64") OR
 (CMAKE_SYSTEM_PROCESSOR STREQUAL "amd64") OR

@@ -21,6 +21,9 @@ enum {
 	NMOBJ_target_time, //AddKey only
 	NMOBJ_encrypt_type,
 	
+	NMOBJ_target_all,
+	NMOBJ_target_format,
+	NMOBJ_target_obliterate,
 	NMOBJ_target_dry_run,
 	NMOBJ_target_readonly,
 	NMOBJ_target_noadmin,
@@ -29,21 +32,24 @@ enum {
 	NMOBJ_target_SIZE,
 };
 
-const char * const actions[] = {"Open", "Close", "Create", "AddKey", "RevokeKey", "Backup", "Destroy", "Help"};
+const char * const actions[] = {"Open", "Close", "New", "AddKey", "RevokeKey", "Help"};
 int options[NMOBJ_target_SIZE] = {0};
 
 struct option long_options[] = {
-		{"map-to", required_argument, &options[NMOBJ_map_to], 1},
+		{"map-to",            required_argument, &options[NMOBJ_map_to],          1},
 		{"key",               required_argument, &options[NMOBJ_key],             1},
 		{"key-file",          required_argument, &options[NMOBJ_key_file],        1},
-		{"master-key",          required_argument, &options[NMOBJ_master_key],        1},
+		{"master-key",        required_argument, &options[NMOBJ_master_key],      1},
 		{"target-slot",       required_argument, &options[NMOBJ_target_slot],     1},
 		{"max-unlock-memory", required_argument, &options[NMOBJ_max_unlock_mem],  1},
 		{"max-unlock-time",   required_argument, &options[NMOBJ_max_unlock_time], 1},
 		{"target-memory",     required_argument, &options[NMOBJ_target_mem],      1},
 		{"target-time",       required_argument, &options[NMOBJ_target_time],     1},
-		{"encrypt-type", required_argument, &options[NMOBJ_encrypt_type], 1},
+		{"encrypt-type",      required_argument, &options[NMOBJ_encrypt_type],    1},
 		
+		{"all",               no_argument,       &options[NMOBJ_target_all],      1},
+		{"format",            no_argument,       &options[NMOBJ_target_obliterate],   1},
+		{"obliterate",            no_argument,       &options[NMOBJ_target_format],   1},
 		{"dry-run",           no_argument,       &options[NMOBJ_target_dry_run],  1},
 		{"readonly",          no_argument,       &options[NMOBJ_target_readonly], 1},
 		{"no-admin",          no_argument,       &options[NMOBJ_target_noadmin],  1},
@@ -52,26 +58,24 @@ struct option long_options[] = {
 };
 
 int8_t check_allowed[] =
-		{NMOBJ_map_to, NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_target_readonly,
+		// Open
+		{NMOBJ_map_to, NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_readonly,
 		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
-		 
+				// Close
 		 NMOBJ_target_noadmin, -1,
-		 
-		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_encrypt_type, NMOBJ_target_dry_run,
+				// New
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_format,
 		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
-		 
-		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_target_dry_run,
+				// AddKey
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time,
 		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
-		 
-		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_dry_run,
-		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
-		 
-		 NMOBJ_target_noadmin, -1,
-		 
+				// RevokeKey
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_all, NMOBJ_target_obliterate,
 		 NMOBJ_target_noadmin, NMOBJ_target_yes, -1};
 
+
 int frontend_check_actions(char * input) {
-	for (int i = 0; i < (int)sizeof(actions) / sizeof(char *); i++) {
+	for (int i = 0; i < (int) sizeof(actions) / sizeof(char *); i++) {
 		if (strcmp(actions[i], input) == 0) {
 			return i;
 		}
@@ -82,8 +86,8 @@ int frontend_check_actions(char * input) {
 noreturn void frontend_help(const char * the_3rd_argv) {
 	if (!the_3rd_argv) {
 		print("usage: '" THE_NAME_OF_THIS_SOFTWARE " <action> <target>'\n");
-		print("possible actions are: ", "Open", "Close", "Create", "AddKey", "RevokeKey", "Backup", "Destroy\n"
-																																  "\n"
+		print("possible actions are: ", "Open", "Close", "New", "AddKey", "RevokeKey\n"
+																								"\n"
 				THE_NAME_OF_THIS_SOFTWARE" Open <target>: open a target and create a mapper. The key is read from the terminal by default\n"
 				THE_NAME_OF_THIS_SOFTWARE" Close <target>: close the target. The target should be a mapper object.\n"
 				THE_NAME_OF_THIS_SOFTWARE" Create <target>: create a new encrypted object\n"
@@ -178,7 +182,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 	exit(0);
 }
 
-noreturn void frontend_no_input(){
+noreturn void frontend_no_input() {
 	print(THE_NAME_OF_THIS_SOFTWARE"  Copyright (C) 2023-  Weizheng Wang (level-128)\n");
 	
 	print("usage: '" THE_NAME_OF_THIS_SOFTWARE " <action> <target>'");
@@ -192,58 +196,46 @@ noreturn void frontend_no_input(){
 }
 
 
-void frontend_check_unvalid_param(int action_num){
+void frontend_check_unvalid_param(int action_num) {
 	int cnt = 0;
-	for (int i = 0; i < (int)sizeof(actions) / sizeof(char *); i++) {
-		if (i == action_num){
+	for (int i = 0; i < (int) sizeof(actions) / sizeof(char *); i++) {
+		if (i == action_num) {
 			goto CHECK_ACTION_ARGS;
 		}
-		for (; check_allowed[cnt] != -1; cnt++);
+		for (; check_allowed[cnt] != -1; cnt++) {}
 		cnt++;
 	}
 	
 	CHECK_ACTION_ARGS:
-	for (int i = 0; i < NMOBJ_target_SIZE; i++){
-		if (options[i] == 1){
+	for (int i = 0; i < NMOBJ_target_SIZE; i++) {
+		if (options[i] == 1) {
 			int j;
-			for (j = cnt; check_allowed[j] != -1 ; j++){
-				if (check_allowed[j] == i){
+			for (j = cnt; check_allowed[j] != -1; j++) {
+				if (check_allowed[j] == i) {
 					break;
 				}
 			}
-			if (check_allowed[j] == -1){
-				print_error("argument:", (char *)long_options[i].name, "is not valid under action:", (char *)actions[action_num]);
+			if (check_allowed[j] == -1) {
+				print_error("argument:", (char *) long_options[i].name, "is not valid under action:", (char *) actions[action_num]);
 			}
 		}
 	}
 }
 
 
-char * get_key_input_from_the_console(){
-	char * key, * check_key;
-	print("key:");
-	key = get_input();
-	print("Again:");
-	check_key = get_input();
-	if (strcmp(key, check_key) != 0){
-		print_error("Passwords do not match.");
-	}
-	free(check_key);
-	return key;
-}
 
 
 uint8_t hex_char_to_int(char ch) {
 	if (ch == 0) {
 		print_error("error length of the string.");
 	}
-	if ('0' <= ch && ch <= '9') return ch - '0';
-	if ('a' <= ch && ch <= 'f') return ch - 'a' + 10;
+	if ('0' <= ch && ch <= '9') { return ch - '0'; }
+	if ('a' <= ch && ch <= 'f') { return ch - 'a' + 10; }
 	print_error("invalid character in string.");
 }
 
 
-void master_key_to_byte_array(const char *hex_string, uint8_t byte_array[HASHLEN]) {
+void master_key_to_byte_array(const char * hex_string, uint8_t byte_array[HASHLEN]) {
 	int str_index = 0, byte_index = 0;
 	while (byte_index != HASHLEN) {
 		while (hex_string[str_index] == ' ' || hex_string[str_index] == '-') {
@@ -271,11 +263,11 @@ void master_key_to_byte_array(const char *hex_string, uint8_t byte_array[HASHLEN
 	}
 }
 
-void frontend_create_key(char * params[], Key * key){
-	if (options[NMOBJ_key] == 1){
+void frontend_create_key(char * params[], Key * key) {
+	if (options[NMOBJ_key] == 1) {
 		key->key_or_keyfile_location = params[NMOBJ_key];
 		key->key_type = EMOBJ_key_file_type_key;
-	} else if (options[NMOBJ_key_file] == 1){
+	} else if (options[NMOBJ_key_file] == 1) {
 		key->key_or_keyfile_location = params[NMOBJ_key_file];
 		key->key_type = EMOBJ_key_file_type_file;
 	} else {
@@ -284,89 +276,107 @@ void frontend_create_key(char * params[], Key * key){
 	}
 }
 
-void frontend_check_validity_and_execute(int action_num, char * device, char * params[]){
+void frontend_check_validity_and_execute(int action_num, char * device, char * params[]) {
 	uint8_t master_key[HASHLEN];
 	Key key;
 	int target_slot = -1;
 	uint64_t target_mem = 0;
 	uint64_t max_unlock_mem = 0;
-	double target_time = 0;
-	double max_unlock_time = 0;
-	
+	double target_time = DEFAULT_TARGET_TIME;
+	double max_unlock_time = DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR;
 	
 	
 	frontend_check_unvalid_param(action_num);
-	if (options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] > 1){
+	if (options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] > 1) {
 		print_error("argument --key, --key-file and --master-key are mutually exclusive.");
 	}
-	if (action_num == 4 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] > 1){
+	if (action_num == 4 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] > 1) {
 		print_error("argument --key, --key-file, --master-key and --target-slot are mutually exclusive under action: RevokeKey.");
 	}
 	
-	if (action_num == 0 && options[NMOBJ_map_to] == 0){
+	if (action_num == 0 && options[NMOBJ_map_to] == 0) {
 		print_error("argument --map-to is required under action: Open");
 	}
 	
-	char * end;
-	if (options[NMOBJ_target_slot] == 1){
-		target_slot = (int) strtoimax(params[NMOBJ_target_slot], &end, 10);
-		if (*end != '\0'){ print_error("bad input for argument --target-slot: not an integer"); }
-		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT){print_error("bad input for argument --target-slot: slot out of range");}
-	}
-	if (options[NMOBJ_target_mem] == 1){
-		target_mem = strtoull(params[NMOBJ_target_mem], &end, 10);
-		if (*end != '\0'){ print_error("bad input for argument --target-memory: not an positive integer"); }
-	}
-	if (options[NMOBJ_target_time] == 1){
-		target_time = strtod(params[NMOBJ_target_time], &end);
-		if (*end != '\0' || target_time < 0){ print_error("bad input for argument --target-time: not an positive number"); }
-	}
-	if (options[NMOBJ_max_unlock_mem] == 1){
-		max_unlock_mem = strtoull(params[NMOBJ_max_unlock_mem], &end, 10);
-		if (*end != '\0'){ print_error("bad input for argument --max-unlock-memory: not an positive integer"); }
-	}
-	if (options[NMOBJ_max_unlock_time] == 1){
-		max_unlock_time = strtod(params[NMOBJ_max_unlock_time], &end);
-		if (*end != '\0' || target_time < 0){ print_error("bad input for argument --max-unlock-time: not an positive number"); }
+	if (options[NMOBJ_target_format] == 1 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] + options[NMOBJ_target_mem] +
+	options[NMOBJ_target_time] != 0) {
+		print_error("argument --format can only be use alone.");
 	}
 	
-	if (!options[NMOBJ_target_noadmin]){
+	if (options[NMOBJ_target_obliterate] + options[NMOBJ_target_all] == 2){
+		print_error("argument --all and --obliterate applies at the same time");
+	}
+	
+	char * end;
+	if (options[NMOBJ_target_slot] == 1) {
+		target_slot = (int) strtoimax(params[NMOBJ_target_slot], &end, 10);
+		if (*end != '\0') { print_error("bad input for argument --target-slot: not an integer"); }
+		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT) { print_error("bad input for argument --target-slot: slot out of range"); }
+	}
+	if (options[NMOBJ_target_mem] == 1) {
+		target_mem = strtoull(params[NMOBJ_target_mem], &end, 10);
+		if (*end != '\0') { print_error("bad input for argument --target-memory: not an positive integer"); }
+	}
+	if (options[NMOBJ_target_time] == 1) {
+		target_time = strtod(params[NMOBJ_target_time], &end);
+		if (*end != '\0' || target_time < 0) { print_error("bad input for argument --target-time: not an positive number"); }
+	}
+	if (options[NMOBJ_max_unlock_mem] == 1) {
+		max_unlock_mem = strtoull(params[NMOBJ_max_unlock_mem], &end, 10);
+		if (*end != '\0') { print_error("bad input for argument --max-unlock-memory: not an positive integer"); }
+	}
+	if (options[NMOBJ_max_unlock_time] == 1) {
+		max_unlock_time = strtod(params[NMOBJ_max_unlock_time], &end);
+		if (*end != '\0' || target_time < 0) { print_error("bad input for argument --max-unlock-time: not an positive number"); }
+	}
+	
+	if (!options[NMOBJ_target_noadmin]) {
 		is_running_as_root();
 	}
 	
-	if (options[NMOBJ_master_key]){
-		master_key_to_byte_array(params[NMOBJ_master_key], master_key);
+	if ((action_num == 0 || action_num == 2  || action_num == 3) && options[NMOBJ_target_format] == 0 && options[NMOBJ_target_all] == 0) {
+		if (options[NMOBJ_master_key]) {
+			master_key_to_byte_array(params[NMOBJ_master_key], master_key);
+		} else {
+			frontend_create_key(params, &key);
+		}
 	}
-	else {
-		frontend_create_key(params, &key);
-	}
+	init();
 	
-	init_random_generator("/dev/urandom");
-	
-	switch (action_num){
+	switch (action_num) {
 		case 0:
-			action_open(device, params[NMOBJ_map_to], options[NMOBJ_master_key]? NULL:&key, master_key, target_slot, target_mem, target_time, options[NMOBJ_target_dry_run],
-							options[NMOBJ_target_readonly]);
+			target_slot = action_open(device, params[NMOBJ_map_to], options[NMOBJ_master_key] ? NULL : &key, master_key, target_slot, max_unlock_mem, max_unlock_time,
+											  options[NMOBJ_target_readonly], options[NMOBJ_target_dry_run]);
+			if (options[NMOBJ_target_dry_run]) {
+				printf("dry run complete. Slot %i opened with master key:\n", target_slot);
+				print_hex_array(master_key, HASHLEN);
+			}
 			break;
 		case 1:
 			action_close(device);
 			break;
 		case 2:
-			action_create(device, params[NMOBJ_encrypt_type], key, target_mem, target_time);
+			if (options[NMOBJ_target_format]){
+				action_create_format(device);
+			} else {
+				action_create(device, params[NMOBJ_encrypt_type], key, target_mem, target_time);
+			}
 			break;
 		case 3:
+			action_addkey(device, &key, master_key, target_slot, max_unlock_mem, max_unlock_time, target_mem, target_time);
 			break;
 		case 4:
+			action_revokekey(device, &key, master_key, target_slot, max_unlock_mem, max_unlock_time, params[NMOBJ_target_all], options[NMOBJ_target_obliterate]);
 			break;
-		case 5:
-			break;
+		default:
+			*((volatile int *)NULL) = 0;
 	}
-	
+	exit(EXIT_SUCCESS);
 	
 }
 
 int main(int argc, char * argv[]) {
-
+	
 	
 	char * params[NMOBJ_target_SIZE] = {NULL}; // the number of required arguments.
 	
@@ -384,23 +394,17 @@ int main(int argc, char * argv[]) {
 		}
 	}
 	
-	if (argc >= 3)
-	{
-		if (action_num == 7)
-		{
+	if (argc >= 3) {
+		if (action_num == 7) {
 			frontend_help(argv[2]);
-		}
-		else
-		{
+		} else {
 			int opt;
 			int long_index = 0;
 			optind = 3;
 			opterr = 0;
 			
-			while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1)
-			{
-				if (opt == 0)
-				{
+			while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+				if (opt == 0) {
 					params[long_index] = optarg;
 				} else {
 					print_error("Unknown option or missing parameter for:", argv[optind - 1]);

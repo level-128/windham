@@ -6,17 +6,20 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stdatomic.h>
+#include <math.h>
 
 
 #define KEY_SLOT_COUNT 6
-#define KEY_SLOT_EXP_MAX 28
+#define KEY_SLOT_EXP_MAX 20
 #define HASHLEN 32
 #define BASE_MEM_COST 64
-#define PARALLELISM 1
-#define DEFAULT_ENC_TARGET_TIME 0.9
-#define DEFAULT_DISK_ENC_MODE "serpent-cbc-essiv:sha256"
+#define PARALLELISM 4
+#define DEFAULT_ENC_TARGET_TIME 1
+#define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
 #define CHECK_KEY_MAGIC_NUMBER 0x1373112813731128
+#define DEFAULT_TARGET_TIME 1
+#define MAX_UNLOCK_TIME_FACTOR 4
+
 
 #define ECB 0
 #define CTR 0
@@ -112,9 +115,8 @@ void generate_random_numbers(uint8_t x, uint8_t numbers[4]) {
 void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint64_t * mem_size, bool is_write) {
 	uint8_t plain_text[4];
 	if (is_write) {
-		*mem_size >>= len_exp_index;
-		generate_random_numbers(*mem_size, plain_text);
-		*mem_size <<= len_exp_index;
+		uint64_t mem_size_write = (uint64_t)((double)*mem_size / exp((double) len_exp_index));
+		generate_random_numbers(mem_size_write, plain_text);
 		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
 		speck_encrypt_combined((const uint16_t *) plain_text, (uint16_t *) key_slot->len_exp[len_exp_index],
 									  (const uint16_t *) hash);
@@ -126,13 +128,17 @@ void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t has
 									  (const uint16_t *) hash);
 		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
 		*mem_size = plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3];
-		*mem_size = ((*mem_size / 4) << len_exp_index);
+		*mem_size = (uint64_t)(exp((double) len_exp_index) * (double)(*mem_size / 4));
 //		print("calc_int_read", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
 	}
 }
 
 
-void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_fast8_t len_exp_index, void * hash) {
+void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_fast8_t len_exp_index, uint8_t hash[HASHLEN]) {
+	if (m_cost == 0){
+		print("not calc hash!");
+		return;
+	}
 	if (m_cost < BASE_MEM_COST) {
 		m_cost = BASE_MEM_COST;
 	}
@@ -143,7 +149,7 @@ void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, 
 
 bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint64_t max_mem_size) {
 	uint8_t new_hash[HASHLEN];
-//	print("calc_key_one_step:", len_exp_index, max_mem_size);
+	print("calc_key_one_step:", len_exp_index, max_mem_size);
 	uint64_t required_mem_size;
 	write_or_read_mem_count_from_len_exp(key_slot, password_hash, len_exp_index, &required_mem_size, false);
 	if (required_mem_size > max_mem_size) {
@@ -155,7 +161,7 @@ bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t 
 }
 
 void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t pwd[HASHLEN], uint64_t target_mem_size) {
-//	print("write_key_one_step:", len_exp_index, target_mem_size);
+	print("write_key_one_step:", len_exp_index, target_mem_size);
 	uint8_t new_pwd[HASHLEN];
 	write_or_read_mem_count_from_len_exp(key_slot, pwd, len_exp_index, &target_mem_size, true);
 	argon2id_hash_calc(key_slot, target_mem_size, pwd, len_exp_index, new_pwd);
@@ -226,21 +232,21 @@ uint64_t calc_initial_pw_hash_and_iter_cnt(Data * self, uint8_t * inited_key, in
 password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN], uint8_t password_hash[HASHLEN]) {
 	// password hash is password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN] if target_slot == -1, else use &password_hash_all_slots[HASHLEN]
 	double time_cost = 0;
-	
+	print("mem-size", max_mem_size, "time-limit", time_limit);
 	if (target_slot == -1) { // all slots
 		// initial hash and benchmarking
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			Key_slot * key_slot = &self->keys[i];
 			time_cost += hash_firstpass_and_benchmark(key_slot, inited_key, password_hash_all_slots[i]);
 		}
-		time_cost /= 4;
+		time_cost /= KEY_SLOT_COUNT;
 	} else {
 		time_cost = hash_firstpass_and_benchmark(&self->keys[target_slot], inited_key, password_hash);
 	}
 	
 	if (time_limit > 0) {
-		if (time_limit / time_cost * BASE_MEM_COST * 2 < (double) max_mem_size || max_mem_size == 0) {
-			max_mem_size = (uint64_t) (time_limit / time_cost * BASE_MEM_COST * 2);
+		if (time_limit / time_cost * BASE_MEM_COST * 4 < (double) max_mem_size || max_mem_size == 0) {
+			max_mem_size = (uint64_t) (time_limit / time_cost * BASE_MEM_COST * 4);
 		}
 	}
 	return max_mem_size;

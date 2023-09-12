@@ -75,6 +75,10 @@
     print(__VA_ARGS__);           \
     printf("\033[0m")
 
+#define print_warning(...) \
+    printf("\033[1;33mWARNING: "); \
+    print(__VA_ARGS__);           \
+    printf("\033[0m")
 
 typedef enum {
 	T_INT,
