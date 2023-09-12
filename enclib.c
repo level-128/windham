@@ -136,7 +136,7 @@ void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t has
 
 void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_fast8_t len_exp_index, uint8_t hash[HASHLEN]) {
 	if (m_cost == 0){
-		print("not calc hash!");
+//		print("not calc hash!");
 		return;
 	}
 	if (m_cost < BASE_MEM_COST) {
@@ -149,7 +149,7 @@ void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, 
 
 bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint64_t max_mem_size) {
 	uint8_t new_hash[HASHLEN];
-	print("calc_key_one_step:", len_exp_index, max_mem_size);
+//	print("calc_key_one_step:", len_exp_index, max_mem_size);
 	uint64_t required_mem_size;
 	write_or_read_mem_count_from_len_exp(key_slot, password_hash, len_exp_index, &required_mem_size, false);
 	if (required_mem_size > max_mem_size) {
@@ -230,9 +230,9 @@ disk_key[HASHLEN]) {
 
 uint64_t calc_initial_pw_hash_and_iter_cnt(Data * self, uint8_t * inited_key, int target_slot, uint64_t max_mem_size, double time_limit, uint8_t
 password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN], uint8_t password_hash[HASHLEN]) {
-	// password hash is password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN] if target_slot == -1, else use &password_hash_all_slots[HASHLEN]
+	// password hash is password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN] if target_slot == -1, else use password_hash[HASHLEN]
 	double time_cost = 0;
-	print("mem-size", max_mem_size, "time-limit", time_limit);
+//	print("mem-size", max_mem_size, "time-limit", time_limit);
 	if (target_slot == -1) { // all slots
 		// initial hash and benchmarking
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {

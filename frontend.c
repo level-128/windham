@@ -48,8 +48,8 @@ struct option long_options[] = {
 		{"encrypt-type",      required_argument, &options[NMOBJ_encrypt_type],    1},
 		
 		{"all",               no_argument,       &options[NMOBJ_target_all],      1},
-		{"format",            no_argument,       &options[NMOBJ_target_obliterate],   1},
-		{"obliterate",            no_argument,       &options[NMOBJ_target_format],   1},
+		{"format",            no_argument,       &options[NMOBJ_target_format],   1},
+		{"obliterate",            no_argument,       &options[NMOBJ_target_obliterate],   1},
 		{"dry-run",           no_argument,       &options[NMOBJ_target_dry_run],  1},
 		{"readonly",          no_argument,       &options[NMOBJ_target_readonly], 1},
 		{"no-admin",          no_argument,       &options[NMOBJ_target_noadmin],  1},
@@ -334,7 +334,14 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		is_running_as_root();
 	}
 	
-	if ((action_num == 0 || action_num == 2  || action_num == 3) && options[NMOBJ_target_format] == 0 && options[NMOBJ_target_all] == 0) {
+	if (
+			(
+			(action_num == 0 || action_num == 2  || action_num == 3) &&
+			options[NMOBJ_target_format] == 0 &&
+			options[NMOBJ_target_all] == 0
+			) ||
+			(action_num == 4 && target_slot == -1)
+			) {
 		if (options[NMOBJ_master_key]) {
 			master_key_to_byte_array(params[NMOBJ_master_key], master_key);
 		} else {

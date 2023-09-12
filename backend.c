@@ -91,7 +91,7 @@ void get_system_info() {
 	} else {
 		sys_info.free_ram = sysconf(_SC_AVPHYS_PAGES) * sysconf(_SC_PAGESIZE) / 1024;
 		sys_info.free_swap = info.freeswap / 1024;
-		print("free mem", sys_info.free_ram, "sys_info.free_swap", sys_info.free_swap);
+//		print("free mem", sys_info.free_ram, "sys_info.free_swap", sys_info.free_swap);
 	}
 }
 
@@ -122,8 +122,7 @@ void check_file(const char * filename, bool is_block) {
 size_t check_target_mem(size_t target_mem, bool is_encrypt){
 	if (sys_info.free_ram < target_mem){
 		if ((sys_info.free_swap + sys_info.free_ram) > target_mem){
-			ask_for_conformation("using swap space for Key derivation function. This is potentially insecure because unencrypted swap space may provide hints to the master key. "
-										"continue?");
+			print_warning("using swap space for Key derivation function. This is potentially insecure because unencrypted swap space may provide hints to the master key.");
 			return target_mem;
 		}
 		
@@ -183,7 +182,7 @@ char * get_key_input_from_the_console() {
 	if (strcmp(key, check_key) != 0) {
 		print_error("Passwords do not match.");
 	} else if (strlen(key) < 8) {
-		ask_for_conformation("the key provided is too short (%zu characters), which is not recommended. Continue?", strlen(key));
+		print_error("the key provided is too short (%zu characters), which is not recommended. To bypass this restriction, use --key instead.", strlen(key));
 	}
 	free(check_key);
 	return key;
@@ -278,7 +277,19 @@ int add_key_from_decrypted_data_using_master_key(Data * decrypted_self, const ui
 void interactive_ask_new_key(Key * new_key){
 	char option;
 	print("Adding a new key. Choose your key format: \n(1) input key from console;\n(2) use a key file\nOption: ");
+	
+	struct termios oldt, newt;
+	char ch;
+	
+	tcgetattr(STDIN_FILENO, &oldt);
+	newt = oldt;
+	newt.c_lflag &= ~(ICANON | ECHO);
+	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+	
 	option = (char) getchar();
+	
+	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+	
 	print("");
 	if (option == '1') {
 		new_key->key_or_keyfile_location = get_key_input_from_the_console();
@@ -366,7 +377,7 @@ int action_revokekey(const char * device, const Key * key, uint8_t master_key[32
 		fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
 	}
 	
-	else if (target_slot == -1){
+	else if (target_slot != -1){
 		revoke_given_key_slot(&data, target_slot);
 	} else {
 		if (key != NULL){

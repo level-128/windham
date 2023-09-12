@@ -33,7 +33,7 @@ size_t get_device_sector_cnt(const char * device) {
 
 
 
-void convert_password_from_disk_key(const uint8_t master_key[32], char key[HASHLEN * 2]) {
+void convert_password_from_disk_key(const uint8_t master_key[32], char key[HASHLEN * 2 + 1]) {
 	const char *hex_chars = "0123456789abcdef";
 	
 	for (size_t i = 0; i < HASHLEN; ++i) {
@@ -102,7 +102,7 @@ int create_crypt_mapping(const char * device, const char * name, const char * en
 }
 
 void create_crypt_mapping_from_disk_key(const char * device, const char * target_name, const char * enc_type, const uint8_t disk_key[HASHLEN], size_t start_byte, bool read_only){
-	char password[HASHLEN * 2];
+	char password[HASHLEN * 2 + 1];
 	convert_password_from_disk_key(disk_key, password);
 	create_crypt_mapping(device, target_name, enc_type, password, start_byte, read_only);
 }

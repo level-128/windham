@@ -22,7 +22,7 @@ void test_create_password() {
 	uint8_t masterkey[HASHLEN];
 	
 	uint8_t master_key[HASHLEN];
-	char key[HASHLEN * 2];
+	char key[HASHLEN * 2 + 1];
 	fill_secure_random_bits(masterkey, HASHLEN);
 	convert_password_from_disk_key(masterkey, key);
 	print(key);

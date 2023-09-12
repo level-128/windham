@@ -51,6 +51,8 @@
        : T_DOUBLE, \
          char *           \
        : T_CHAR,   \
+		   const char *     \
+       : T_CHAR,   \
          default          \
        : T_PTR)
 
@@ -101,7 +103,8 @@ void p__expands_args(int argcount, ...) {
 }
 
 void p__print_int(int64_t self) {
-	printf("%"PRId64, self);
+	printf("%"
+	PRId64, self);
 }
 
 void p__print_double(double self) {
