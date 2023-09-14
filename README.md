@@ -9,7 +9,7 @@ by a cryptographical secure pseudo-random number generator.
 ## How To install?
 You can Choose:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
-or later.)
+or later.) under `build` folder.
 - Compile by your own. __Note: Untested on architectures other than X86_64, Argon2_bench is only available for X86_64__. 
 
 
