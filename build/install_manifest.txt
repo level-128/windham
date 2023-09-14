@@ -1,3 +1,0 @@
-/usr/local/bin_native/windham_argonbench_native
-/usr/local/bin/windham
-/usr/local/bin/windham_test
