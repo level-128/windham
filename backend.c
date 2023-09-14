@@ -40,7 +40,7 @@ void print_hex_array(const uint8_t * arr, size_t length) {
 	printf("\n");
 }
 
-
+//void print_key(Key * key)(
 
 
 void is_running_as_root() {
@@ -181,8 +181,8 @@ char * get_key_input_from_the_console() {
 	check_key = get_input();
 	if (strcmp(key, check_key) != 0) {
 		print_error("Passwords do not match.");
-	} else if (strlen(key) < 8) {
-		print_error("the key provided is too short (%zu characters), which is not recommended. To bypass this restriction, use --key instead.", strlen(key));
+	} else if (strlen(key) < 7) {
+		print_error("the key provided is too short (",  strlen(key), "characters), which is not recommended. To bypass this restriction, use --key instead.");
 	}
 	free(check_key);
 	return key;
@@ -258,6 +258,7 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 int add_key_from_decrypted_data_using_master_key(Data * decrypted_self, const uint8_t master_key[32], const Key key, uint64_t max_unlock_mem, double max_unlock_time) {
 	uint8_t password_hash[HASHLEN];
 	uint8_t inited_key[HASHLEN];
+//	print("add_key_from_decrypted_data_using_master_key:");
 	
 	init_key(key, inited_key);
 	

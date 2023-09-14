@@ -394,7 +394,7 @@ int main(int argc, char * argv[]) {
 	int action_num = frontend_check_actions(argv[1]);
 	
 	if (argc == 2) {
-		if (action_num == 7) {
+		if (action_num == 5) {
 			frontend_help(NULL);
 		} else {
 			print_error("<target> not provided. type '"THE_NAME_OF_THIS_SOFTWARE" Help' to view help");
@@ -402,7 +402,7 @@ int main(int argc, char * argv[]) {
 	}
 	
 	if (argc >= 3) {
-		if (action_num == 7) {
+		if (action_num == 5) {
 			frontend_help(argv[2]);
 		} else {
 			int opt;

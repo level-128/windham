@@ -52,10 +52,9 @@ void test_create_open_chain(){
 	key.key_or_keyfile_location = "hello world1";
 	key.key_type = EMOBJ_key_file_type_key;
 	uint8_t master_key[HASHLEN];
-	
+
 	char * device = "/dev/sdb";
-	action_close("/dev/dm-2");
-	return;
+	action_close("my_crypt_device");
 	action_create(device, NULL, key, 10000, -1);
 	action_open(device, "my_crypt_device", &key, master_key, -1, 30000, -1, false, false);
 }

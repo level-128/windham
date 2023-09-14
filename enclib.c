@@ -68,12 +68,6 @@ static __attribute_maybe_unused__ uint64_t rdtsc() {
 	uint64_t rax, rdx;
 	__asm__ __volatile__("rdtsc" : "=a"(rax), "=d"(rdx) : :);
 	return (rdx << 32) | rax;
-#elif defined(__i386__) || defined(__i386) || defined(__X86__)
-	uint64_t rax;
-	__asm__ __volatile__("rdtsc" : "=A"(rax) : :);
-	return rax;
-#else
-	return NULL;
 #endif
 }
 
@@ -113,8 +107,11 @@ void generate_random_numbers(uint8_t x, uint8_t numbers[4]) {
 
 
 void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint64_t * mem_size, bool is_write) {
+//	print("read:", (uint32_t) *key_slot->len_exp[len_exp_index]); TODO
+//	print_hex_array(hash, HASHLEN);
 	uint8_t plain_text[4];
 	if (is_write) {
+//		uint64_t mem_size_write = (uint64_t)*mem_size >> len_exp_index;
 		uint64_t mem_size_write = (uint64_t)((double)*mem_size / exp((double) len_exp_index));
 		generate_random_numbers(mem_size_write, plain_text);
 		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
@@ -122,21 +119,21 @@ void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t has
 									  (const uint16_t *) hash);
 		
 		// hash has uint8_t[8] len, plain_text and cipher text has uint8_t[4]
-//		print("calc_int_write", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
+
 	} else {
 		speck_decrypt_combined((const uint16_t *) key_slot->len_exp[len_exp_index], (uint16_t *) plain_text,
 									  (const uint16_t *) hash);
 		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
 		*mem_size = plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3];
-		*mem_size = (uint64_t)(exp((double) len_exp_index) * (double)(*mem_size / 4));
-//		print("calc_int_read", (uint32_t) *plain_text, "enc text:", (uint32_t) *key_slot->len_exp[len_exp_index], "with key:", (uint32_t) *hash);
+		*mem_size = (uint64_t)(exp((double) len_exp_index) * (double)*mem_size / (double)4);
+//		*mem_size = (uint64_t)len_exp_index << len_exp_index;
 	}
+//	print("write_or_read_mem_count_from_len_exp", (uint32_t) *plain_text, "enc text:", *mem_size, "with key:", (uint32_t) *hash);
 }
 
 
 void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_fast8_t len_exp_index, uint8_t hash[HASHLEN]) {
 	if (m_cost == 0){
-//		print("not calc hash!");
 		return;
 	}
 	if (m_cost < BASE_MEM_COST) {
@@ -160,12 +157,12 @@ bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t 
 	return true;
 }
 
-void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t pwd[HASHLEN], uint64_t target_mem_size) {
-	print("write_key_one_step:", len_exp_index, target_mem_size);
+void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint64_t target_mem_size) {
+//	print("write_key_one_step:", len_exp_index, target_mem_size);
 	uint8_t new_pwd[HASHLEN];
-	write_or_read_mem_count_from_len_exp(key_slot, pwd, len_exp_index, &target_mem_size, true);
-	argon2id_hash_calc(key_slot, target_mem_size, pwd, len_exp_index, new_pwd);
-	memcpy(pwd, new_pwd, HASHLEN);
+	write_or_read_mem_count_from_len_exp(key_slot, password_hash, len_exp_index, &target_mem_size, true);
+	argon2id_hash_calc(key_slot, target_mem_size, password_hash, len_exp_index, new_pwd);
+	memcpy(password_hash, new_pwd, HASHLEN);
 }
 
 double hash_firstpass_and_benchmark(Key_slot * key_slot, uint8_t inited_key[HASHLEN], uint8_t password_hash[HASHLEN]) {
@@ -195,17 +192,21 @@ bool argon2id_iter_hash_one_slot(Key_slot * key_slot, const uint8_t password_has
 }
 
 bool get_master_key_from_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t max_mem_size, uint8_t master_key[HASHLEN]) {
+//	print("get_master_key_from_slot pwhash");
+//	print_hex_array(password_hash, HASHLEN);
 	uint8_t new_hash[HASHLEN];
 	if (argon2id_iter_hash_one_slot(key_slot, password_hash, new_hash, max_mem_size, false) == false) {
 		return false;
 	}
-//	print("get hashed password:");
-//	print_hex_array(new_hash, HASHLEN);
+
 	xor_with_len(HASHLEN, new_hash, key_slot->key_mask, master_key);
 	return true;
 }
 
 void set_master_key_to_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t target_mem_size, const uint8_t master_key[HASHLEN]) {
+//	print("set_master_key_to_slot pwhash");
+//	print_hex_array(password_hash, HASHLEN);
+	
 	uint8_t new_hash[HASHLEN];
 	argon2id_iter_hash_one_slot(key_slot, password_hash, new_hash, target_mem_size, true);
 //	print("set hashed password:");
