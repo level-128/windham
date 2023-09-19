@@ -33,7 +33,7 @@ void test_rand_gen(){
 }
 
 void test_metadata(){
-	uint8_t masterkey[HASHLEN];
+	uint8_t masterkey[HASHLEN] = {'h', 'e', 'l', 'l', 'o'};
 	strcpy(my_data.metadata.enc_type, DEFAULT_DISK_ENC_MODE);
 	operate_metadata_using_master_key(&my_data.metadata, masterkey, my_data.master_key_mask, false);
 	assert(strcmp(my_data.metadata.enc_type, DEFAULT_DISK_ENC_MODE) != 0);
@@ -41,6 +41,8 @@ void test_metadata(){
 	assert(strcmp(my_data.metadata.enc_type, DEFAULT_DISK_ENC_MODE) == 0);
 	
 }
+
+
 
 void test_enclib(){
 	test_rand_gen();

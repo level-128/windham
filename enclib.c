@@ -34,6 +34,8 @@
 #error "the program only supports platform with uint8_t defined"
 #endif
 
+const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 59874, 162755, 442413, 1202604,
+									 3269017, 8886111, 24154953, 65659969, 178482301, 485165195};
 
 FILE * random_fd;
 
@@ -46,8 +48,8 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
 	bool key_slot_is_used[KEY_SLOT_COUNT];
 	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
-	uint32_t payload_offset;
-	uint32_t header_size;
+	uint64_t start_sector;
+	uint64_t end_sector;  // in sector
 	char enc_type[32];
 	uint64_t check_key_magic_number;
 } Metadata;
@@ -107,12 +109,12 @@ void generate_random_numbers(uint8_t x, uint8_t numbers[4]) {
 
 
 void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint64_t * mem_size, bool is_write) {
-//	print("read:", (uint32_t) *key_slot->len_exp[len_exp_index]); TODO
+//	print("read:", (uint32_t) *key_slot->len_exp[len_exp_index]);
 //	print_hex_array(hash, HASHLEN);
 	uint8_t plain_text[4];
 	if (is_write) {
-//		uint64_t mem_size_write = (uint64_t)*mem_size >> len_exp_index;
-		uint64_t mem_size_write = (uint64_t)((double)*mem_size / exp((double) len_exp_index));
+		uint64_t mem_size_write = *mem_size / exp_val[len_exp_index];
+//		uint64_t mem_size_write = (uint64_t)((double)*mem_size / exp((double) len_exp_index));
 		generate_random_numbers(mem_size_write, plain_text);
 		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
 		speck_encrypt_combined((const uint16_t *) plain_text, (uint16_t *) key_slot->len_exp[len_exp_index],
@@ -124,7 +126,7 @@ void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t has
 		speck_decrypt_combined((const uint16_t *) key_slot->len_exp[len_exp_index], (uint16_t *) plain_text,
 									  (const uint16_t *) hash);
 		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
-		*mem_size = plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3];
+		*mem_size = (plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3]) / 4;
 		*mem_size = (uint64_t)(exp((double) len_exp_index) * (double)*mem_size / (double)4);
 //		*mem_size = (uint64_t)len_exp_index << len_exp_index;
 	}
@@ -271,7 +273,7 @@ void operate_metadata_using_master_key(Metadata * metadata, const uint8_t master
 	}
 }
 
-void initialize_unlock_header_and_master_key(Data * uninitialized_header, uint8_t master_key[32], const char * enc_type, uint32_t payload_offset) {
+void initialize_unlock_header_and_master_key(Data * uninitialized_header, uint8_t master_key[32], const char * enc_type, size_t start_sector, size_t end_sector) {
 	fill_secure_random_bits((uint8_t *) uninitialized_header, sizeof(Data));
 	
 	operate_metadata_using_master_key(&uninitialized_header->metadata, master_key, uninitialized_header->master_key_mask, true);
@@ -282,28 +284,21 @@ void initialize_unlock_header_and_master_key(Data * uninitialized_header, uint8_
 		strcpy(uninitialized_header->metadata.enc_type, DEFAULT_DISK_ENC_MODE);
 	}
 	uninitialized_header->metadata.check_key_magic_number = CHECK_KEY_MAGIC_NUMBER;
-	if (payload_offset == 0) {
-		uninitialized_header->metadata.payload_offset = (512 - (sizeof(Data) % 512)) % 512;
-	} else {
-		uninitialized_header->metadata.payload_offset = payload_offset;
+	
+		uninitialized_header->metadata.start_sector = start_sector;
+		uninitialized_header->metadata.end_sector = end_sector;
+}
+
+void revoke_given_key_slot(Data * initialized_header, int target_slot, bool is_tag_revoke) {
+	fill_secure_random_bits(initialized_header->keys[target_slot].key_mask, HASHLEN);
+	if (is_tag_revoke){
+		memset(initialized_header->metadata.all_key_mask[target_slot], 0, HASHLEN);
 	}
 }
 
-void decrypt_header_using_master_key(Data * encrypted_header, uint8_t master_key[HASHLEN]){
-	operate_metadata_using_master_key(&encrypted_header->metadata, master_key, encrypted_header->master_key_mask, true);
-}
-
-void finalize_header_using_master_key(Data * decrypted_header, uint8_t master_key[HASHLEN]) {
-	operate_metadata_using_master_key(&decrypted_header->metadata, master_key, decrypted_header->master_key_mask, false);
-}
-
-void revoke_given_key_slot(Data * initialized_header, int target_slot) {
-	fill_secure_random_bits(initialized_header->keys[target_slot].key_mask, HASHLEN);
-}
-
-void register_key_slot_as_used(Metadata * decrypted_metadata, Key_slot keys[KEY_SLOT_COUNT], int slot) {
-	decrypted_metadata->key_slot_is_used[slot] = true;
-	memcpy(decrypted_metadata->all_key_mask[slot], keys[slot].key_mask, HASHLEN);
+void register_key_slot_as_used(Data * decrypted_header, int slot) {
+	decrypted_header->metadata.key_slot_is_used[slot] = true;
+	memcpy(decrypted_header->metadata.all_key_mask[slot], decrypted_header->keys[slot].key_mask, HASHLEN);
 }
 
 int select_available_key_slot(const Metadata decrypted_metadata, Key_slot keys[KEY_SLOT_COUNT]) {
@@ -321,4 +316,17 @@ int select_available_key_slot(const Metadata decrypted_metadata, Key_slot keys[K
 		}
 	}
 	return target_slot;
+}
+
+bool check_password_and_slots_validity(Data * decrypted_header, bool revoked_untagged_slot[KEY_SLOT_COUNT]){
+	if (decrypted_header->metadata.check_key_magic_number != CHECK_KEY_MAGIC_NUMBER){
+		return false;
+	}
+	uint8_t temp[HASHLEN] = {0};
+	for (int i = 0; i < KEY_SLOT_COUNT; i++){
+		revoked_untagged_slot[i] = (memcmp(decrypted_header->keys[i].key_mask, decrypted_header->metadata.all_key_mask[i], HASHLEN) != 0 &&
+				(memcmp(temp, decrypted_header->metadata.all_key_mask[i],HASHLEN) != 0) &&
+				decrypted_header->metadata.key_slot_is_used[i]);
+	}
+	return true;
 }

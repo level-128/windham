@@ -10,10 +10,70 @@
 #include <linux/fs.h>
 #include <assert.h>
 #include <errno.h>
+#include <signal.h>
 
 #define SECTOR_SIZE 512
 
 #pragma once
+
+
+
+void create_fat32_on_device(const char * device){
+	
+	pid_t pid = vfork();
+	if (pid == -1) {
+		print_error("Failed to create FAT32 on", device, "vfork failed");
+	}
+	
+	if (pid == 0) {
+		int nullfd = open("/dev/null", O_WRONLY);
+		dup2(nullfd, STDOUT_FILENO);
+		close(nullfd);
+		
+		execl("/usr/sbin/mkfs.vfat", "mkfs.vfat", device, "-I", NULL);
+		execl("/sbin/mkfs.vfat", "mkfs.vfat", device, "-I", NULL);
+		print_error_no_exit("Failed to create FAT32 on", device, "Make sure that mkfs has installed");
+		kill(getppid(), SIGQUIT);
+		exit(1);
+	}
+}
+
+bool detect_fat32_on_device(const char * device){
+	uint8_t content[20];
+	FILE * fp = fopen(device, "rb");
+	if (fp == NULL) {
+		print_error("can not open device:", device);
+	}
+	if (fread(content, 1, sizeof(content), fp) != sizeof(content)){
+		print_error("Failed to detect partition on", device);
+	}
+	fclose(fp);
+	return memcmp(&content[3], "mkfs.fat", 8) == 0;
+}
+
+bool check_is_device_mounted(char * device){
+	FILE *fp = fopen("/proc/mounts", "r");
+	if (fp == NULL) {
+		print_warning("Cannot detect device", device, "mount status.");
+		return false;
+	}
+	
+	char *line = malloc(0);
+	size_t len = 0;
+	char * location;
+	
+	while ((getline(&line, &len, fp)) != -1) {
+		
+		if ((location = strstr(line, device)) != NULL) {
+			fclose(fp);
+			char * token = strtok(location + strlen(device) + 1, " ");
+			print_error("Device", device, "is mounted at", token, ". Unmount to open device.");
+		}
+	}
+	free(line);
+	fclose(fp);
+	return false;
+}
 
 size_t get_device_sector_cnt(const char * device) {
 	int fd = open(device, O_RDONLY);
@@ -21,7 +81,7 @@ size_t get_device_sector_cnt(const char * device) {
 		print_error("can not open device:", device);
 	}
 	
-	unsigned long size;
+	size_t size;
 	if (ioctl(fd, BLKGETSIZE, &size) == -1) {
 		close(fd);
 		print_error("can not get size from block device:", (char *)device, "reasion:", strerror(errno));
@@ -31,7 +91,23 @@ size_t get_device_sector_cnt(const char * device) {
 	return size;
 }
 
-
+void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * start_sector, size_t * end_sector){
+	size_t device_size = get_device_sector_cnt(device);
+	size_t safe_node = (0x78000b + (16<<20)) / 512; // safe sector
+	if (is_decoy){
+		if (device_size < (128<<20) / 512){
+			print_error("Device", device, "is too small to deploy decoy partition.");
+		}
+		*end_sector = device_size - 4;
+		*start_sector = (device_size - safe_node) * 4 / 12 + safe_node;
+	} else {
+		if (device_size < (32<<20)){
+			print_error("Device", device, "is too small.");
+		}
+		*start_sector = 4;
+		*end_sector = device_size;
+	}
+}
 
 void convert_password_from_disk_key(const uint8_t master_key[32], char key[HASHLEN * 2 + 1]) {
 	const char *hex_chars = "0123456789abcdef";
@@ -62,13 +138,9 @@ void remove_crypt_mapping(const char * name) {
 	}
 }
 
-int create_crypt_mapping(const char * device, const char * name, const char * enc_type, const char * password, size_t start_byte, bool read_only) {
+int create_crypt_mapping(const char * device, const char * name, const char * enc_type, const char * password, size_t start_sector, size_t end_sector, bool read_only) {
 	struct dm_task * dmt;
 	char params[512];
-	size_t device_size = get_device_sector_cnt(device);
-	size_t start_sector = ((start_byte + SECTOR_SIZE - 1) / SECTOR_SIZE);
-	start_sector = (start_sector + 3) / 4 * 4;
-	
 //	print("device size", device_size, " start sector", start_sector);
 	
 	snprintf(params, sizeof(params), "%s %s 0 %s %zu", enc_type, password, device, start_sector);
@@ -85,7 +157,7 @@ int create_crypt_mapping(const char * device, const char * name, const char * en
 	}
 	
 
-	if (!dm_task_add_target(dmt, 0, device_size - start_sector, "crypt", params)) {
+	if (!dm_task_add_target(dmt, 0, end_sector - start_sector, "crypt", params)) {
 		print_error_no_exit("dm_task_add_target failed");
 		dm_task_destroy(dmt);
 		exit(EXIT_FAILURE);
@@ -101,32 +173,54 @@ int create_crypt_mapping(const char * device, const char * name, const char * en
 	return 0;
 }
 
-void create_crypt_mapping_from_disk_key(const char * device, const char * target_name, const char * enc_type, const uint8_t disk_key[HASHLEN], size_t start_byte, bool read_only){
+void create_crypt_mapping_from_disk_key(const char * device, const char * target_name, Metadata metadata, const uint8_t disk_key[HASHLEN], bool read_only){
 	char password[HASHLEN * 2 + 1];
 	convert_password_from_disk_key(disk_key, password);
-	create_crypt_mapping(device, target_name, enc_type, password, start_byte, read_only);
+	create_crypt_mapping(device, target_name, metadata.enc_type, password, metadata.start_sector, metadata.end_sector, read_only);
 }
 
-void get_header_from_device(Data * data, const char * device){
-	FILE * fd = fopen(device, "r");
-	if (fd == NULL) {
+void get_header_from_device(Data *data, const char *device, int64_t offset) {
+	FILE *fp;
+	size_t result;
+
+	fp = fopen(device, "rb");
+	if (fp == NULL) {
 		print_error("Failed to open block device", device);
 	}
-	size_t read_size = fread(data, 1, sizeof(Data), fd);
-	if (read_size != sizeof(Data)) {
-		print_error("IO error while reading block device", device);
+	
+	if (offset < 0) {
+		fseek(fp, offset, SEEK_END);
+	} else {
+		fseek(fp, 0, SEEK_SET);
 	}
-	assert(fclose(fd) == 0);
+	
+	result = fread(data, 1, sizeof(Data), fp);
+	if (result != sizeof(Data)) {
+		print_error("Failed to read block device", device);
+	}
+	fclose(fp);
 }
 
-void write_header_to_device(const Data * data, const char * device){
-	FILE * fd = fopen(device, "w");
-	if (fd == NULL) {
+
+void write_header_to_device(const Data * data, const char * device, int64_t offset){
+	FILE *fp;
+	size_t result;
+	
+	fp = fopen(device, "r+b");
+	if (fp == NULL) {
 		print_error("Failed to open block device", device);
 	}
-	size_t read_size = fwrite(data, 1, sizeof(Data), fd);
-	if (read_size != sizeof(Data)) {
-		print_error("IO error while writing block device", device);
+	
+	if (offset < 0) {
+		fseek(fp, offset, SEEK_END);
+	} else {
+		fseek(fp, 0, SEEK_SET);
 	}
-	assert(fclose(fd) == 0);
+	
+	result = fwrite(data, 1, sizeof(Data), fp);
+	if (result != sizeof(Data)) {
+		print_error("Failed to write to block device", device);
+	}
+	
+	fclose(fp);
 }

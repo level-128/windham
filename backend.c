@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <termios.h>
 
-#define MAX_KEY_CHAR 512
+#define MIN_KEY_CHAR 7
 
 
 
@@ -33,7 +33,7 @@ enum {
 	EMOBJ_key_file_type_file
 };
 
-void print_hex_array(const uint8_t * arr, size_t length) {
+void print_hex_array(size_t length, const uint8_t arr[length]) {
 	for (size_t i = 0; i < length; ++i) {
 		printf("%02x ", arr[i]);
 	}
@@ -66,9 +66,7 @@ void ask_for_conformation(const char *format, ...){
 	printf("\033[1;33mCONFORMATION REQUIRED: ");
 	va_list args;
 	va_start(args, format);
-	
 	vprintf(format, args);
-	
 	va_end(args);
 	printf("\nType \"YES ");
 	printf("%s\" to confirm. \033[0m\n", random_str);
@@ -181,7 +179,7 @@ char * get_key_input_from_the_console() {
 	check_key = get_input();
 	if (strcmp(key, check_key) != 0) {
 		print_error("Passwords do not match.");
-	} else if (strlen(key) < 7) {
+	} else if (strlen(key) < MIN_KEY_CHAR) {
 		print_error("the key provided is too short (",  strlen(key), "characters), which is not recommended. To bypass this restriction, use --key instead.");
 	}
 	free(check_key);
@@ -193,7 +191,6 @@ uint8_t * read_key_file(const Key key, size_t * length) {
 	check_file(filename, false);
 	
 	FILE * file = fopen(filename, "rb");
-	
 	
 	fseek(file, 0, SEEK_END);
 	*length = ftell(file);
@@ -266,12 +263,12 @@ int add_key_from_decrypted_data_using_master_key(Data * decrypted_self, const ui
 	if (target_slot == -1) {
 		print_error("All key slots are full. Remove or revoke one or more keys to add new key.");
 	}
-	register_key_slot_as_used(&decrypted_self->metadata, decrypted_self->keys, target_slot);
 	
 	uint64_t mem_size_limit = calc_initial_pw_hash_and_iter_cnt(decrypted_self, inited_key, target_slot, max_unlock_mem, max_unlock_time, NULL, password_hash);
 	mem_size_limit = check_target_mem(mem_size_limit, true);
 
 	set_master_key_to_slot(&decrypted_self->keys[target_slot], password_hash, mem_size_limit, master_key);
+	register_key_slot_as_used(decrypted_self, target_slot);
 	return target_slot;
 }
 
@@ -280,7 +277,6 @@ void interactive_ask_new_key(Key * new_key){
 	print("Adding a new key. Choose your key format: \n(1) input key from console;\n(2) use a key file\nOption: ");
 	
 	struct termios oldt, newt;
-	char ch;
 	
 	tcgetattr(STDIN_FILENO, &oldt);
 	newt = oldt;
@@ -305,39 +301,67 @@ void interactive_ask_new_key(Key * new_key){
 	}
 }
 
-#define OPERATION_BACKEND_UNLOCK 	Data data; \
-int unlocked_slot = -1;                                              \
-get_header_from_device(&data, device);\
+#define READ_HEADER \
+Data data;          \
+if (is_decoy == true){ \
+    print_warning("Unlocking", device, "assuming decoy partition exits");   \
+}                    \
+is_decoy = detect_fat32_on_device(device); \
+int64_t offset = is_decoy ? -sizeof(Data) : 0;                            \
+get_header_from_device(&data, device, offset); \
+
+
+
+
+#define OPERATION_BACKEND_UNLOCK 	 \
+    READ_HEADER \
+[[maybe_unused]] int unlocked_slot = -1;                 \
 if (key != NULL){\
 unlocked_slot = get_master_key(data, master_key, *key, target_slot, max_unlock_mem, max_unlock_time);\
 }\
-operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, true);\
-if (data.metadata.check_key_magic_number != CHECK_KEY_MAGIC_NUMBER) {\
+operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, true);           \
+                                   \
+bool revoked_untagged_slot[KEY_SLOT_COUNT];                                   \
+if (check_password_and_slots_validity(&data, revoked_untagged_slot) == false) {\
 print_error(key != NULL ? "This key has been revoked. " : "Wrong master key.");\
-}\
+}                                  \
+for (int i = 0; i < KEY_SLOT_COUNT; i++){                \
+if (revoked_untagged_slot[i] == true){     \
+print_warning("Slot", i, "on device", device, "have been revoked without unlock.");                    \
+}                                   \
+}                                   \
+\
 
 
 
-void action_create(const char * device, const char * enc_type, const Key key, uint64_t target_memory, double target_time){
+void action_create(const char * device, const char * enc_type, const Key key, uint64_t target_memory, double target_time, bool is_decoy){
 	Data data;
 	uint8_t master_key[HASHLEN];
+	size_t start_sector, end_sector;
 	
 	fill_secure_random_bits(master_key, HASHLEN);
-	initialize_unlock_header_and_master_key(&data, master_key, enc_type, sizeof(Data));
+	decide_start_and_end_sector(device, is_decoy, &start_sector, &end_sector);
+	initialize_unlock_header_and_master_key(&data, master_key, enc_type, start_sector, end_sector);
 	add_key_from_decrypted_data_using_master_key(&data, master_key, key, target_memory, target_time);
 	operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, false);
-	write_header_to_device(&data, device);
+	if (is_decoy){
+		create_fat32_on_device(device);
+	}
+	
+	write_header_to_device(&data, device, is_decoy ? -sizeof(Data) : 0);
 }
 
 int action_open(const char * device, const char * target_name, const Key * key, uint8_t master_key[32], int target_slot, uint64_t max_unlock_mem, double
-max_unlock_time, bool is_target_readonly, bool is_dry_run){
+max_unlock_time, bool is_target_readonly, bool is_dry_run, bool is_decoy){
 	
-	OPERATION_BACKEND_UNLOCK
+	OPERATION_BACKEND_UNLOCK;
+	
+	
 	
 	if (!is_dry_run){
 		uint8_t disk_key[HASHLEN];
 		get_metadata_key_and_disk_key_from_master_key(master_key, data.master_key_mask, NULL, disk_key);
-		create_crypt_mapping_from_disk_key(device, target_name, data.metadata.enc_type, disk_key, data.metadata.payload_offset, is_target_readonly);
+		create_crypt_mapping_from_disk_key(device, target_name, data.metadata, disk_key,  is_target_readonly);
 	}
 	return unlocked_slot;
 }
@@ -348,52 +372,56 @@ void action_close(const char * device){
 
 int action_addkey(const char * device, const Key * key, uint8_t master_key[32], int target_slot, uint64_t max_unlock_mem, double max_unlock_time,
 						 uint64_t target_memory,
-						 double target_time){
+						 double target_time, bool is_decoy){
+	
 	OPERATION_BACKEND_UNLOCK
 	
 	Key new_key;
 	interactive_ask_new_key(&new_key);
 	int added_slot = add_key_from_decrypted_data_using_master_key(&data, master_key, new_key, target_memory, target_time);
+	
 	operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, false);
-	write_header_to_device(&data, device);
+	write_header_to_device(&data, device, offset);
 	return added_slot;
 }
 
-void action_create_format(const char * device){
-	Data data;
-	get_header_from_device(&data, device);
+void action_create_format(const char * device, bool is_decoy){
+	READ_HEADER
+	
 	fill_secure_random_bits(data.master_key_mask, HASHLEN);
-	write_header_to_device(&data, device);
+	write_header_to_device(&data, device, offset);
 }
 
 int action_revokekey(const char * device, const Key * key, uint8_t master_key[32], int target_slot, uint64_t max_unlock_mem, double max_unlock_time,
-							bool is_revoke_all, bool is_obliterate){
-	Data data;
-	get_header_from_device(&data, device);
+							bool is_revoke_all, bool is_obliterate, bool is_decoy){
+	
 	if (is_revoke_all){
+		READ_HEADER
 		for (int i = 0; i < KEY_SLOT_COUNT; i++){
-			revoke_given_key_slot(&data, i);
+			revoke_given_key_slot(&data, i, false);
 		}
+		return -1;
 	} else if (is_obliterate){
+		READ_HEADER
 		fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
+		return -1;
 	}
 	
 	else if (target_slot != -1){
-		revoke_given_key_slot(&data, target_slot);
-	} else {
-		if (key != NULL){
-			target_slot = get_master_key(data, master_key, *key, target_slot, max_unlock_mem, max_unlock_time);
-		}
-		operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, true);
-		if (data.metadata.check_key_magic_number != CHECK_KEY_MAGIC_NUMBER) {
-		print_error(key != NULL ? "This key has been revoked. " : "Wrong master key.");
-		}
-		revoke_given_key_slot(&data, target_slot);
-		memset(data.metadata.all_key_mask[target_slot], 0, HASHLEN);
-		operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, false);
+		READ_HEADER
+		revoke_given_key_slot(&data, target_slot, false);
+		return target_slot;
 	}
-	write_header_to_device(&data, device);
-	return target_slot;
+	
+	
+	OPERATION_BACKEND_UNLOCK
+
+	revoke_given_key_slot(&data, unlocked_slot, true);
+	memset(data.metadata.all_key_mask[unlocked_slot], 0, HASHLEN);
+	operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, false);
+	
+	write_header_to_device(&data, device, offset);
+	return unlocked_slot;
 }
 
 void init(){

@@ -13,7 +13,9 @@ void test_map_device(){
 	const char *password = "cc6267b0ec9e80cbb77da3320f12c5441d3fe8b086528c4b55cb8fd6c3710363";
 	
 	
-	create_crypt_mapping(device, name, enc_type, password, 1300, false);
+	size_t start_sector, end_sector;
+	decide_start_and_end_sector(device, false, &start_sector, &end_sector);
+	create_crypt_mapping(device, name, enc_type, password, start_sector, end_sector, false);
 //	get_device_sector_cnt("/dev/mapper/my_crypt_device");
 	remove_crypt_mapping(name);
 }
@@ -21,13 +23,25 @@ void test_map_device(){
 void test_create_password() {
 	uint8_t masterkey[HASHLEN];
 	
-	uint8_t master_key[HASHLEN];
 	char key[HASHLEN * 2 + 1];
 	fill_secure_random_bits(masterkey, HASHLEN);
 	convert_password_from_disk_key(masterkey, key);
 	print(key);
 }
 
+void test_fat32(){
+	char * device = "/dev/sdb";
+	print(detect_fat32_on_device(device));
+	
+}
+
+void test_is_device_mounted(){
+	check_is_device_mounted("/dev/sdb");
+}
+
 int test_mapper() {
-	test_map_device();
+//	test_map_device();
+//test_fat32();
+test_is_device_mounted();
+return 0;
 }
