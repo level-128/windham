@@ -9,7 +9,7 @@ Partition
 ## How To install?
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
-or later.) under `build` folder.
+or later.) under `build` folder. **The binary is not meant for release, use it only for evaluation purposes.**
 - Compile by your own. __Note: Untested on architectures other than X86_64, Argon2_bench is only available for X86_64__. 
 
 To compile, `libdevmapper.h` and the device-mapper subsystem is required. Install `libdevmapper-dev` on Debian-based 
@@ -26,6 +26,10 @@ you prefer to create an encrypted partition instead.
 using `sudo windham Open /dev/sdb --map-to=enc1` will create a mapper device at `/dev/mapper/enc1`.
 4. create filesystem on `/dev/mapper/enc1` as you wish.
 5. To close your device, use `windham close *name*`. 
+
+&nbsp;
+
+[Want to know how Windham works? Here:](/Document/technical_details.md)
 
 ## Introduction to Decoy Partition
 
