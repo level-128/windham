@@ -99,24 +99,27 @@ void generate_random_numbers(uint8_t x, uint8_t numbers[4]) {
 		return;
 	}
 	uint8_t rand1 = random();
+	uint8_t rand2 = random();
 	
-	numbers[0] = x + (rand1 % x);
-	numbers[1] = x - (rand1 % x);
-	numbers[2] = x + (rand1 % x);
-	numbers[3] = x - (rand1 % x);
+	numbers[0] = x + ((rand1 + rand2) % x);
+	numbers[1] = x - ((rand1 - rand2) % x);
+	numbers[2] = x + ((-rand1 + rand2) % x);
+	numbers[3] = x - ((-rand1 - rand2) % x);
 	
 }
 
 
-void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint64_t * mem_size, bool is_write) {
+void write_or_read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index,
+																			 uint8_t salt[], uint64_t * mem_size, bool is_write) {
 //	print("read:", (uint32_t) *key_slot->len_exp[len_exp_index]);
 //	print_hex_array(hash, HASHLEN);
 	uint8_t plain_text[4];
 	if (is_write) {
 		uint64_t mem_size_write = *mem_size / exp_val[len_exp_index];
-//		uint64_t mem_size_write = (uint64_t)((double)*mem_size / exp((double) len_exp_index));
 		generate_random_numbers(mem_size_write, plain_text);
-		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
+		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text); //
+		
+		memcpy(&salt[HASHLEN + len_exp_index * sizeof(SPECK_TYPE) * 2], plain_text, sizeof(SPECK_TYPE) * 2);
 		speck_encrypt_combined((const uint16_t *) plain_text, (uint16_t *) key_slot->len_exp[len_exp_index],
 									  (const uint16_t *) hash);
 		
@@ -125,69 +128,74 @@ void write_or_read_mem_count_from_len_exp(Key_slot * key_slot, const uint8_t has
 	} else {
 		speck_decrypt_combined((const uint16_t *) key_slot->len_exp[len_exp_index], (uint16_t *) plain_text,
 									  (const uint16_t *) hash);
+		memcpy(&salt[HASHLEN + len_exp_index * sizeof(SPECK_TYPE) * 2], plain_text, sizeof(SPECK_TYPE) * 2);
+		
 		xor_with_len(sizeof(SPECK_TYPE) * 2, hash + sizeof(SPECK_TYPE) * SPECK_KEY_LEN, plain_text, plain_text);
+		
 		*mem_size = (plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3]) / 4;
-		*mem_size = (uint64_t)(exp((double) len_exp_index) * (double)*mem_size / (double)4);
-//		*mem_size = (uint64_t)len_exp_index << len_exp_index;
+		*mem_size *= exp_val[len_exp_index];
 	}
-//	print("write_or_read_mem_count_from_len_exp", (uint32_t) *plain_text, "enc text:", *mem_size, "with key:", (uint32_t) *hash);
+//	print("write_or_read_mem_count_from_len_exp_and_update_salt", (uint32_t) *plain_text, "enc text:", *mem_size, "with key:", (uint32_t) *hash);
 }
 
 
-void argon2id_hash_calc(Key_slot * key_slot, uint32_t m_cost, const void * pwd, uint_fast8_t len_exp_index, uint8_t hash[HASHLEN]) {
-	if (m_cost == 0){
-		return;
-	}
+void argon2id_hash_calc(const uint8_t pwd[HASHLEN], uint_fast8_t len_exp_index, uint8_t salt[HASHLEN + len_exp_index * sizeof(SPECK_TYPE) * 2], uint8_t hash[HASHLEN], uint_fast32_t
+m_cost) {
 	if (m_cost < BASE_MEM_COST) {
 		m_cost = BASE_MEM_COST;
 	}
-	argon2id_hash_raw(1, m_cost, PARALLELISM, pwd, HASHLEN, key_slot->hash_salt,
-							sizeof(key_slot->hash_salt) + sizeof(key_slot->len_exp[len_exp_index]) * len_exp_index, hash, HASHLEN);
+	argon2id_hash_raw(1, m_cost, PARALLELISM, pwd, HASHLEN, salt,
+							HASHLEN + len_exp_index * sizeof(SPECK_TYPE) * 2, hash, HASHLEN);
 }
 
 
-bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint64_t max_mem_size) {
-	uint8_t new_hash[HASHLEN];
+bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size) {
+	uint8_t new_pwd[HASHLEN];
+
+	
 //	print("calc_key_one_step:", len_exp_index, max_mem_size);
 	uint64_t required_mem_size;
-	write_or_read_mem_count_from_len_exp(key_slot, password_hash, len_exp_index, &required_mem_size, false);
+	write_or_read_mem_count_from_len_exp_and_update_salt(key_slot, password_hash, len_exp_index, salt, &required_mem_size, false);
 	if (required_mem_size > max_mem_size) {
 		return false;
 	}
-	argon2id_hash_calc(key_slot, required_mem_size, password_hash, len_exp_index, new_hash);
-	memcpy(password_hash, new_hash, HASHLEN);
+	argon2id_hash_calc(password_hash, len_exp_index, salt , new_pwd, required_mem_size);
+	memcpy(password_hash, new_pwd, HASHLEN);
 	return true;
 }
 
-void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint64_t target_mem_size) {
+void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t target_mem_size) {
 //	print("write_key_one_step:", len_exp_index, target_mem_size);
 	uint8_t new_pwd[HASHLEN];
-	write_or_read_mem_count_from_len_exp(key_slot, password_hash, len_exp_index, &target_mem_size, true);
-	argon2id_hash_calc(key_slot, target_mem_size, password_hash, len_exp_index, new_pwd);
+	write_or_read_mem_count_from_len_exp_and_update_salt(key_slot, password_hash, len_exp_index, salt, &target_mem_size, true);
+	argon2id_hash_calc(password_hash, len_exp_index, salt , new_pwd, target_mem_size);
 	memcpy(password_hash, new_pwd, HASHLEN);
 }
 
 double hash_firstpass_and_benchmark(Key_slot * key_slot, uint8_t inited_key[HASHLEN], uint8_t password_hash[HASHLEN]) {
 	clock_t start_time, stop_time;
 	start_time = clock();
-	argon2id_hash_calc(key_slot, BASE_MEM_COST * 4, inited_key, 0, password_hash);
+	argon2id_hash_calc(inited_key, 0, key_slot->hash_salt, password_hash, BASE_MEM_COST * 4);
 	stop_time = clock();
 	return (double) (stop_time - start_time) / (CLOCKS_PER_SEC);
 }
 
 
 bool argon2id_iter_hash_one_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint8_t new_hash[HASHLEN], uint64_t max_mem_size, bool is_new_pw) {
+	uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4];
+	
+	memcpy(salt, key_slot->hash_salt, HASHLEN);
 	memcpy(new_hash, password_hash, HASHLEN);
 	bool is_memory_enough = true;
 	for (int_fast8_t i = 0; i < KEY_SLOT_EXP_MAX; i++) {
 		if (is_memory_enough) {
-			is_memory_enough = calc_key_one_step(key_slot, i, new_hash, max_mem_size);
+			is_memory_enough = calc_key_one_step(key_slot, i, new_hash, salt, max_mem_size);
 		}
 		if (!is_memory_enough) {
 			if (!is_new_pw) {
 				return false;
 			}
-			write_key_one_step(key_slot, i, new_hash, 0);
+			write_key_one_step(key_slot, i, new_hash, salt, 0);
 		}
 	}
 	return true;

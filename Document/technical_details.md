@@ -1,6 +1,14 @@
-# technical details
+# Technical details
 
-Memory layout of the header:
+**TODO**
+
+Windham is a disk encryption specification plus the implementation of it. It is delicately designed to 
+withstand multiple attack surfaces. On each Windham encrypted partition, there is a header at the beginning (or the 
+end if `--decoy` param has used) of each encrypted partition to support all its advanced features. The header is used
+to:
+
+
+## On Disk Format Specification
 
 ```
 Address                                              Layout
@@ -13,9 +21,9 @@ Address                                              Layout
                             |   +-----------------------------------------------------+    |
                             |   | all_key_mask (KEY_SLOT_COUNT x HASHLEN bytes)       |    |
                             |   +-----------------------------------------------------+    |
-                            |   | payload_offset (4 bytes)                            |    |
+                            |   | start_sector (4 bytes)                              |    |
                             |   +-----------------------------------------------------+    | --- Encrypted
-                            |   | header_size (4 bytes)                               |    |
+                            |   | end_sector (4 bytes)                                |    |
                             |   +-----------------------------------------------------+    |
                             |   | enc_type (32 bytes)                                 |    |
                             |   +-----------------------------------------------------+    |
@@ -50,3 +58,8 @@ data.Metadata.payload_offset|                         ...                       
                             |                         ...                             |
                             |                         ...                             |
 ```
+
+## Unlock from password / keyfile
+
+![](KDF.svg)
+
