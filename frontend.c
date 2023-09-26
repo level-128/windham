@@ -388,7 +388,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			action_addkey(device, &key, master_key, target_slot, max_unlock_mem, max_unlock_time, target_mem, target_time, options[NMOBJ_target_decoy]);
 			break;
 		case 4:
-			if (target_slot == -1) {
+			if (target_slot == -1 && options[NMOBJ_target_obliterate] == 0) {
 				ASK_KEY
 			}
 			action_revokekey(device, &key, master_key, target_slot, max_unlock_mem, max_unlock_time, params[NMOBJ_target_all], options[NMOBJ_target_obliterate], options[NMOBJ_target_decoy]);

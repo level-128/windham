@@ -400,16 +400,21 @@ int action_revokekey(const char * device, const Key * key, uint8_t master_key[32
 		for (int i = 0; i < KEY_SLOT_COUNT; i++){
 			revoke_given_key_slot(&data, i, false);
 		}
+		write_header_to_device(&data, device, offset);
 		return -1;
 	} else if (is_obliterate){
 		READ_HEADER
-		fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
+		for (int i = 0 ; i < 3; i++) {
+			fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
+			write_header_to_device(&data, device, offset);
+		}
 		return -1;
 	}
 	
 	else if (target_slot != -1){
 		READ_HEADER
 		revoke_given_key_slot(&data, target_slot, false);
+		write_header_to_device(&data, device, offset);
 		return target_slot;
 	}
 	
@@ -417,7 +422,6 @@ int action_revokekey(const char * device, const Key * key, uint8_t master_key[32
 	OPERATION_BACKEND_UNLOCK
 
 	revoke_given_key_slot(&data, unlocked_slot, true);
-	memset(data.metadata.all_key_mask[unlocked_slot], 0, HASHLEN);
 	operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, false);
 	
 	write_header_to_device(&data, device, offset);
