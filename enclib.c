@@ -2,11 +2,8 @@
 #include <stdint.h>
 #include <time.h>
 #include <memory.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <math.h>
 
 
 #define KEY_SLOT_COUNT 6
@@ -326,7 +323,7 @@ int select_available_key_slot(const Metadata decrypted_metadata, Key_slot keys[K
 	return target_slot;
 }
 
-bool check_password_and_slots_validity(Data * decrypted_header, bool revoked_untagged_slot[KEY_SLOT_COUNT]){
+bool check_master_key_and_slots_revoke(Data * decrypted_header, bool revoked_untagged_slot[KEY_SLOT_COUNT]){
 	if (decrypted_header->metadata.check_key_magic_number != CHECK_KEY_MAGIC_NUMBER){
 		return false;
 	}
@@ -335,6 +332,9 @@ bool check_password_and_slots_validity(Data * decrypted_header, bool revoked_unt
 		revoked_untagged_slot[i] = (memcmp(decrypted_header->keys[i].key_mask, decrypted_header->metadata.all_key_mask[i], HASHLEN) != 0 &&
 				(memcmp(temp, decrypted_header->metadata.all_key_mask[i],HASHLEN) != 0) &&
 				decrypted_header->metadata.key_slot_is_used[i]);
+		if (revoked_untagged_slot[i]){
+			memset(decrypted_header->metadata.all_key_mask[i], 0, HASHLEN);
+		}
 	}
 	return true;
 }

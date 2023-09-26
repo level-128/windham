@@ -55,10 +55,10 @@ void ask_for_conformation(const char *format, ...){
 	char complete_str[10];
 	char user_input[20];
 	
-	srand(time(NULL));
+	srand(time(NULL)); // NOLINT(*-msc51-cpp)
 	
 	for (int i = 0; i < 4; ++i) {
-		int index = rand() % 64;
+		int index = rand() % 64; // NOLINT(*-msc50-cpp)
 		random_str[i] = base64_chars[index];
 	}
 	random_str[4] = '\0';
@@ -161,7 +161,7 @@ char* get_input() {
 		
 		if (index == size) {
 			size += 20;
-			input = (char *) realloc(input, size * sizeof(char));
+			input = (char *) realloc(input, size * sizeof(char)); // NOLINT(*-suspicious-realloc-usage)
 		}
 	}
 	
@@ -322,7 +322,7 @@ unlocked_slot = get_master_key(data, master_key, *key, target_slot, max_unlock_m
 operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask, true);           \
                                    \
 bool revoked_untagged_slot[KEY_SLOT_COUNT];                                   \
-if (check_password_and_slots_validity(&data, revoked_untagged_slot) == false) {\
+if (check_master_key_and_slots_revoke(&data, revoked_untagged_slot) == false) {\
 print_error(key != NULL ? "This key has been revoked. " : "Wrong master key.");\
 }                                  \
 for (int i = 0; i < KEY_SLOT_COUNT; i++){                \
@@ -348,15 +348,13 @@ void action_create(const char * device, const char * enc_type, const Key key, ui
 		create_fat32_on_device(device);
 	}
 	
-	write_header_to_device(&data, device, is_decoy ? -sizeof(Data) : 0);
+	write_header_to_device(&data, device, is_decoy ? -(int64_t)sizeof(Data) : 0);
 }
 
 int action_open(const char * device, const char * target_name, const Key * key, uint8_t master_key[32], int target_slot, uint64_t max_unlock_mem, double
 max_unlock_time, bool is_target_readonly, bool is_dry_run, bool is_decoy){
 	
-	OPERATION_BACKEND_UNLOCK;
-	
-	
+	OPERATION_BACKEND_UNLOCK
 	
 	if (!is_dry_run){
 		uint8_t disk_key[HASHLEN];

@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <signal.h>
+#include <unistd.h>
 
 #define SECTOR_SIZE 512
 
@@ -58,7 +59,7 @@ bool check_is_device_mounted(char * device){
 		return false;
 	}
 	
-	char *line = malloc(0);
+	char *line = NULL;
 	size_t len = 0;
 	char * location;
 	
