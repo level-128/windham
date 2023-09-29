@@ -118,13 +118,3 @@ the Free Software Foundation, either version 3 of the License, or
 
 This program has granted "Additional permissions" applied from article (7) when using, propagating and conveying the 
 unmodified covered work. For details, see file `license.md`.
-
-### U.S. Encryption Export Regulations
-
-Windham is classified under ECCN 5D002 that provides or performs “non-standard cryptography” as defined in part 772 
-of the EAR, and is subject to Export Administration Regulation jurisdiction from the Bureau of Industry and Security.
-A notification to BIS and the ENC Encryption Request Coordinator via email of the internet location (e.g., URL or internet
-address) of the source code is required when the cryptographic functionality of the source code is updated or modified.
-This can be done by notifying level-128 (Email: <level-128@gmx.com>) when making contributions or forking the software.
-
-I know this is not ideal... 
