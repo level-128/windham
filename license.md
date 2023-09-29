@@ -47,7 +47,7 @@ under Anti-Circumvention Law, including:
 - section 1201 of the Digital Millennium Copyright Act adopted on 28 Oct 1998
 - Copyright and Information Society Directive 2001 (2001/29/EC)
 
-Or other similar laws, the permission granted in article (1) of the Additional Agreement will be withdrawn.
+Or other similar laws, permission granted in article (1) will be withdrawn and terminate. 
 
 &nbsp;
 
