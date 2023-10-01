@@ -31,7 +31,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 Permission is here by granted, to entities who accept the GNU GENERAL PUBLIC LICENSE Version 3, the behaviour of using relocatable unit in software solely in accordance with the instructions defined in the header file, in a way that explicitly stated, such software is considered as "aggregate" in GNU GPL article (5). Using the covered work in such a way does not form a larger covered work when:
 
-- tagging each relocated subroutine with notice: "Relocated according to 'Additional permissions' applied from Article (7) of GNU GPL granted by <copyright holder of the GPL covered work>"
+- tagging each relocated subroutine with notice: "Relocated according to 'Additional permissions' applied from Article (7) of GNU GPL granted by \<copyright holder of the GPL covered work\>"
 
 ### Termination.
 
