@@ -15,39 +15,34 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-## "Additional permissions" applied from article (7) when using, propagating and conveying the unmodified covered work
+
+
+## "Additional permissions" applied from Article (7) when using, propagating and conveying the unmodified covered work
 
 ### 0. Definitions
 
-- The term "external behaviour" is defined as: 1. input and output to or from the program; 2. the physical compute resources
-  that the program uses to execute.
+- The term "external behaviour" is defined as: 1. input and output to or from the program; 2. the physical compute resources that the program uses to execute.
 
+- To "relocate" the source code means modifying the source code in a way that: 1. yields the same external behaviour before and after converting the source code to the object code, under either the standard of the programming language or to all implementations that are able to generate object code; 2. For all subroutines within the relocated code, if such subroutine could perform a "relocate" action before relocating the source code that contains such subroutine, such subroutine should be able to perform such action after the relocation of the source code that contains such subroutine.
 
-- To "relocate" the source code means modifying the source code in a way that: 1. yields the same external behaviour before and after converting the source code to the object code, under either the 
-standard of the programming language or to all implementations that are able to generate object code; 2. 
-For all subroutines within the relocated code, if such subroutine could perform a "relocate" action before relocating the
-source code that contains such subroutine, such subroutine should be able to perform such action after the relocation of the source code that contains such subroutine.
+- "Header File": defined as documentation (machine-readable or human-readable) showing how to operate, call, use, or execute a program that is possible to perform a "relocate" action to its corresponding source code. 
 
+### Permissions
 
-- "Header File" defined as a documentation (machine-readable or human-readable) showing how to operate, call, use or execute 
-a program that is possible to perform a "relocate" action to its source code.
+Permission is here by granted, to entities who accept the GNU GENERAL PUBLIC LICENSE Version 3, the behaviour of using relocatable unit in software solely in accordance with the instructions defined in the header file, in a way that explicitly stated, such software is considered as "aggregate" in GNU GPL article (5). Using the covered work in such a way does not form a larger covered work when:
 
-### 1. Permissions
+- tagging each relocated subroutine with notice: "Relocated according to 'Additional permissions' applied from Article (7) of GNU GPL granted by <copyright holder of the GPL covered work>"
 
-Permission is here by granted, to entities who accept the GNU GENERAL PUBLIC LICENSE Version 3, the behaviour of using relocateable unit
-in software solely in accordance with the instructions defined in the header file, in a way that explicitly stated, such
-software is considered as "aggregate" in GNU GPL article (5). Using the covered work in such way does not form a larger
-covered work.
+### Termination.
 
-### 2. Termination. 
+if such behaviour, stated in Additional Permissions, article (1), making software which uses any of the relocatable units under Anti-Circumvention Law, including:
 
-if such behaviour, stated in Additional Permissions, article (1), making software which uses any of the relocateable units 
-under Anti-Circumvention Law, including:
 - article 11 of the WIPO copyright treaty adopted on 20 Dec 1996
 - section 1201 of the Digital Millennium Copyright Act adopted on 28 Oct 1998
 - Copyright and Information Society Directive 2001 (2001/29/EC)
 
-Or other similar laws, permission granted in article (1) will be withdrawn and terminate. 
+Or other similar laws, permission granted in article (1) will be withdrawn and terminated.
+
 
 &nbsp;
 
