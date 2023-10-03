@@ -5,12 +5,14 @@
 #include "../backend.c"
 
 void test_backend_add_key_and_get_key(){
-	Data header;
-
+	
+	// Create 3 keys
 	Key key1, key2, key3;
 
 	key1.key_or_keyfile_location = "hello world1";
 	key1.key_type = EMOBJ_key_file_type_key;
+	uint8_t inited_key[HASHLEN];
+	init_key(key1, inited_key);
 
 	key2.key_or_keyfile_location = "hello world2";
 	key2.key_type = EMOBJ_key_file_type_key;
@@ -18,24 +20,42 @@ void test_backend_add_key_and_get_key(){
 	key3.key_or_keyfile_location = "hello world3";
 	key3.key_type = EMOBJ_key_file_type_key;
 
+	
+	// set master key
 	uint8_t master_key[HASHLEN];
-	memcpy(master_key, "012345678901234567890123456789012", strlen("012345678901234567890123456789012") - 1);
-
-	initialize_unlock_header_and_master_key(&header, master_key, NULL, 0, 4000);
-
-	int slot = add_key_from_decrypted_data_using_master_key(&header, master_key, key1, 100000, -1);
+	memcpy(master_key, (void *)"012345678901234567890123456789012", strlen("012345678901234567890123456789012") - 1);
 	
+	// initialize header
+	Data header;
+	initialize_new_header(&header, NULL, 0, 4000);
+	
+	
+	// test unlock
+	int slot = add_key_from_decrypted_data_using_master_key(&header, master_key, key1, 3, 100000, -1);
 	assert(memcmp(header.metadata.all_key_mask[slot], header.keys[slot].key_mask, HASHLEN) == 0);
+	assert(memcmp(header.metadata.inited_key[slot], inited_key, HASHLEN) == 0);
+	assert(slot == 3);
 
-	add_key_from_decrypted_data_using_master_key(&header, master_key, key2, 100000, -1);
-
-	add_key_from_decrypted_data_using_master_key(&header, master_key, key3, 100000, -1);
+	slot = add_key_from_decrypted_data_using_master_key(&header, master_key, key2, 2, 100000, -1);
+	assert(memcmp(header.metadata.all_key_mask[slot], header.keys[slot].key_mask, HASHLEN) == 0);
+	assert(slot == 2);
 	
+	slot = add_key_from_decrypted_data_using_master_key(&header, master_key, key3, 2, 100000, -1);
+	assert(slot != 2); // slot should not be the same, since slot 2 has been occupied by key2.
+	
+	
+	// error should pop up when add existing key
+	print_error_suppress = true;
+	add_key_from_decrypted_data_using_master_key(&header, master_key, key3, -1, 100000, -1);
+	assert(print_error_suppress == false);
+	
+	
+	// lock the metadata
+	assert(operate_metadata_using_master_key(&header.metadata, master_key, header.master_key_mask));
 
-	operate_metadata_using_master_key(&header.metadata, master_key, header.master_key_mask, false);
-
+	
+	// check unlock
 	fill_secure_random_bits(master_key, HASHLEN);
-
 	get_master_key(header, master_key, key1, -1, 200000, -1);
 	assert(memcmp(master_key, "012345678901234567890123456789012", HASHLEN) == 0);
 
@@ -46,26 +66,24 @@ void test_backend_add_key_and_get_key(){
 	fill_secure_random_bits(master_key, HASHLEN);
 	get_master_key(header, master_key, key2, -1, 200000, -1);
 	assert(memcmp(master_key, "012345678901234567890123456789012", HASHLEN) == 0);
-
 }
 
-void test_create_open_chain(){
+void test_create_open_chain(char * device_){
 	is_running_as_root();
 	Key key;
 	key.key_or_keyfile_location = "hello world1";
 	key.key_type = EMOBJ_key_file_type_key;
 	uint8_t master_key[HASHLEN];
+	
 
-	char * device = "/dev/sdb";
-
-	action_create(device, NULL, key, 10000, -1, true);
-	action_open(device, "my_crypt_device", &key, master_key, -1, 30000, -1, false, false, false);
-//
+	action_create(device_, NULL, key, -1, 10000, -1, false);
+	action_open(device_, "my_crypt_device", &key, master_key, -1, 30000, -1, false, false, false);
+	
 	action_close("my_crypt_device");
 }
 
-void test_backend(){
+void test_backend(char * device){
 //	ask_for_conformation("hello world");
 	test_backend_add_key_and_get_key();
-//	test_create_open_chain();
+	test_create_open_chain(device);
 }

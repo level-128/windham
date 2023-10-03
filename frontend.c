@@ -15,6 +15,7 @@ enum {
 	NMOBJ_key_file,
 	NMOBJ_master_key,
 	NMOBJ_target_slot,
+	NMOBJ_unlock_slot,
 	NMOBJ_max_unlock_mem,
 	NMOBJ_max_unlock_time,
 	NMOBJ_target_mem, //AddKey only
@@ -42,6 +43,7 @@ const struct option long_options[] = {
 		{"key-file",          required_argument, &options[NMOBJ_key_file],        1},
 		{"master-key",        required_argument, &options[NMOBJ_master_key],      1},
 		{"target-slot",       required_argument, &options[NMOBJ_target_slot],     1},
+		{"unlock-slot",       required_argument, &options[NMOBJ_unlock_slot],     1},
 		{"max-unlock-memory", required_argument, &options[NMOBJ_max_unlock_mem],  1},
 		{"max-unlock-time",   required_argument, &options[NMOBJ_max_unlock_time], 1},
 		{"target-memory",     required_argument, &options[NMOBJ_target_mem],      1},
@@ -61,15 +63,15 @@ const struct option long_options[] = {
 
 const int8_t check_allowed[] =
 		// Open
-		{NMOBJ_map_to, NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_readonly,
+		{NMOBJ_map_to, NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_readonly,
 		 NMOBJ_target_dry_run, NMOBJ_target_decoy, NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
 				// Close
 		 NMOBJ_target_noadmin, -1,
 				// New
-		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_format,
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot,  NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_format,
 		 NMOBJ_target_decoy, NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
 				// AddKey
-		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time,
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time,
 		 NMOBJ_target_decoy, NMOBJ_target_noadmin, NMOBJ_target_yes, -1,
 				// RevokeKey
 		 NMOBJ_key, NMOBJ_key_file, NMOBJ_target_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_all, NMOBJ_target_obliterate,
@@ -294,6 +296,7 @@ frontend_create_key(params, &key);\
 void frontend_check_validity_and_execute(int action_num, char * device, char * params[]) {
 	uint8_t master_key[HASHLEN];
 	int target_slot = -1;
+	int unlock_slot = -1;
 	uint64_t target_mem = 0;
 	uint64_t max_unlock_mem = 0;
 	double target_time = DEFAULT_TARGET_TIME;
@@ -329,6 +332,11 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		if (*end != '\0') { print_error("bad input for argument --target-slot: not an integer"); }
 		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT) { print_error("bad input for argument --target-slot: slot out of range"); }
 	}
+	if (options[NMOBJ_unlock_slot] == 1) {
+		target_slot = (int) strtoimax(params[NMOBJ_unlock_slot], &end, 10);
+		if (*end != '\0') { print_error("bad input for argument --unlock-slot: not an integer"); }
+		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT) { print_error("bad input for argument --unlock-slot: slot out of range"); }
+	}
 	if (options[NMOBJ_target_mem] == 1) {
 		target_mem = strtoull(params[NMOBJ_target_mem], &end, 10);
 		if (*end != '\0') { print_error("bad input for argument --target-memory: not an positive integer"); }
@@ -358,7 +366,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			
 			ASK_KEY
 			
-			target_slot = action_open(device, params[NMOBJ_map_to], options[NMOBJ_master_key] ? NULL : &key, master_key, target_slot, max_unlock_mem, max_unlock_time,
+			target_slot = action_open(device, params[NMOBJ_map_to], options[NMOBJ_master_key] ? NULL : &key, master_key, unlock_slot, max_unlock_mem, max_unlock_time,
 											  options[NMOBJ_target_readonly], options[NMOBJ_target_dry_run], options[NMOBJ_target_decoy]);
 			if (options[NMOBJ_target_dry_run]) {
 				printf("dry run complete. Slot %i opened with master key:\n", target_slot);
@@ -378,14 +386,14 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 				ASK_KEY
 				
 				ask_for_conformation("Creating encrypt partition on device: %s, All content will be lost. Continue?", device);
-				action_create(device, params[NMOBJ_encrypt_type], key, target_mem, target_time, options[NMOBJ_target_decoy]);
+				action_create(device, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
 			}
 			break;
 		case 3:
 			
 			ASK_KEY
 			
-			action_addkey(device, &key, master_key, target_slot, max_unlock_mem, max_unlock_time, target_mem, target_time, options[NMOBJ_target_decoy]);
+			action_addkey(device, &key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
 			break;
 		case 4:
 			if (target_slot == -1 && options[NMOBJ_target_obliterate] == 0) {

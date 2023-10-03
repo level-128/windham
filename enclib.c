@@ -31,20 +31,27 @@
 #error "the program only supports platform with uint8_t defined"
 #endif
 
+#if KEY_SLOT_EXP_MAX % 4 != 0
+	#error "KEY_SLOT_EXP_MAX must devideable by 4, ensuring Key_slot is AES blocksize alligned."
+#endif
+
 const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 59874, 162755, 442413, 1202604,
 									 3269017, 8886111, 24154953, 65659969, 178482301, 485165195};
+
 
 FILE * random_fd;
 
 typedef struct __attribute__((packed)) {
-	uint8_t hash_salt[HASHLEN];
-	uint8_t len_exp[KEY_SLOT_EXP_MAX][4];
-	uint8_t key_mask[HASHLEN];
+	uint8_t hash_salt[HASHLEN]; // 256b
+	uint8_t len_exp[KEY_SLOT_EXP_MAX][4]; // 32b each
+	uint8_t key_mask[HASHLEN]; // 256b
 } Key_slot;
 
 typedef struct __attribute__((packed)) {
-	bool key_slot_is_used[KEY_SLOT_COUNT];
+	uint8_t inited_key[KEY_SLOT_COUNT][HASHLEN];
 	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
+	bool key_slot_is_used[KEY_SLOT_COUNT];
+	uint8_t disk_key_mask[HASHLEN];
 	uint64_t start_sector;
 	uint64_t end_sector;  // in sector
 	char enc_type[32];
@@ -219,21 +226,18 @@ void set_master_key_to_slot(Key_slot * key_slot, const uint8_t password_hash[HAS
 //	print("set hashed password:");
 //	print_hex_array(new_hash, HASHLEN);
 	xor_with_len(HASHLEN, new_hash, master_key, key_slot->key_mask);
+	
 }
 
-void get_metadata_key_and_disk_key_from_master_key(const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN], uint8_t metadata_key[HASHLEN], uint8_t
-disk_key[HASHLEN]) {
+void get_metadata_key_or_disk_key_from_master_key(const uint8_t master_key[32], const uint8_t mask[32], uint8_t key[32]) {
 	uint8_t inter_key[HASHLEN];
 	memcpy(inter_key, master_key, HASHLEN);
 	for (int i = 0; i < HASHLEN; i++) {
-		inter_key[i] = master_key[i] ^ master_key_mask[i];
+		inter_key[i] = master_key[i] ^ mask[i];
 	}
-	if (metadata_key != NULL) {
-		argon2id_hash_raw(1, BASE_MEM_COST, PARALLELISM, master_key, HASHLEN, "the hash of metadata key", strlen("the hash of metadata key"), metadata_key, HASHLEN);
-	}
-	if (disk_key != NULL) {
-		argon2id_hash_raw(1, BASE_MEM_COST, PARALLELISM, inter_key, HASHLEN, "the hash of disk key", strlen("the hash of disk key"), disk_key, HASHLEN);
-	}
+
+	argon2id_hash_raw(1, BASE_MEM_COST * 4, PARALLELISM, inter_key, HASHLEN, "level-128!level-128!", strlen("level-128!level-128!"), key, HASHLEN);
+	
 }
 
 uint64_t calc_initial_pw_hash_and_iter_cnt(Data * self, uint8_t * inited_key, int target_slot, uint64_t max_mem_size, double time_limit, uint8_t
@@ -260,28 +264,29 @@ password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN], uint8_t password_hash[HASHLEN]
 	return max_mem_size;
 }
 
-void operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN], bool is_decrypt) {
+bool operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t metadata_key_mask[HASHLEN]) {
 	uint8_t metadata_key[HASHLEN];
 	uint8_t iv[HASHLEN];
 	
-	get_metadata_key_and_disk_key_from_master_key(master_key, master_key_mask, metadata_key, NULL);
-	sha256_digest_all(metadata_key, HASHLEN, iv);
+	get_metadata_key_or_disk_key_from_master_key(master_key, metadata_key_mask, metadata_key);
 	
 	struct AES_ctx ctx;
 	AES_init_ctx_iv(&ctx, metadata_key, iv);
 	
-	if (is_decrypt) {
+	
+	if (metadata->check_key_magic_number != CHECK_KEY_MAGIC_NUMBER) {
 		AES_CBC_decrypt_buffer(&ctx, (uint8_t *) metadata, sizeof(Metadata));
-
+		return metadata->check_key_magic_number == CHECK_KEY_MAGIC_NUMBER;
 	} else {
 		AES_CBC_encrypt_buffer(&ctx, (uint8_t *) metadata, sizeof(Metadata));
+		return true;
 	}
 }
 
-void initialize_unlock_header_and_master_key(Data * uninitialized_header, uint8_t master_key[32], const char * enc_type, size_t start_sector, size_t end_sector) {
+void initialize_new_header(Data * uninitialized_header, const char * enc_type, size_t start_sector, size_t end_sector) {
 	fill_secure_random_bits((uint8_t *) uninitialized_header, sizeof(Data));
 	
-	operate_metadata_using_master_key(&uninitialized_header->metadata, master_key, uninitialized_header->master_key_mask, true);
+//	operate_metadata_using_master_key(&uninitialized_header->metadata, master_key, uninitialized_header->master_key_mask, true);
 	memset(uninitialized_header->metadata.key_slot_is_used, false, sizeof(uninitialized_header->metadata.key_slot_is_used));
 	if (enc_type != NULL) {
 		strcpy(uninitialized_header->metadata.enc_type, enc_type);
@@ -290,8 +295,11 @@ void initialize_unlock_header_and_master_key(Data * uninitialized_header, uint8_
 	}
 	uninitialized_header->metadata.check_key_magic_number = CHECK_KEY_MAGIC_NUMBER;
 	
-		uninitialized_header->metadata.start_sector = start_sector;
-		uninitialized_header->metadata.end_sector = end_sector;
+	uninitialized_header->metadata.start_sector = start_sector;
+	uninitialized_header->metadata.end_sector = end_sector;
+	
+	memset(uninitialized_header->metadata.inited_key, 0, sizeof(uninitialized_header->metadata.inited_key));
+	
 }
 
 void revoke_given_key_slot(Data * initialized_header, int target_slot, bool is_tag_revoke) {
@@ -301,19 +309,39 @@ void revoke_given_key_slot(Data * initialized_header, int target_slot, bool is_t
 	}
 }
 
-void register_key_slot_as_used(Data * decrypted_header, int slot) {
+void register_key_slot_as_used(Data * decrypted_header, uint8_t inited_key[HASHLEN], int slot) {
 	decrypted_header->metadata.key_slot_is_used[slot] = true;
 	memcpy(decrypted_header->metadata.all_key_mask[slot], decrypted_header->keys[slot].key_mask, HASHLEN);
+	memcpy(decrypted_header->metadata.inited_key[slot], inited_key, HASHLEN);
 }
 
-int select_available_key_slot(const Metadata decrypted_metadata, Key_slot keys[KEY_SLOT_COUNT]) {
-	int target_slot = -1;
+
+enum {
+	NMOBJ_select_available_key_slot_NO_FREE_SLOT = -1,
+	NMOBJ_select_available_key_slot_PWD_USED = -2,
+};
+
+
+int select_available_key_slot(const Metadata decrypted_metadata, int target_slot, Key_slot keys[KEY_SLOT_COUNT]) {
+	target_slot = target_slot == NMOBJ_select_available_key_slot_NO_FREE_SLOT ? rand() % KEY_SLOT_COUNT : target_slot;
+	if (target_slot != NMOBJ_select_available_key_slot_NO_FREE_SLOT){
+		if (decrypted_metadata.key_slot_is_used[target_slot] == false && memcmp(keys[target_slot].key_mask, decrypted_metadata.all_key_mask[target_slot], HASHLEN) != 0){
+			return target_slot;
+		}
+	}
+	
+	target_slot = NMOBJ_select_available_key_slot_NO_FREE_SLOT;
+	
 	for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--) {
+		if (memcmp(keys, decrypted_metadata.inited_key[i], HASHLEN) == 0){ // is key used
+			return NMOBJ_select_available_key_slot_PWD_USED;
+		}
+		
 		if (decrypted_metadata.key_slot_is_used[i] == false) {
 			target_slot = i;
 		}
 	}
-	if (target_slot == -1) {
+	if (target_slot == NMOBJ_select_available_key_slot_NO_FREE_SLOT) {
 		for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--) {
 			if (memcmp(keys[i].key_mask, decrypted_metadata.all_key_mask[i], HASHLEN) != 0) {
 				target_slot = i;
@@ -324,9 +352,6 @@ int select_available_key_slot(const Metadata decrypted_metadata, Key_slot keys[K
 }
 
 bool check_master_key_and_slots_revoke(Data * decrypted_header, bool revoked_untagged_slot[KEY_SLOT_COUNT]){
-	if (decrypted_header->metadata.check_key_magic_number != CHECK_KEY_MAGIC_NUMBER){
-		return false;
-	}
 	uint8_t temp[HASHLEN] = {0};
 	for (int i = 0; i < KEY_SLOT_COUNT; i++){
 		revoked_untagged_slot[i] = (memcmp(decrypted_header->keys[i].key_mask, decrypted_header->metadata.all_key_mask[i], HASHLEN) != 0 &&
@@ -334,7 +359,9 @@ bool check_master_key_and_slots_revoke(Data * decrypted_header, bool revoked_unt
 				decrypted_header->metadata.key_slot_is_used[i]);
 		if (revoked_untagged_slot[i]){
 			memset(decrypted_header->metadata.all_key_mask[i], 0, HASHLEN);
+			memset(decrypted_header->metadata.inited_key[i], 0, HASHLEN);
 		}
 	}
 	return true;
 }
+

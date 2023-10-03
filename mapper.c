@@ -225,3 +225,4 @@ void write_header_to_device(const Data * data, const char * device, int64_t offs
 	
 	fclose(fp);
 }
+

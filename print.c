@@ -1,6 +1,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 
 #pragma once
@@ -66,11 +67,19 @@
 #define print(...) 0
 #endif
 
+extern bool print_error_suppress = false;
+
 #define print_error(...) \
+    if (print_error_suppress){ \
+	 printf("\033[1;33mSUPPRESS_ERROR: "); \
+    print(__VA_ARGS__);           \
+    printf("\033[0m");   \
+	 print_error_suppress = false;\
+	 } else {                    \
     printf("\033[1;31mERROR: "); \
     print(__VA_ARGS__);           \
     printf("\033[0m");   \
-    exit(EXIT_FAILURE)
+    exit(EXIT_FAILURE);}
 
 #define print_error_no_exit(...) \
     printf("\033[1;31mERROR: "); \
