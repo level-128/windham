@@ -15,39 +15,101 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-## "Additional permissions" applied from article (7) when using, propagating and conveying the unmodified covered work
+
+
+## "Additional permissions" applied from Article (7) when using, propagating and conveying the unmodified covered work
 
 ### 0. Definitions
 
-- The term "external behaviour" is defined as: 1. input and output to or from the program; 2. the physical compute resources
-  that the program uses to execute.
+- The term "external behaviour" is defined as: 1. input and output to or from the program; 2. the physical compute resources that the program uses to execute.
 
+- To "relocate" the source code means modifying the source code in a way that: 1. yields the same external behaviour before and after converting the source code to the object code, under either the standard of the programming language or to all implementations that are able to generate object code; 2. For all subroutines within the relocated code, if such subroutine could perform a "relocate" action before relocating the source code that contains such subroutine, such subroutine should be able to perform such action after the relocation of the source code that contains such subroutine.
 
-- To "relocate" the source code means modifying the source code in a way that: 1. yields the same external behaviour before and after converting the source code to the object code, under either the 
-standard of the programming language or to all implementations that are able to generate object code; 2. 
-For all subroutines within the relocated code, if such subroutine could perform a "relocate" action before relocating the
-source code that contains such subroutine, such subroutine should be able to perform such action after the relocation of the source code that contains such subroutine.
+- "Header File": defined as documentation (machine-readable or human-readable) showing how to operate, call, use, or execute a program that is possible to perform a "relocate" action to its corresponding source code. 
 
+### Permissions
 
-- "Header File" defined as a documentation (machine-readable or human-readable) showing how to operate, call, use or execute 
-a program that is possible to perform a "relocate" action to its source code.
+Permission is here by granted, to entities who accept the GNU GENERAL PUBLIC LICENSE Version 3, the behaviour of using relocatable unit in software solely in accordance with the instructions defined in the header file, in a way that explicitly stated, such software is considered as "aggregate" in GNU GPL article (5). Using the covered work in such a way does not form a larger covered work when:
 
-### 1. Permissions
+- tagging each relocated subroutine with notice: "Relocated according to 'Additional permissions' applied from Article (7) of GNU GPL granted by \<copyright holder of the GPL covered work\>"
 
-Permission is here by granted, to entities who accept the GNU GENERAL PUBLIC LICENSE Version 3, the behaviour of using relocateable unit
-in software solely in accordance with the instructions defined in the header file, in a way that explicitly stated, such
-software is considered as "aggregate" in GNU GPL article (5). Using the covered work in such way does not form a larger
-covered work.
+### Termination.
 
-### 2. Termination. 
+if such behaviour, stated in Additional Permissions, article (1), making software which uses any of the relocatable units under Anti-Circumvention Law, including:
 
-if such behaviour, stated in Additional Permissions, article (1), making software which uses any of the relocateable units 
-under Anti-Circumvention Law, including:
 - article 11 of the WIPO copyright treaty adopted on 20 Dec 1996
 - section 1201 of the Digital Millennium Copyright Act adopted on 28 Oct 1998
 - Copyright and Information Society Directive 2001 (2001/29/EC)
 
-Or other similar laws, the permission granted in article (1) of the Additional Agreement will be withdrawn.
+Or other similar laws, permission granted in article (1) will be withdrawn and terminated.
+
+
+&nbsp;
+
+### U.S. Encryption Export Regulations
+
+Windham is classified under ECCN 5D002 that provides or performs “non-standard cryptography” as defined in part 772 
+of the EAR, and is subject to Export Administration Regulation jurisdiction from the Bureau of Industry and Security.
+A notification to BIS and the ENC Encryption Request Coordinator via email of the internet location (e.g., URL or internet
+address) of the source code is required when the cryptographic functionality of the source code is updated or modified.
+This can be done by notifying level-128 (Email: <level-128@gmx.com>) when making contributions or forking the software.
+
+### Evidence of notification to BIS and NSA (e-mail original text):
+
+```
+Content-Type: multipart/alternative;
+ boundary="------------ESV25Eb8uSNoZ5cuA9wJUqH2"
+Message-ID: <c2a764ee-cc35-4749-8ff7-805f43ec4757@gmx.com>
+Date: Wed, 20 Sep 2023 18:08:22 -0400
+MIME-Version: 1.0
+User-Agent: Mozilla Thunderbird
+Content-Language: en-US
+To: crypt@bis.doc.gov, enc@nsa.gov
+From: Weizheng Wang <level-128@gmx.com>
+Subject: Notification of Public Release for Encryption Source Code under ECCN
+ 5D002 in compliance with Section 742.15(b)(2)
+
+This is a multi-part message in MIME format.
+--------------ESV25Eb8uSNoZ5cuA9wJUqH2
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+
+To Whom It May Concern,
+
+I am writing to notify you in accordance with Section 742.15(b)(2) of 
+the Export Administration Regulations (EAR) regarding the public release 
+of encryption source code classified under ECCN 5D002. The source code 
+in question utilizes "non-standard cryptography" as defined in part 772 
+of the EAR.
+
+*Initial Public Release:* This is the first time that the software is 
+being publicly released. It is available for unlimited and gratis 
+download on the internet.
+
+*URL of Source Code:* The source code, along with the relevant software, 
+can be accessed via the following URL: https://gitlab.com/level-128/windham.
+
+*Copyright Information:*
+
+  * Copyright Holder: Weizheng Wang
+  * Contact Information: level-128@gmx.com
+
+I am committed to complying with all applicable regulations and would be 
+happy to provide further information if needed. If you have any 
+questions or require additional details, please feel free to contact me 
+at the email address mentioned above.
+
+Thank you for your attention to this matter. We look forward to your 
+acknowledgment of this notification.
+
+
+Sincerely,
+
+Weizheng Wang
+
+level-128@gmx.com
+
+```
 
 &nbsp;
 

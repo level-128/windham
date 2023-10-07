@@ -17,15 +17,14 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 file(GLOB Argon2_SRC ${CMAKE_SOURCE_DIR}/library/Argon2/*.c)
-file(GLOB speck_SRC ${CMAKE_SOURCE_DIR}/library/speck/*.c)
 file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
 file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
 
 
 function(add_argon2_and_executables_for_arch arch)
 
-    add_executable(windham frontend.c ${Argon2_SRC} ${speck_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
-    add_executable(windham_test test/test.c ${Argon2_SRC} ${speck_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
+    add_executable(windham frontend.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
+    add_executable(windham_test test/test.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
 
     target_link_libraries(windham devmapper m)
     target_link_libraries(windham_test devmapper m)

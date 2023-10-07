@@ -73,8 +73,6 @@ static void benchmark() {
 			double run_time = 0;
 			uint32_t thread_n = thread_test[i];
 			
-			unsigned j;
-			
 			clock_t start_time, stop_time;
 			uint64_t start_cycles, stop_cycles;
 			uint64_t delta;

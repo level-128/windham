@@ -33,6 +33,7 @@ void test_metadata(){
 	
 	uint8_t masterkey[HASHLEN] = {'h', 'e', 'l', 'l', 'o'};
 	strcpy(my_data.metadata.enc_type, DEFAULT_DISK_ENC_MODE);
+	fill_secure_random_bits((uint8_t *) &my_data, sizeof(Data));
 	my_data.metadata.check_key_magic_number = CHECK_KEY_MAGIC_NUMBER;
 	assert(operate_metadata_using_master_key(&my_data.metadata, masterkey, my_data.master_key_mask));
 

@@ -139,7 +139,7 @@ void remove_crypt_mapping(const char * name) {
 	}
 }
 
-int create_crypt_mapping(const char * device, const char * name, const char * enc_type, const char * password, size_t start_sector, size_t end_sector, bool read_only) {
+int create_crypt_mapping(const char * device, const char * name, const char * enc_type, const char * password, size_t start_sector, size_t end_sector, __attribute__((unused)) bool read_only) {
 	struct dm_task * dmt;
 	char params[512];
 //	print("device size", device_size, " start sector", start_sector);
@@ -207,9 +207,9 @@ void write_header_to_device(const Data * data, const char * device, int64_t offs
 	FILE *fp;
 	size_t result;
 	
-	fp = fopen(device, "r+b");
+	fp = fopen(device, "wb"); // ensure that if 'device' is not a block device, empty the file.
 	if (fp == NULL) {
-		print_error("Failed to open block device", device);
+		print_error("Failed to open:", device);
 	}
 	
 	if (offset < 0) {
@@ -220,9 +220,8 @@ void write_header_to_device(const Data * data, const char * device, int64_t offs
 	
 	result = fwrite(data, 1, sizeof(Data), fp);
 	if (result != sizeof(Data)) {
-		print_error("Failed to write to block device", device);
+		print_error("Failed to write", device);
 	}
 	
 	fclose(fp);
 }
-
