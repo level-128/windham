@@ -62,9 +62,8 @@ way to identify it is to provide a correct key to the correct slot. It is by-des
 
 - What is the Master Key?
   - The Master Key is a unique key per device which would grant the holder full access to the encrypted drive. if your 
-master key is compromised, Anyone with a master key can unlock your device. In this case, use `windham New *device*` 
-with a random key to overwrite the original header. ALL DATA WILL BE LOST! overwrite the header multiple times is
-recommended.
+master key is compromised, Anyone with a master key can unlock your device. In this case, use `windham RevokeKey *your device* --obliterate` 
+to wipe the header. ALL DATA WILL BE LOST!
 
 &nbsp;
 
@@ -79,16 +78,16 @@ it's still not possible to decrypt, use `windham Open *device* --dry-run` to Ope
 case, the master key will be printed to the console. Then use `windham Open *device* --master-key=*your master key*` 
 to map the device on another computer. Why is windham so strangely designed? You can read this if you're interested: 
 
-To defend against brute force attacks, as well as the future attacks with transcended compute devices from the far
-future, when adding a key-phrase, the computer which performs such action will first be benchmarked, then generate
-parameters dynamically to perform as many key derivation operations as possible; such auto-adaption algorithm will
-ensure the encryption method will not be weakened in future era. Also, such parameters could not be embedded in the
-header in any way because of ensuring traceless; when a key-phrase is provided, the value from incremental blocks will be
+To defend against brute force attacks, as well as the future attacks with much more computational powerful devices from the
+future, when adding a key-phrase, the computer which performs such action will first be benchmarked; then generate
+parameters dynamically to perform as many key derivation operations as possible in a preset time limit. such auto-adaption algorithm will
+ensure the encryption created in the future will not be relatively weakened by using device-specific parameters. Such parameters could not be embedded in the
+header in any way because of ensuring traceless. when a key-phrase is provided, the value from incremental blocks will be
 computed from the last KDF iteration via one-time pad for a new parameter, which tells what memory usage and CPU time
-will be used for the next step and scales the parameters by a power of the number of iterations of the Euler's number.
-This way the metadata on the hard disk is randomized. But if a wrong pass-phrase has been provided, then the parameters
-will be wrong during each iteration, and the program will always be asked to keep calculating using larger and larger
-parameters.
+will be used for the next step and scales the parameters exponentially by the power of the iteration count.
+If a wrong pass-phrase has been provided, then the parameters yield in each step will be wrong during each iteration, 
+and the program will always be asked to keep calculating using larger and larger parameters (and it will stop after 
+reaches the threshold).
 
 &nbsp;
 
@@ -104,6 +103,19 @@ your swap space is encrypted.
 - What is a key-file?
   - Key-file is a key stored in a file; it uses the full content of the file as the key. To use Key-file as the key, use
 argument `--key-file=`.
+
+&nbsp;
+
+- When I backed up my header, I found that the header is completely different from the one located on the original disk.
+I could still unlock it with my passwords. So how and why?
+  - The header will be randomized into a 'equivalent' form when it has been modified. Each byte in the equivalent header is 
+re-randomized to hide details of each modification. For example, an attacker can make snapshots to the header each time 
+when accessing the victim's hard drive. When comparing each snapshot, the attacker could infer which key slot has been modified
+to add a new key, and the attacker could focus on brute-forcing that specific key slot to greatly accelerate it. By
+randomizing the header, and ensuring each randomized header could not be de-randomize unless the operator has a key or master
+key to the drive (also the attacker can't tell whether two headers are logically equivalent), the threat model mentioned above
+will be greatly mitigated. However, if you do not have access to the key, use `windham Backup *your device* --no-transform`
+to back up the header as is.
 
 ---
 

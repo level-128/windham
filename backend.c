@@ -387,14 +387,6 @@ int action_addkey(const char * device, const Key key, uint8_t master_key[32], in
 	return added_slot;
 }
 
-void action_create_format(const char * device, bool is_decoy){
-	ask_for_conformation("Formatting device: %s, All content will be lost. Continue?", device);
-	READ_HEADER
-	
-	fill_secure_random_bits(data.master_key_mask, HASHLEN);
-	write_header_to_device(&data, device, offset);
-}
-
 int action_revokekey(const char * device, const Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time,
 							bool is_revoke_all, bool is_obliterate, bool is_decoy){
 	

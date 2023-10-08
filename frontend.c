@@ -23,7 +23,6 @@ enum {
 	NMOBJ_encrypt_type,
 	
 	NMOBJ_target_all,
-	NMOBJ_target_format,
 	NMOBJ_target_obliterate,
 	NMOBJ_target_dry_run,
 	NMOBJ_target_no_transform,
@@ -53,7 +52,6 @@ const struct option long_options[] = {
 		{"encrypt-type",      required_argument, &options[NMOBJ_encrypt_type],    1},
 		
 		{"all",               no_argument,       &options[NMOBJ_target_all],               1},
-		{"format",            no_argument,       &options[NMOBJ_target_format],            1},
 		{"obliterate",            no_argument,       &options[NMOBJ_target_obliterate],    1},
 		{"dry-run",           no_argument,       &options[NMOBJ_target_dry_run],           1},
 		{"no-transform",           no_argument,       &options[NMOBJ_target_no_transform], 1},
@@ -74,7 +72,7 @@ const int8_t check_allowed[] =
 				// Close
 		 NMOBJ_target_noadmin, -1,
 				// New
-		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_format,
+		 NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type,
 		 NMOBJ_target_decoy, NMOBJ_target_noadmin, NMOBJ_yes, -1,
 				// AddKey
 		 CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_target_noadmin, NMOBJ_yes, -1,
@@ -187,6 +185,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 				"options:\n"
 				 FRONTEND_HELP_UNLOCK
 				"\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
+				"\t--obliterate: Wipe the header and destroy all data."
 				"\t--no-admin: forfeit checking for root privileges, may produces undefined behavior. \n"
 				"\t--yes: do not ask for explicit conformation to potential destructive operations; in this case, it may render the device inaccessible if no master key backup have "
 				"been created.\n");
@@ -252,9 +251,9 @@ void frontend_check_invalid_combo(int action_num){
 		print_error("argument --to is required under action: Open");
 	}
 	
-	if (options[NMOBJ_target_format] == 1 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] + options[NMOBJ_target_mem] +
+	if (options[NMOBJ_target_obliterate] == 1 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] + options[NMOBJ_target_mem] +
 														  options[NMOBJ_target_time] != 0) {
-		print_error("argument --format can only be use alone.");
+		print_error("argument --obliterate can only be use alone.");
 	}
 	
 	if (options[NMOBJ_target_obliterate] + options[NMOBJ_target_all] == 2){
@@ -393,14 +392,10 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			break;
 		case 2:
 			check_is_device_mounted(device);
-			if (options[NMOBJ_target_format]){
-				action_create_format(device, options[NMOBJ_target_decoy]);
-			} else {
-				
-				ASK_KEY
-				
-				action_create(device, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
-			}
+			
+			ASK_KEY
+			
+			action_create(device, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
 			break;
 		case 3:
 			
@@ -410,7 +405,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			break;
 		case 4:
 			if (target_slot == -1 && options[NMOBJ_target_obliterate] == 0) {
-				if(options[NMOBJ_target_format] == 0 && options[NMOBJ_target_all] == 0) {
+				if(options[NMOBJ_target_all] == 0) {
 					ASK_KEY
 				}
 			}
