@@ -9,11 +9,11 @@ Partition
 ## How To install?
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
-or later.) under `build` folder. **The binary is not meant for release, use it only for evaluation purposes.**
+or later.) under release.
 - Compile by your own. __Note: Untested on architectures other than X86_64, Argon2_bench is only available for X86_64__. 
 
 To compile, `libdevmapper.h` and the device-mapper subsystem is required. Install `libdevmapper-dev` on Debian-based 
-distro; or `device-mapper-devel` on Fedora-based distro.
+distro; or `device-mapper-devel` on Fedora-based / SUSE distro.
 
 
 ## Basic steps:

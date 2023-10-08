@@ -122,7 +122,10 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		print("Default encryption target time multiplier: ", DEFAULT_ENC_TARGET_TIME);
 		print("Default decryption benchmark multiplier: ", MAX_UNLOCK_TIME_FACTOR);
 		print("Default encryption type: ", DEFAULT_DISK_ENC_MODE);
-		print("\n");
+		#ifdef __GNUC__
+		printf("\nCompiler: GCC %d.%d.%d\n", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+		#endif
+		print("");
 	} else if (strcmp("--license", the_3rd_argv) == 0) {
 		printf("    Copyright (C) 2023-  W. Wang (level-128)\n"
 				"\n"

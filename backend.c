@@ -4,7 +4,7 @@
 
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <termios.h>
 
 #define MIN_KEY_CHAR 7
