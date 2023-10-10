@@ -4,8 +4,7 @@ Copyright (C) 2023-  W. Wang (level-128)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+the Free Software Foundation, version 3 only.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,7 +28,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ### Permissions
 
-Permission is here by granted, to entities who accept the GNU GENERAL PUBLIC LICENSE Version 3, the behaviour of using relocatable unit in software solely in accordance with the instructions defined in the header file, in a way that explicitly stated, such software is considered as "aggregate" in GNU GPL article (5). Using the covered work in such a way does not form a larger covered work when:
+Permission is here by granted, to entities who accept the GNU General Public Licence Version 3, the behaviour of using relocatable unit in software solely in accordance with the 
+instructions defined in the header file, in a way that explicitly stated, such software is considered as "aggregate" in GNU GPL article (5). Using the covered work in such a way does not form a larger covered work when:
 
 - tagging each relocated subroutine with notice: "Relocated according to 'Additional permissions' applied from Article (7) of GNU GPL granted by \<copyright holder of the GPL covered work\>"
 
@@ -846,26 +846,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 $Id: sha256.c 680 2003-07-25 21:57:49Z asaddi $
-
-&nbsp;
-
-### Speck 
-
-*Under folder library/speck*
-
-Copyright (c) 2016, Moritz Bitsch
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 &nbsp;
 

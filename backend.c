@@ -447,4 +447,5 @@ max_unlock_time, bool is_decoy, bool is_no_transform, bool is_restore){
 void init(){
 	init_random_generator("/dev/urandom");
 	get_system_info();
+	mapper_init();
 }

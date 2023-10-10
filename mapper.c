@@ -1,22 +1,40 @@
 //
 // Created by level-128 on 8/28/23.
 //
-#include <libdevmapper.h>
-
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <linux/fs.h>
-#include <assert.h>
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
+#include "libdevmapper.h"
+
 
 #define SECTOR_SIZE 512
 
 #pragma once
 
+typeof(dm_task_create) * p_dm_task_create;
+typeof(dm_task_set_name) * p_dm_task_set_name;
+typeof(dm_task_run) * p_dm_task_run;
+typeof(dm_task_destroy) * p_dm_task_destroy;
+typeof(dm_task_add_target) * p_dm_task_add_target;
+
+void mapper_init(){
+	void* handle = dlopen("libdevmapper.so", RTLD_LAZY);
+	if (!handle) {
+		print_error("error loading libdevmapper.so. Please install 'libdevmapper' (under debian-based distro) or 'device-mapper' (under fedora/opensuse-based distro)");
+	}
+	
+	p_dm_task_create = dlsym(handle, "dm_task_create");
+	p_dm_task_set_name = dlsym(handle, "dm_task_set_name");
+	p_dm_task_run = dlsym(handle, "dm_task_run");
+	p_dm_task_destroy = dlsym(handle, "dm_task_destroy");
+	p_dm_task_add_target = dlsym(handle, "dm_task_add_target");
+};
 
 
 void create_fat32_on_device(const char * device){
@@ -122,19 +140,20 @@ void convert_password_from_disk_key(const uint8_t master_key[32], char key[HASHL
 	key[HASHLEN * 2] = '\0';  // Null-terminate the string
 }
 
+
 void remove_crypt_mapping(const char * name) {
 	struct dm_task * dmt;
-	if (!(dmt = dm_task_create(DM_DEVICE_REMOVE))) {
+	if (!(dmt = p_dm_task_create(DM_DEVICE_REMOVE))) {
 		print_error("dm_task_create failed");
 	}
-	if (!dm_task_set_name(dmt, name)) {
+	if (!p_dm_task_set_name(dmt, name)) {
 		print_error_no_exit("dm_task_set_name failed");
-		dm_task_destroy(dmt);
+		p_dm_task_destroy(dmt);
 		exit(EXIT_FAILURE);
 	}
-	if (!dm_task_run(dmt)) {
+	if (!p_dm_task_run(dmt)) {
 		print_error_no_exit("dm_task_run failed");
-		dm_task_destroy(dmt);
+		p_dm_task_destroy(dmt);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -147,30 +166,30 @@ int create_crypt_mapping(const char * device, const char * name, const char * en
 	snprintf(params, sizeof(params), "%s %s 0 %s %zu", enc_type, password, device, start_sector);
 //	print("crypt_map argument:", params);
 	
-	if (!(dmt = dm_task_create(DM_DEVICE_CREATE))) {
+	if (!(dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
 		print_error("dm_task_create failed");
 	}
 	
-	if (!dm_task_set_name(dmt, name)) {
+	if (!p_dm_task_set_name(dmt, name)) {
 		print_error_no_exit("dm_task_set_name failed");
-		dm_task_destroy(dmt);
+		p_dm_task_destroy(dmt);
 		exit(EXIT_FAILURE);
 	}
 	
 
-	if (!dm_task_add_target(dmt, 0, end_sector - start_sector, "crypt", params)) {
+	if (!p_dm_task_add_target(dmt, 0, end_sector - start_sector, "crypt", params)) {
 		print_error_no_exit("dm_task_add_target failed");
-		dm_task_destroy(dmt);
+		p_dm_task_destroy(dmt);
 		exit(EXIT_FAILURE);
 	}
 	
-	if (!dm_task_run(dmt)) {
+	if (!p_dm_task_run(dmt)) {
 		print_error_no_exit("dm_task_run failed");
-		dm_task_destroy(dmt);
+		p_dm_task_destroy(dmt);
 		exit(EXIT_FAILURE);
 	}
 	
-	dm_task_destroy(dmt);
+	p_dm_task_destroy(dmt);
 	return 0;
 }
 

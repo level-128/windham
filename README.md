@@ -133,7 +133,7 @@ unmodified covered work. For details, see file `license.md`.
 
 ### U.S. Encryption Export Regulations
 
-Windham is classified under ECCN 5D002 that provides or performs “non-standard cryptography” as defined in part 772 
+Windham is classified under ECCN 5D002 that provides or performs "non-standard cryptography" as defined in part 772 
 of the EAR, and is subject to Export Administration Regulation jurisdiction from the Bureau of Industry and Security.
 A notification to BIS and the ENC Encryption Request Coordinator via email of the internet location (e.g., URL or internet
 address) of the source code is required when the cryptographic functionality of the source code is updated or modified.

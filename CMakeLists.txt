@@ -31,7 +31,6 @@ function(add_argon2_and_executables_for_arch arch)
     endif()
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         add_executable(windham_test test/test.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
-        target_link_libraries(windham_test devmapper m)
         set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
         install(TARGETS windham_test
                 RUNTIME DESTINATION bin
@@ -39,7 +38,6 @@ function(add_argon2_and_executables_for_arch arch)
     endif()
 
     add_executable(windham_${arch} frontend.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
-    target_link_libraries(windham_${arch} devmapper m)
     set_target_properties(windham_${arch} PROPERTIES COMPILE_FLAGS "-march=${arch} -mtune=intel")
     install(TARGETS windham_${arch}
             RUNTIME DESTINATION bin)
