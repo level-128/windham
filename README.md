@@ -6,6 +6,8 @@ Partition
 
 **_!!!! This software is in an unstable stage. Use it only for evaluation purposes. !!!!_**
 
+# This version is no longer maintained. 
+
 ## How To install?
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
