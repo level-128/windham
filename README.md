@@ -12,8 +12,8 @@ You can Choose to:
 or later.) under release.
 - Compile by your own. __Note: Untested on architectures other than X86_64, Argon2_bench is only available for X86_64__. 
 
-To compile, `libdevmapper.h` and the device-mapper subsystem is required. Install `libdevmapper-dev` on Debian-based 
-distro; or `device-mapper-devel` on Fedora-based / SUSE distro.
+the device-mapper subsystem is required. Install `libdevmapper` on Debian-based 
+distro; or `device-mapper` on Fedora-based / SUSE distro.
 
 
 ## Basic steps:
