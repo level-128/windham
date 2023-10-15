@@ -15,15 +15,25 @@ void test_set_get_master_key(){
 	Data my_data;
 	fill_secure_random_bits((uint8_t *)&my_data, sizeof(my_data));
 
-	uint8_t masterkey[HASHLEN]  = {'h', 'e', 'l', 'l', 'o'};;
-	uint8_t password_set[HASHLEN];
+	uint8_t masterkey[HASHLEN];
+	uint8_t password_set[KEY_SLOT_COUNT][HASHLEN];
+	int slot_seq[KEY_SLOT_COUNT + 1] = {0, -1};
+	
+	
+	fill_secure_random_bits((uint8_t *) password_set, HASHLEN);
+	for (int i = 1; i < KEY_SLOT_COUNT; i++){
+		memcpy(password_set[i], password_set[0], HASHLEN);
+	}
 	
 	strcpy((char *) password_set, "hello world!"); // "hello world!" plus random uninitialized memory
-	set_master_key_to_slot(&my_data.keys[0], password_set, 15000, (uint8_t *) "a master key example.          ");
+	set_master_key_to_slot(&my_data.keys[0], (const uint8_t *) password_set, 150000000000, 1, (uint8_t *) "a master key example.          ");
 	
 	fill_secure_random_bits(masterkey, HASHLEN);
-
-	get_master_key_from_slot(&my_data.keys[0], password_set, 20000, masterkey);
+	
+	int unlocked_slot = read_key_from_all_slots(my_data.keys, password_set, slot_seq, 200000000000, 4);
+	xor_with_len(HASHLEN, password_set[unlocked_slot], my_data.keys[unlocked_slot].key_mask, masterkey);
+	
+	assert(unlocked_slot == 0);
 	assert(strcmp((char *) masterkey, "a master key example.          ") == 0);
 	
 };

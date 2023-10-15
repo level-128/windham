@@ -88,4 +88,6 @@ data.Metadata.payload_offset|                         ...                       
 
 In this diagram, both `Metadata` and `Keys` are encrypted, representing the data section and key slots respectively. Each encryption header has `KEY_SLOT_COUNT` slots (default: 6; changes require recompilation). They both use parts of `master_key_mask` as the initial vector. Subsequently, for each key slot, the initial key obtained from passing the user-entered password through SHA256 is XOR'd with `master_key_mask` to be used as the password for each `Keys`. AES-CBC is then employed to decrypt each `Keys`, followed by key derivation (details of which will be discussed in the next chapter). The data decrypted from each key slot is cryptographically random.
 
+## Tamper 
+
 # TODO

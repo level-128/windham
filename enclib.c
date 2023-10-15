@@ -15,7 +15,7 @@
 #define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
 #define CHECK_KEY_MAGIC_NUMBER 0x1373112813731128
 #define DEFAULT_TARGET_TIME 1
-#define MAX_UNLOCK_TIME_FACTOR 4
+#define MAX_UNLOCK_TIME_FACTOR 3
 
 
 #define ECB 0
@@ -58,11 +58,11 @@ typedef struct __attribute__((packed)) {
 
 typedef struct __attribute__((packed)) STR_data {
 	__attribute__((unused)) uint8_t head[16]; // '\xe8' '\xb4' '\xb4' '\xe8' '\xb4' '\xb4' 'l' 'e' 'v' 'e' 'l' '-' '1' '2' '8' '!'
+	uint8_t master_key_mask[HASHLEN];
+	Key_slot keys[KEY_SLOT_COUNT];
 	Metadata metadata;
 	__attribute__((unused)) uint8_t AES_align[
 			(AES_BLOCKLEN - (sizeof(Metadata) % AES_BLOCKLEN)) % AES_BLOCKLEN];
-	uint8_t master_key_mask[HASHLEN];
-	Key_slot keys[KEY_SLOT_COUNT];
 } Data;
 
 #pragma once
@@ -102,43 +102,27 @@ void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b[length
 	}
 }
 
-void generate_random_numbers(uint8_t x, uint8_t numbers[4]) {
-	if (x == 0) {
-		memset(numbers, 0, 4);
-		return;
-	}
-	uint8_t rand1 = random();
-	uint8_t rand2 = random();
-	
-	numbers[0] = x + ((rand1 + rand2) % x);
-	numbers[1] = x - ((rand1 - rand2) % x);
-	numbers[2] = x + ((-rand1 + rand2) % x);
-	numbers[3] = x - ((-rand1 - rand2) % x);
-	
-}
-
-
-void write_or_read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index,
-																			 uint8_t salt[], uint64_t * mem_size, bool is_write) {
+uint64_t write_or_read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index,
+																			 uint8_t salt[], bool is_write) {
 //	print("read:", (uint32_t) *key_slot->len_exp[len_exp_index]);
 //	print_hex_array(hash, HASHLEN);
-	uint8_t plain_text[4];
 	if (is_write) {
-		uint64_t mem_size_write = *mem_size / exp_val[len_exp_index];
-		generate_random_numbers(mem_size_write, plain_text);
+		uint8_t plain_text[4] = {0, 0, 0, 0};
 		xor_with_len(sizeof(uint8_t) * 4, hash, plain_text, key_slot->len_exp[len_exp_index]); //
 		
 		memcpy(&salt[HASHLEN + len_exp_index * sizeof(uint8_t) * 4], key_slot->len_exp[len_exp_index], sizeof(uint8_t) * 4);
-		
 		// hash has uint8_t[8] len, plain_text and cipher text has uint8_t[4]
-
+		
+		return 0;
+		
 	} else {
+		uint8_t plain_text[4];
 		memcpy(&salt[HASHLEN + len_exp_index * sizeof(uint8_t) * 4], key_slot->len_exp[len_exp_index], sizeof(uint8_t) * 4);
 		
 		xor_with_len(sizeof(uint8_t) * 4, hash, key_slot->len_exp[len_exp_index], plain_text);
 		
-		*mem_size = (plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3]) / 4;
-		*mem_size *= exp_val[len_exp_index];
+		uint64_t mem_size = (plain_text[0] + plain_text[1] + plain_text[2] + plain_text[3]) / 4;
+		return mem_size * exp_val[len_exp_index];
 	}
 //	print("write_or_read_mem_count_from_len_exp_and_update_salt", (uint32_t) *plain_text, "enc text:", *mem_size, "with key:", (uint32_t) *hash);
 }
@@ -154,67 +138,91 @@ void argon2id_hash_calc(const uint8_t pwd[HASHLEN], uint_fast8_t len_exp_index, 
 }
 
 
-bool calc_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size) {
+int read_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size) {
 	uint8_t new_pwd[HASHLEN];
-
-	
-//	print("calc_key_one_step:", len_exp_index, max_mem_size);
 	uint64_t required_mem_size;
-	write_or_read_mem_count_from_len_exp_and_update_salt(key_slot, password_hash, len_exp_index, salt, &required_mem_size, false);
+	
+	required_mem_size = write_or_read_mem_count_from_len_exp_and_update_salt(key_slot, password_hash, len_exp_index, salt, false);
 	if (required_mem_size > max_mem_size) {
-		return false;
+		return 0;
 	}
 	argon2id_hash_calc(password_hash, len_exp_index, salt , new_pwd, required_mem_size);
 	memcpy(password_hash, new_pwd, HASHLEN);
-	return true;
+	return required_mem_size == 0? 2 : 1;
 }
 
-void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t target_mem_size) {
+int read_key_from_all_slots(Key_slot key_slot[KEY_SLOT_COUNT], uint8_t inited_keys[KEY_SLOT_COUNT][HASHLEN], const int slot_seq[KEY_SLOT_COUNT + 1], uint64_t max_mem_size, double target_time) {
+	
+	// initialize salt array
+	uint8_t salts[KEY_SLOT_COUNT][HASHLEN + KEY_SLOT_EXP_MAX * 4];
+	for (int i = 0; slot_seq[i] != -1; i++){
+		memcpy(salts[slot_seq[i]], key_slot[slot_seq[i]].hash_salt, HASHLEN);
+	}
+	
+	
+	int is_continue_calc_s[KEY_SLOT_COUNT];
+	memset(is_continue_calc_s, 1, sizeof(int) * KEY_SLOT_COUNT);
+	
+	clock_t start_time = clock();
+	target_time = slot_seq[1] == -1 ? target_time : target_time * KEY_SLOT_COUNT;
+	int correct_slot = -1;
+	
+	for (int i = 0; i < KEY_SLOT_EXP_MAX; i++) {
+		for (int j = 0; slot_seq[j] != -1; j++) {
+			int slot = slot_seq[j];
+			if (correct_slot != -1 && correct_slot != slot) {
+				continue;
+			}
+			if (correct_slot == -1 && ((double) clock() - (double) start_time) / CLOCKS_PER_SEC > target_time) {
+				break;
+			}
+			
+			if (is_continue_calc_s[slot] != 0) {
+				is_continue_calc_s[slot] = read_key_one_step(&key_slot[slot], i, inited_keys[slot], salts[slot], max_mem_size);
+				if (is_continue_calc_s[slot] == 2) {
+					correct_slot = slot;
+				}
+			}
+		}
+	}
+	return correct_slot;
+}
+
+void write_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4]) {
 //	print("write_key_one_step:", len_exp_index, target_mem_size);
 	uint8_t new_pwd[HASHLEN];
-	write_or_read_mem_count_from_len_exp_and_update_salt(key_slot, password_hash, len_exp_index, salt, &target_mem_size, true);
-	argon2id_hash_calc(password_hash, len_exp_index, salt , new_pwd, target_mem_size);
+	write_or_read_mem_count_from_len_exp_and_update_salt(key_slot, password_hash, len_exp_index, salt, true);
+	argon2id_hash_calc(password_hash, len_exp_index, salt , new_pwd, 0);
 	memcpy(password_hash, new_pwd, HASHLEN);
 }
 
-bool argon2id_iter_hash_one_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint8_t new_hash[HASHLEN], uint64_t max_mem_size, bool is_new_pw) {
+void write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uint64_t max_mem_size, double target_time) {
 	uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4];
-	
 	memcpy(salt, key_slot->hash_salt, HASHLEN);
-	memcpy(new_hash, password_hash, HASHLEN);
-	bool is_memory_enough = true;
+	
+	bool is_continue_calc = true;
+	clock_t start_time = clock();
 	for (int_fast8_t i = 0; i < KEY_SLOT_EXP_MAX; i++) {
-		if (is_memory_enough) {
-			is_memory_enough = calc_key_one_step(key_slot, i, new_hash, salt, max_mem_size);
+		if (is_continue_calc) {
+			is_continue_calc = ((double) clock() - (double) start_time) / CLOCKS_PER_SEC < target_time * 0.75;
 		}
-		if (!is_memory_enough) {
-			if (!is_new_pw) {
-				return false;
-			}
-			write_key_one_step(key_slot, i, new_hash, salt, 0);
+		if (is_continue_calc) {
+			// read_key_one_step will determine whether the memory is enough
+			is_continue_calc = read_key_one_step(key_slot, i, hash, salt, max_mem_size);
+		}
+		if (!is_continue_calc) {
+			write_key_one_step(key_slot, i, hash, salt);
 		}
 	}
-	return true;
 }
 
-bool get_master_key_from_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t max_mem_size, uint8_t master_key[HASHLEN]) {
-//	print("get_master_key_from_slot pwhash");
-//	print_hex_array(password_hash, HASHLEN);
-	uint8_t new_hash[HASHLEN];
-	if (argon2id_iter_hash_one_slot(key_slot, password_hash, new_hash, max_mem_size, false) == false) {
-		return false;
-	}
-
-	xor_with_len(HASHLEN, new_hash, key_slot->key_mask, master_key);
-	return true;
-}
-
-void set_master_key_to_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t target_mem_size, const uint8_t master_key[HASHLEN]) {
+void set_master_key_to_slot(Key_slot * key_slot, const uint8_t password_hash[HASHLEN], uint64_t target_mem_size, double target_time, const uint8_t master_key[HASHLEN]) {
 //	print("set_master_key_to_slot pwhash");
 //	print_hex_array(password_hash, HASHLEN);
 	
 	uint8_t new_hash[HASHLEN];
-	argon2id_iter_hash_one_slot(key_slot, password_hash, new_hash, target_mem_size, true);
+	memcpy(new_hash, password_hash, HASHLEN);
+	write_key_to_one_slot(key_slot, new_hash, target_mem_size, target_time);
 //	print("set hashed password:");
 //	print_hex_array(new_hash, HASHLEN);
 	xor_with_len(HASHLEN, new_hash, master_key, key_slot->key_mask);
@@ -230,25 +238,6 @@ void get_metadata_key_or_disk_key_from_master_key(const uint8_t master_key[32], 
 
 	argon2id_hash_raw(1, BASE_MEM_COST * 4, PARALLELISM, inter_key, HASHLEN, "level-128!level-128!", strlen("level-128!level-128!"), key, HASHLEN);
 	
-}
-
-uint64_t calc_initial_pw_hash_and_iter_cnt(const Key_slot unlocked_key, uint8_t * inited_key, uint64_t max_mem_size, double time_limit, uint8_t password_hash[HASHLEN]) {
-	// password hash is password_hash_all_slots[KEY_SLOT_COUNT][HASHLEN] if target_slot == -1, else use password_hash[HASHLEN]
-//	print("mem-size", max_mem_size, "time-limit", time_limit);
-
-	clock_t start_time, stop_time;
-	start_time = clock();
-	argon2id_hash_calc(inited_key, 0, unlocked_key.hash_salt, password_hash, BASE_MEM_COST * 8);
-	stop_time = clock();
-	double time_cost = (double) (stop_time - start_time) / (CLOCKS_PER_SEC);
-	double time_cost_per_kib = time_cost / BASE_MEM_COST * 8;
-	
-	if (time_limit > 0) {
-		if (time_limit / time_cost_per_kib < (double) max_mem_size || max_mem_size == 0) {
-			max_mem_size = (uint64_t) (time_limit / time_cost_per_kib);
-		}
-	}
-	return max_mem_size;
 }
 
 bool operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t metadata_key_mask[HASHLEN]) {

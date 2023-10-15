@@ -5,17 +5,18 @@
 #include "../mapper.c"
 
 
-
-void test_map_device(){
-	const char *device = "/dev/sdb";
-	const char *name = "my_crypt_device1";
-	const char *enc_type = "serpent-cbc-essiv:sha256";
-	const char *password = "cc6267b0ec9e80cbb77da3320f12c5441d3fe8b086528c4b55cb8fd6c3710363";
+void test_map_device(char * device_) {
+	if (device_ == NULL){
+		return;
+	}
+	const char * name = "my_crypt_device1_test";
+	const char * enc_type = "serpent-cbc-essiv:sha256";
+	const char * password = "cc6267b0ec9e80cbb77da3320f12c5441d3fe8b086528c4b55cb8fd6c3710363";
 	
 	
 	size_t start_sector, end_sector;
-	decide_start_and_end_sector(device, false, &start_sector, &end_sector);
-	create_crypt_mapping(device, name, enc_type, password, start_sector, end_sector, false);
+	decide_start_and_end_sector(device_, false, &start_sector, &end_sector);
+	create_crypt_mapping(device_, name, enc_type, password, start_sector, end_sector, false);
 //	get_device_sector_cnt("/dev/mapper/my_crypt_device");
 	remove_crypt_mapping(name);
 }
@@ -29,19 +30,21 @@ void test_create_password() {
 	print(key);
 }
 
-void test_fat32(){
-	char * device = "/dev/sdb";
-	print(detect_fat32_on_device(device));
+void test_fat32(char * device_) {
+	if (device_ == NULL){
+		return;
+	}
+	print(detect_fat32_on_device(device_));
 	
 }
 
-void test_is_device_mounted(){
+void test_is_device_mounted() {
 	check_is_device_mounted("/dev/sdb");
 }
 
-int test_mapper() {
-//	test_map_device();
-//test_fat32();
-test_is_device_mounted();
-return 0;
+int test_mapper(char * device_) {
+	test_map_device(device_);
+	test_fat32(device_);
+	test_is_device_mounted();
+	return 0;
 }

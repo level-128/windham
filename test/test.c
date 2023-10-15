@@ -3,10 +3,11 @@
 #include "test_mapper.c"
 
 
-int main(){
-	init();
-//	test_enclib();
-	test_backend();
-//	test_mapper();
+int main(int argc, char * argv[]){
+	init_random_generator("/dev/urandom");
+	get_system_info();
+	test_enclib();
+	test_mapper(argc == 2 ? argv[1] : NULL);
+	test_backend(argc == 2 ? argv[1] : NULL);
 
 }

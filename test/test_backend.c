@@ -31,22 +31,22 @@ void test_backend_add_key_and_get_key(){
 	
 	
 	// test unlock
-	int slot = add_key(&header, master_key, key1, 0, 100000, -1);
+	int slot = add_key(&header, master_key, key1, 0, 100000, 1);
 	assert(memcmp(header.metadata.all_key_mask[slot], header.keys[slot].key_mask, HASHLEN) == 0);
 	assert(memcmp(header.metadata.inited_key[slot], inited_key, HASHLEN) == 0);
 	assert(slot == 0);
 
-	slot = add_key(&header, master_key, key2, 2, 100000, -1);
+	slot = add_key(&header, master_key, key2, 2, 100000, 1);
 	assert(memcmp(header.metadata.all_key_mask[slot], header.keys[slot].key_mask, HASHLEN) == 0);
 	assert(slot == 2);
 	
-	slot = add_key(&header, master_key, key3, 2, 100000, -1);
+	slot = add_key(&header, master_key, key3, 2, 100000, 1);
 	assert(slot != 2); // slot should not be the same, since slot 2 has been occupied by key2.
 	
 	
 	// error should pop up when add existing key
 	debug_print_error_suppress = true;
-	add_key(&header, master_key, key3, -1, 100000, -1);
+	add_key(&header, master_key, key3, -1, 100000, 1);
 	assert(debug_print_error_suppress == false);
 	
 	// lock all keyslots. Keyslots should be locked before metadata
@@ -57,19 +57,23 @@ void test_backend_add_key_and_get_key(){
 	
 	// check unlock
 	fill_secure_random_bits(master_key, HASHLEN);
-	get_master_key(header, master_key, key1, -1, 200000, -1);
+	get_master_key(header, master_key, key1, -1, 200000, 3);
 	assert(memcmp(master_key, "012345678901234567890123456789012", HASHLEN) == 0);
 
 	fill_secure_random_bits(master_key, HASHLEN);
-	get_master_key(header, master_key, key3, -1, 200000, -1);
+	get_master_key(header, master_key, key3, -1, 200000, 3);
 	assert(memcmp(master_key, "012345678901234567890123456789012", HASHLEN) == 0);
 
 	fill_secure_random_bits(master_key, HASHLEN);
-	get_master_key(header, master_key, key2, -1, 200000, -1);
+	get_master_key(header, master_key, key2, -1, 200000, 3);
 	assert(memcmp(master_key, "012345678901234567890123456789012", HASHLEN) == 0);
 }
 
 void test_create_open_chain(char * device_){
+	if (device_ == NULL){
+		return;
+	}
+	
 	is_running_as_root();
 	
 	Key key1, key2;
@@ -99,5 +103,5 @@ void test_create_open_chain(char * device_){
 void test_backend(__attribute__((unused)) char * device){
 //	ask_for_conformation("hello world");
 	test_backend_add_key_and_get_key();
-//	test_create_open_chain(device);
+	test_create_open_chain(device);
 }
