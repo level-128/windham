@@ -421,7 +421,7 @@ int action_revokekey(const char * device, const Key key, uint8_t master_key[32],
 		return -1;
 	} else if (is_obliterate) {
 		READ_HEADER
-		ask_for_conformation("Device %s will not be accessible, even if holding the master key, unless backup has created. Continue?", device);
+		ask_for_conformation("Device %s will not be accessible, even if having the master key, unless backup has created. Continue?", device);
 		for (int i = 0; i < 3; i++) {
 			fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
 			write_header_to_device(&data, device, offset);
