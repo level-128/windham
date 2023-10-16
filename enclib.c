@@ -4,6 +4,7 @@
 #include <memory.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <libintl.h>
 
 
 #define KEY_SLOT_COUNT 6
@@ -85,14 +86,14 @@ void print_hex_array(size_t length, const uint8_t arr[length]) {
 void init_random_generator(char * generator_addr) {
 	random_fd = fopen(generator_addr, "r");
 	if (random_fd == NULL) {
-		print_error("Failed to open", generator_addr);
+		print_error(_("Failed to initialize random generator."));
 	}
 }
 
 void fill_secure_random_bits(uint8_t * address, size_t size) {
 	size_t read_size = fread(address, 1, size, random_fd);
 	if (read_size != size) {
-		print_error("IO error while reading random generator.");
+		print_error(_("IO error while reading random generator."));
 	}
 }
 

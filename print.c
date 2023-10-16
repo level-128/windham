@@ -73,12 +73,12 @@ bool debug_print_error_suppress = false;
 #define print_error(...) \
     if (debug_print_error_suppress){ \
 	 printf("\033[1;33mSUPPRESS_ERROR: "); \
-    print(__VA_ARGS__);           \
+    printf(__VA_ARGS__);           \
     printf("\033[0m");   \
 	 debug_print_error_suppress = false;\
 	 } else {                    \
     printf("\033[1;31mERROR: "); \
-    print(__VA_ARGS__);           \
+    printf(__VA_ARGS__);           \
     printf("\033[0m");   \
     exit(EXIT_FAILURE);} while (false)
 

@@ -59,4 +59,24 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_argon2_and_executables_for_arch("sapphirerapids")
     add_argon2_and_executables_for_arch("znver3")
 
+    set(LANGUAGES fr zh_CN)
+    add_custom_target(update_translations ALL)
+
+    add_custom_command(
+            TARGET update_translations
+            COMMAND xgettext -k_ -L C -o ${CMAKE_SOURCE_DIR}/locale/windham.pot ${CMAKE_SOURCE_DIR}/frontend.c ${CMAKE_SOURCE_DIR}/backend.c ${CMAKE_SOURCE_DIR}/mapper.c ${CMAKE_SOURCE_DIR}/enclib.c
+            COMMENT "Generating windham.pot from source code"
+    )
+
+    foreach(LANG ${LANGUAGES})
+        add_custom_command(
+                TARGET update_translations
+                COMMAND msgmerge --update ${CMAKE_SOURCE_DIR}/locale/${LANG}/LC_MESSAGES/windham.po ${CMAKE_SOURCE_DIR}/locale/windham.pot
+                DEPENDS ${CMAKE_SOURCE_DIR}/locale/windham.pot
+                COMMENT "Updating ${LANG}/windham.po"
+        )
+    endforeach()
+
+    add_dependencies(windham_haswell update_translations)
+
 endif()

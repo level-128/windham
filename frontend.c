@@ -1,13 +1,22 @@
-#include "enclib.c"
-#include "backend.c"
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <unistd.h>
+#include <string.h>
 #include <getopt.h>
 #include <stdnoreturn.h>
 
+
+#include <libintl.h>
+#include <locale.h>
+#include <libgen.h>
+
+
+#define _(STRING) gettext(STRING)
+// xgettext -k_ -L C -o locale/windham.pot frontend.c backend.c mapper.c enclib.c
+
 #define VERSION "0.231007.0"
+
+#include "enclib.c"
+#include "backend.c"
 
 enum {
 	NMOBJ_to,
@@ -95,37 +104,46 @@ int frontend_check_actions(char * input) {
 	return -1;
 }
 
-#define FRONTEND_HELP_UNLOCK     \
-"\t--key <characters>: key input as argument, instead of asking in the terminal.\n" \
-"\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' and '--target-slot' are mutually \
-exclusive\n"\
-"\t--master-key <characters>: using master key to unlock.\n"\
-"\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"\
-"\t--max-unlock-memory <int>: The total maximum available memory to use (KiB) available for decryption. \n"\
-"\t--max-unlock-time <float>: the suggested total time (sec) to compute the key.\n"
+
+void frontend_print_unlock_args(){
+	printf(_(
+"Unlock options:\n"
+"\t--key <characters>: key input as argument, instead of asking in the terminal.\n"
+"\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' and '--target-slot' are mutually exclusive\n"
+"\t--master-key <characters>: using master key to unlock.\n"
+"\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
+"\t--max-unlock-memory <int>: The total maximum available memory to use (KiB) available for decryption. \n"
+"\t--max-unlock-time <float>: the suggested total time (sec) to compute the key.\n"));
+};
+
+void frontend_print_common_args(){
+	printf(_(
+"Common options:\n"
+"\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n"
+"\t--yes: do not ask for explicit conformation to potential destructive operations.\n"));
+};
+
 
 noreturn void frontend_help(const char * the_3rd_argv) {
 	if (!the_3rd_argv) {
-		printf("usage: \"windham <action> <target>\"\n"
+		printf(_("usage: \"windham <action> <target>\"\n"
 				"possible actions are:  'Open'  'Close'  'New'  'AddKey'  'RevokeKey' and 'Backup'\n\n"
-				"Type \"windham Help <action>\" to view specific help text for each action.\n\n" );
-		
-		print("pre-compiled arguments. These arguments serve an informative purpose; changing them may render your\n"
-				"device inaccessible.");
-		print("number of keyslots: ", KEY_SLOT_COUNT);
-		print("Length of the hash (bit): ", HASHLEN * CHAR_BIT);
-		print("Argon2id memory size exponential count: ", KEY_SLOT_EXP_MAX);
-		print("Argon2id base memory size (KiB): ", BASE_MEM_COST);
-		print("Argon2id parallelism: ", PARALLELISM);
-		print("Default encryption target time multiplier: ", DEFAULT_ENC_TARGET_TIME);
-		print("Default decryption benchmark multiplier: ", MAX_UNLOCK_TIME_FACTOR);
-		print("Default encryption type: ", DEFAULT_DISK_ENC_MODE);
+				"Type \"windham Help <action>\" to view specific help text for each action.\n\n"
+				"pre-compiled arguments. These arguments serve an informative purpose; changing them may render your "
+				"device inaccessible.\n"));
+		printf(_("number of keyslots: %i\n"), KEY_SLOT_COUNT);
+		printf(_("Length of the hash (bit): %i\n"), HASHLEN * CHAR_BIT);
+		printf(_("Argon2id memory size exponential count: %i\n"), KEY_SLOT_EXP_MAX);
+		printf(_("Argon2id base memory size (KiB): %i\n"), BASE_MEM_COST);
+		printf(_("Argon2id parallelism: %i\n"), PARALLELISM);
+		printf(_("Default encryption target time multiplier: %i\n"), DEFAULT_ENC_TARGET_TIME);
+		printf(_("Default decryption benchmark multiplier: %i\n"), MAX_UNLOCK_TIME_FACTOR);
+		printf(_("Default encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
 		#ifdef __GNUC__
-		printf("\nCompiler: GCC %d.%d.%d\n", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+		printf(_("Compiler: GCC %d.%d.%d\n"), __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
 		#endif
-		print("");
 	} else if (strcmp("--license", the_3rd_argv) == 0) {
-		printf("    Copyright (C) 2023-  W. Wang (level-128)\n"
+		printf(_("    Copyright (C) 2023-  W. Wang (level-128)\n"
 				"\n"
 				"    This program is free software: you can redistribute it and/or modify\n"
 				"    it under the terms of the GNU General Public License as published by\n"
@@ -138,25 +156,25 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 				"    GNU General Public License for more details.\n"
 				"\n"
 				"    You should have received a copy of the GNU General Public License\n"
-				"    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n");
+				"    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"));
 		
 	} else if (strcmp(actions[0], the_3rd_argv) == 0) {
-		printf("Open <target>: Unlock <target> and create a mapper. The key, by default, is read from the terminal.\n"
+		printf(_("Open <target>: Unlock <target> and create a mapper. The key, by default, is read from the terminal.\n"
 				"\n"
 				"options:\n"
-				"\t--to <location>: the target location of the mapper. The mapper will be named as <location>, locate under /dev/mapper/<location>\n"
-				 FRONTEND_HELP_UNLOCK
+				"\t--to <location>: REQUIRED; the target location of the mapper. The mapper will be named as <location>, locate under /dev/mapper/<location>\n"
 				"\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
 				"\t--dry-run: run without operating on the block device.\n"
-				"\t--readonly: Set the mapper device to read-only.\n"
-				"\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. ");
+				"\t--readonly: Set the mapper device to read-only.\n"));
+		frontend_print_unlock_args();
+		frontend_print_common_args();
+		
 	} else if (strcmp(actions[1], the_3rd_argv) == 0) {
-		printf("Close <target> close the encrypt block device.\n"
-				"\n"
-				"options:\n"
-				"\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n");
+		printf(_("Close <target> close the encrypt block device.\n"));
+		frontend_print_common_args();
+		
 	} else if (strcmp(actions[2], the_3rd_argv) == 0) {
-		printf("Create <target>: create a windham header on a block device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DISKS, BECAUSE THEY "
+		printf(_("Create <target>: create a windham header on a block device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DISKS, BECAUSE THEY "
 				"COULD BE UNLOCKED USING THE SAME MASTER KEY. \n"
 			  "\n"
 			  "options:\n"
@@ -166,49 +184,49 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 			  "\t--target-memory <int>: The total maximum memory (KiB) available to use. \n"
 			  "\t--target-time <float>: the suggested total time (sec) for adding a key. This is not a hard limit.\n"
 			  "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"
-			  "\t--visible: adding partition identifier to the header. The program does not depend on the partition identifier; it will simply ignore it.\n"
-			  "\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n"
-			  "\t--yes: do not ask for explicit conformation to potential destructive operations.\n");
+			  "\t--visible: adding partition identifier to the header. The program does not depend on the partition identifier; it will simply ignore it.\n"));
+		frontend_print_common_args();
+		
 	} else if (strcmp(actions[3], the_3rd_argv) == 0) {
-		printf("AddKey <target>: Add a new key to the existing windham header. The new key will be asked after a successful unlock from the given key.\n"
+		printf(_("AddKey <target>: Add a new key to the existing windham header. The new key will be asked after a successful unlock from the given key.\n"
 			  "\n"
 			  "options:\n"
-				 FRONTEND_HELP_UNLOCK
 			  "\t--target-memory <int>: The total maximum memory (KiB) available to use. \n"
 			  "\t--target-time <float>: the suggested total time (sec) for adding a key. This is not a hard limit.\n"
-			  "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
-			  "\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n"
-			  "\t--yes: do not ask for explicit conformation to potential destructive operations.\n");
+			  "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"));
+		frontend_print_unlock_args();
+		frontend_print_common_args();
+		
 	} else if (strcmp(actions[4], the_3rd_argv) == 0) {
-		printf("RevokeKey <target>: remove a existing key from the header.\n"
+		printf(_("RevokeKey <target>: remove a existing key from the header.\n"
 				"\n"
 				"options:\n"
-				 FRONTEND_HELP_UNLOCK
 				"\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
-				"\t--obliterate: Wipe the header and destroy all data."
-				"\t--no-admin: forfeit checking for root privileges, may produces undefined behavior. \n"
-				"\t--yes: do not ask for explicit conformation to potential destructive operations; in this case, it may render the device inaccessible if no master key backup have "
-				"been created.\n");
+				"\t--obliterate: Wipe the header and destroy all data."));
+		frontend_print_unlock_args();
+		frontend_print_common_args();
+		
 	} else if  (strcmp(actions[5], the_3rd_argv) == 0) {
-		printf("Backup <target> Backup the header into a separate file.\n"
+		printf(_("Backup <target> Backup the header into a separate file.\n"
 				 "\n"
 				 "options:\n"
-				 FRONTEND_HELP_UNLOCK
 				 "\t--no-transform: backup the header as is. No key required. \n"
-				 "\t--restore: restore the header from a backup file.\n"
-				 "\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n");
+				 "\t--restore: restore the header from a backup file.\n"));
+		frontend_print_unlock_args();
+		frontend_print_common_args();
+		
 	}
 	exit(0);
 }
 
 noreturn void frontend_no_input() {
-	printf("Windham ("VERSION") Copyright (C) 2023-  W. Wang (level-128)\n\n"
+	printf(_("Windham (%s) Copyright (C) 2023-  W. Wang (level-128)\n\n"
 			 
 			 "usage: \"windham <action> <target>\"\n"
 			 "For help, type 'windham Help' to view help for all possible actions\n\n"
 			 
 			 "This program comes with ABSOLUTELY NO WARRANTY; for details type 'Help --license'.\n"
-			"This is free software, and you are welcome to redistribute it under certain conditions;\n");
+			"This is free software, and you are welcome to redistribute it under certain conditions;\n"), VERSION);
 	exit(0);
 }
 
@@ -241,34 +259,34 @@ void frontend_check_invalid_param(int action_num) {
 
 void frontend_check_invalid_combo(int action_num){
 	if (options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] > 1) {
-		print_error("argument --key, --key-file and --master-key are mutually exclusive.");
+		print_error(_("argument --key, --key-file and --master-key are mutually exclusive."));
 	}
 	if (action_num == 4 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] > 1) {
-		print_error("argument --key, --key-file, --master-key and --target-slot are mutually exclusive under action: RevokeKey.");
+		print_error(_("argument --key, --key-file, --master-key and --target-slot are mutually exclusive under action: RevokeKey."));
 	}
 	
 	if (action_num == 0 && options[NMOBJ_to] == 0 && options[NMOBJ_target_dry_run] == 0) {
-		print_error("argument --to is required under action: Open");
+		print_error(_("argument --to is required under action: Open"));
 	}
 	
 	if (options[NMOBJ_target_obliterate] == 1 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] + options[NMOBJ_target_mem] +
 														  options[NMOBJ_target_time] != 0) {
-		print_error("argument --obliterate can only be use alone.");
+		print_error(_("argument --obliterate can only be use alone."));
 	}
 	
 	if (options[NMOBJ_target_obliterate] + options[NMOBJ_target_all] == 2){
-		print_error("argument --all and --obliterate applies at the same time");
+		print_error(_("argument --all and --obliterate applies at the same time"));
 	}
 }
 
 
 uint8_t hex_char_to_int(char ch) {
 	if (ch == 0) {
-		print_error("error length of the string.");
+		print_error(_("error when parsing master key: invalid length"));
 	}
 	if ('0' <= ch && ch <= '9') { return ch - '0'; }
 	if ('a' <= ch && ch <= 'f') { return ch - 'a' + 10; }
-	print_error("invalid character in string.");
+	print_error(_("error when parsing master key: invalid character; only hexadecimal is accepted."));
 	return -1;
 }
 
@@ -296,7 +314,7 @@ void master_key_to_byte_array(const char * hex_string, uint8_t byte_array[HASHLE
 		++str_index;
 	}
 	if (hex_string[str_index] != 0) {
-		printf("error length of the string.");
+		printf(_("error when parsing master key: invalid length"));
 		exit(1);
 	}
 }
@@ -338,29 +356,33 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	char * end;
 	if (options[NMOBJ_target_slot] == 1) {
 		target_slot = (int) strtoimax(params[NMOBJ_target_slot], &end, 10);
-		if (*end != '\0') { print_error("bad input for argument --target-slot: not an integer"); }
-		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT) { print_error("bad input for argument --target-slot: slot out of range"); }
+		if (*end != '\0') { print_error(_("bad input for argument %s: not an integer"), "--target-slot"); }
+		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT) {
+			print_error(_("bad input for argument %s: slot out of range. Slot count starts at 0, to %i"), "--target-slot", KEY_SLOT_COUNT - 1);
+		}
 	}
 	if (options[NMOBJ_unlock_slot] == 1) {
-		target_slot = (int) strtoimax(params[NMOBJ_unlock_slot], &end, 10);
-		if (*end != '\0') { print_error("bad input for argument --unlock-slot: not an integer"); }
-		if (target_slot < 0 || target_slot >= KEY_SLOT_COUNT) { print_error("bad input for argument --unlock-slot: slot out of range"); }
+		unlock_slot = (int) strtoimax(params[NMOBJ_unlock_slot], &end, 10);
+		if (*end != '\0') { print_error(_("bad input for argument %s: not an integer"), "--unlock-slot"); }
+		if (unlock_slot < 0 || unlock_slot >= KEY_SLOT_COUNT) {
+			print_error(_("bad input for argument %s: slot out of range. Slot count starts at 0, to %i"), "--unlock-slot", KEY_SLOT_COUNT - 1);
+		}
 	}
 	if (options[NMOBJ_target_mem] == 1) {
 		target_mem = strtoull(params[NMOBJ_target_mem], &end, 10);
-		if (*end != '\0') { print_error("bad input for argument --target-memory: not an positive integer"); }
+		if (*end != '\0') { print_error(_("bad input for argument %s: not an positive integer"), "--target-memory"); }
 	}
 	if (options[NMOBJ_target_time] == 1) {
 		target_time = strtod(params[NMOBJ_target_time], &end);
-		if (*end != '\0' || target_time < 0) { print_error("bad input for argument --target-time: not an positive number"); }
+		if (*end != '\0' || target_time < 0) { print_error(_("bad input for argument %s: not an positive integer"), "--target-time"); }
 	}
 	if (options[NMOBJ_max_unlock_mem] == 1) {
 		max_unlock_mem = strtoull(params[NMOBJ_max_unlock_mem], &end, 10);
-		if (*end != '\0') { print_error("bad input for argument --max-unlock-memory: not an positive integer"); }
+		if (*end != '\0') { print_error(_("bad input for argument %s: not an positive integer"), "--max-unlock-memory"); }
 	}
 	if (options[NMOBJ_max_unlock_time] == 1) {
 		max_unlock_time = strtod(params[NMOBJ_max_unlock_time], &end);
-		if (*end != '\0' || target_time < 0) { print_error("bad input for argument --max-unlock-time: not an positive number"); }
+		if (*end != '\0' || target_time < 0) { print_error(_("bad input for argument %s: not an positive integer"), "--max-unlock-time"); }
 	}
 	if (!options[NMOBJ_target_noadmin]) {
 		is_running_as_root();
@@ -383,7 +405,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			target_slot = action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time,
 											  options[NMOBJ_target_readonly], options[NMOBJ_target_dry_run], options[NMOBJ_target_decoy]);
 			if (options[NMOBJ_target_dry_run]) {
-				printf("dry run complete. Slot %i opened with master key:\n", target_slot);
+				printf(_("dry run complete. Slot %i opened with master key:\n"), target_slot);
 				print_hex_array( HASHLEN, master_key);
 			}
 			break;
@@ -423,7 +445,25 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	
 }
 
-int main(int argc, char * argv[]) {
+
+int main(int argc, char * argv[argc]) {
+	char currentPath[PATH_MAX];
+	char *absolutePath = realpath(argv[0], currentPath);
+	
+	if (absolutePath) {
+		char * lastSlash = strrchr(absolutePath, '/');
+		if (lastSlash) {
+			*lastSlash = '\0';
+		}
+		
+		char localePath[PATH_MAX];
+		
+		setlocale(LC_ALL, "");
+		snprintf(localePath, sizeof(localePath), "%s/locale", absolutePath);
+		bindtextdomain("windham", localePath);
+		textdomain("windham");
+	}
+	
 	char * params[NMOBJ_target_SIZE] = {NULL}; // the number of required arguments.
 	
 	if (argc == 1) {
@@ -436,7 +476,7 @@ int main(int argc, char * argv[]) {
 		if (action_num == 6) {
 			frontend_help(NULL);
 		} else {
-			print_error("<target> not provided. type 'windham Help' to view help");
+			print_error(_("<target> not provided. type 'windham Help' to view help"));
 		}
 	}
 	
@@ -454,7 +494,7 @@ int main(int argc, char * argv[]) {
 				if (opt == 0) {
 					params[long_index] = optarg;
 				} else {
-					print_error("Unknown option or missing parameter for:", argv[optind - 1]);
+					print_error(_("Unknown option or missing parameter for %s"), argv[optind - 1]);
 				}
 			}
 			
