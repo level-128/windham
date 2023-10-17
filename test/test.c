@@ -1,7 +1,8 @@
+#define _(x) x
+
 #include "test_enclib.c"
 #include "test_backend.c"
 #include "test_mapper.c"
-
 
 int main(int argc, char * argv[]){
 	init_random_generator("/dev/urandom");

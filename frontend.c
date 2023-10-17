@@ -251,7 +251,7 @@ void frontend_check_invalid_param(int action_num) {
 				}
 			}
 			if (check_allowed[j] == -1) {
-				print_error("argument:", (char *) long_options[i].name, "is not valid under action:", (char *) actions[action_num]);
+				print_error(_("argument: %s is not valid under action: %s"), (char *) long_options[i].name, (char *) actions[action_num]);
 			}
 		}
 	}

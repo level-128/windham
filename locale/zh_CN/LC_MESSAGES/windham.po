@@ -5,7 +5,8 @@
 #
 msgid ""
 msgstr ""
-"POT-Creation-Date: 2023-10-16 02:20-0400\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 17:16-0400\n"
 "PO-Revision-Date: 2023-10-16 02:24-0400\n"
 "Last-Translator: level-128\n"
 "Language-Team: Chinese (simplified)\n"
@@ -290,48 +291,50 @@ msgstr ""
 msgid "CONFORMATION REQUIRED: "
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:67
+#: /home/level-128/CLionProjects/windham/backend.c:68
 #, c-format
-msgid "Type \"YES %s\" to confirm."
+msgid ""
+"\n"
+"Type \"%s\" to confirm."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:74
+#: /home/level-128/CLionProjects/windham/backend.c:75
 msgid "User has canceled the operation."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:81
+#: /home/level-128/CLionProjects/windham/backend.c:82
 msgid ""
 "Failed to read system information. Can not determine adequate memory size "
 "(or memory limit) for key derivation."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:94
+#: /home/level-128/CLionProjects/windham/backend.c:95
 #, c-format
 msgid "File %s does not exist"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:98
+#: /home/level-128/CLionProjects/windham/backend.c:99
 #, c-format
 msgid "Cannot read %s: insufficient permission."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:101
+#: /home/level-128/CLionProjects/windham/backend.c:102
 #, c-format
 msgid "Cannot write to %s: insufficient permission."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:106
+#: /home/level-128/CLionProjects/windham/backend.c:107
 #, c-format
 msgid "Cannot get size for %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:118
+#: /home/level-128/CLionProjects/windham/backend.c:119
 msgid ""
 "using swap space for Key derivation function. This is potentially insecure "
 "because unencrypted swap space may provide hints to the master key."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:122
+#: /home/level-128/CLionProjects/windham/backend.c:123
 #, c-format
 msgid ""
 "The RAM and swap are not enough to perform the suggested encryption "
@@ -339,7 +342,7 @@ msgid ""
 "from %lu (KiB) to %lu (KiB). This may degrade security, continue?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:125
+#: /home/level-128/CLionProjects/windham/backend.c:126
 #, c-format
 msgid ""
 "Adjusted the requested max RAM consumption from %lu (KiB) to %lu (KiB) "
@@ -349,26 +352,26 @@ msgid ""
 "workaround."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:170
+#: /home/level-128/CLionProjects/windham/backend.c:171
 msgid "Password:"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:172
+#: /home/level-128/CLionProjects/windham/backend.c:173
 msgid "Again:"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:175
+#: /home/level-128/CLionProjects/windham/backend.c:176
 msgid "Passwords do not match."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:177
+#: /home/level-128/CLionProjects/windham/backend.c:178
 #, c-format
 msgid ""
 "the key provided is too short (%zu characters), which is not recommended. To "
 "bypass this restriction, use argument --key instead."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:254
+#: /home/level-128/CLionProjects/windham/backend.c:255
 msgid ""
 "Cannot unlock target because time or memory limit has reached. This is "
 "probably because a wrong key has been provided, or your compute resources "
@@ -380,17 +383,17 @@ msgid ""
 "the target."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:266
+#: /home/level-128/CLionProjects/windham/backend.c:267
 msgid ""
 "All key slots are full. Remove or revoke one or more keys to add a new key."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:272
+#: /home/level-128/CLionProjects/windham/backend.c:273
 #, c-format
 msgid "The given key is used at slot %i"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:297
+#: /home/level-128/CLionProjects/windham/backend.c:298
 msgid ""
 "AddKey: choose your key format \n"
 "(1) input key from console;\n"
@@ -398,40 +401,40 @@ msgid ""
 "Option: "
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:327
+#: /home/level-128/CLionProjects/windham/backend.c:328
 #, c-format
 msgid "Unlocking %s assuming decoy partition exits"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:341
+#: /home/level-128/CLionProjects/windham/backend.c:342
 msgid "This key has been revoked."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:341
+#: /home/level-128/CLionProjects/windham/backend.c:342
 msgid "Wrong master key."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:363
+#: /home/level-128/CLionProjects/windham/backend.c:364
 #, c-format
 msgid ""
 "Creating encrypt partition on device: %s, All content will be lost. Continue?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:419
+#: /home/level-128/CLionProjects/windham/backend.c:420
 #, c-format
 msgid ""
 "Device %s will not be accessible, even if holding the master key, unless "
 "backup has created. Continue?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:444
+#: /home/level-128/CLionProjects/windham/backend.c:445
 #, c-format
 msgid ""
 "File %s exists. If you want to overwrite the file, you need to delete the "
 "file manually."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:450
+#: /home/level-128/CLionProjects/windham/backend.c:451
 #, c-format
 msgid "Restoring header to device: %s, All content will be lost. Continue?"
 msgstr ""

@@ -64,9 +64,10 @@ void ask_for_conformation(const char * format, ...) {
 	va_start(args, format);
 	vprintf(format, args);
 	va_end(args);
-	printf(_("Type \"YES %s\" to confirm."), random_str);
-	printf(" \033[0m\n");
 	sprintf(complete_str, "YES %s", random_str);
+	printf(_("\nType \"%s\" to confirm."), complete_str);
+	printf(" \033[0m\n");
+	
 	
 	fgets(user_input, sizeof(user_input), stdin);
 	user_input[strcspn(user_input, "\n")] = 0;
@@ -448,10 +449,10 @@ max_unlock_time, bool is_decoy, bool is_no_transform, bool is_restore) {
 		write_header_to_device(&data, filename, offset);
 	} else if (is_restore) {
 		ask_for_conformation(_("Restoring header to device: %s, All content will be lost. Continue?"), device);
-		const char * _;
-		_ = device;
+		const char * tmp;
+		tmp = device;
 		device = filename;
-		filename = _;
+		filename = tmp;
 		READ_HEADER
 		write_header_to_device(&data, filename, offset);
 	} else {
