@@ -74,23 +74,23 @@ bool debug_print_error_suppress = false;
     if (debug_print_error_suppress){ \
 	 printf("\033[1;33mSUPPRESS_ERROR: "); \
     printf(__VA_ARGS__);           \
-    printf("\033[0m");   \
+    printf("\033[0m\n");   \
 	 debug_print_error_suppress = false;\
 	 } else {                    \
     printf("\033[1;31mERROR: "); \
     printf(__VA_ARGS__);           \
-    printf("\033[0m");   \
+    printf("\033[0m\n");   \
     exit(EXIT_FAILURE);} while (false)
 
 #define print_error_no_exit(...) \
     printf("\033[1;31mERROR: "); \
-    print(__VA_ARGS__);           \
-    printf("\033[0m")
+    printf(__VA_ARGS__);           \
+    printf("\033[0m\n")
 
 #define print_warning(...) \
     printf("\033[1;33mWARNING: "); \
     print(__VA_ARGS__);           \
-    printf("\033[0m")
+    printf("\033[0m\n")
 
 typedef enum {
 	T_INT,

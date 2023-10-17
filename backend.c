@@ -2,7 +2,6 @@
 // Created by level-128 on 8/24/23.
 //
 
-#include <sys/sysinfo.h>
 #include <sys/stat.h>
 #include <stdint.h>
 #include <termios.h>
@@ -17,6 +16,7 @@
 struct SystemInfo {
 	unsigned long free_ram;
 	unsigned long free_swap;
+	unsigned long total_ram;
 };
 struct SystemInfo sys_info;
 
@@ -77,17 +77,37 @@ void ask_for_conformation(const char * format, ...) {
 }
 
 void get_system_info() {
-	struct sysinfo info;
-	if (sysinfo(&info) == -1) {
+	FILE * meminfo = fopen("/proc/meminfo", "r");
+	if (meminfo == NULL) {
 		print_warning(_("Failed to read system information. Can not determine adequate memory size (or memory limit) for key derivation."));
 		sys_info.free_ram = ULLONG_MAX;
 		sys_info.free_swap = ULLONG_MAX;
-		
-	} else {
-		sys_info.free_ram = sysconf(_SC_AVPHYS_PAGES) * sysconf(_SC_PAGESIZE) / 1024;
-		sys_info.free_swap = info.freeswap / 1024;
-//		print("free mem", sys_info.free_ram, "sys_info.free_swap", sys_info.free_swap);
+		return;
 	}
+	
+	char line[256];
+	unsigned long memFree = 0;
+	unsigned long memTotal = 0;
+	unsigned long cached = 0;
+	unsigned long swapFree = 0;
+	
+	while (fgets(line, sizeof(line), meminfo)) {
+		if (strncmp(line, "MemFree:", 8) == 0) {
+			sscanf(line, "%*s %lu", &memFree);
+		} else if (strncmp(line, "MemTotal:", 9) == 0) {
+			sscanf(line, "%*s %lu", &memTotal);
+		} else if (strncmp(line, "Cached:", 7) == 0) {
+			sscanf(line, "%*s %lu", &cached);
+		} else if (strncmp(line, "SwapFree:", 9) == 0) {
+			sscanf(line, "%*s %lu", &swapFree);
+		}
+	}
+	
+	sys_info.free_ram = memFree + cached;
+	sys_info.free_swap = swapFree;
+	sys_info.total_ram = memTotal;
+	
+	fclose(meminfo);
 }
 
 void check_file(const char * filename, bool is_block) {
@@ -110,6 +130,10 @@ void check_file(const char * filename, bool is_block) {
 
 size_t check_target_mem(size_t target_mem, bool is_encrypt) {
 	if (target_mem == 0) {
+		if ((double) sys_info.free_ram / (double) sys_info.total_ram < 0.3){
+			print_warning("The system is low on memory (< 30%). It is recommended to designate a larger allowed memory to utilize the system swap space via parameter \"%s\".",
+							  is_encrypt ? "--target-memory" : "--max-unlock-memory");
+		}
 		return sys_info.free_ram;
 	}
 	
@@ -121,11 +145,11 @@ size_t check_target_mem(size_t target_mem, bool is_encrypt) {
 			size_t new_target_mem = sys_info.free_swap + sys_info.free_ram - (1 << 16);
 			if (is_encrypt) {
 				ask_for_conformation(_("The RAM and swap are not enough to perform the suggested encryption parameters. Adjusted the max RAM consumption for Key derivation function"
-				                     " from %lu (KiB) to %lu (KiB). This may degrade security, continue?"), target_mem, new_target_mem);
+				                       " from %lu (KiB) to %lu (KiB). This may degrade security, continue?"), target_mem, new_target_mem);
 			} else {
 				print_warning(_("Adjusted the requested max RAM consumption from %lu (KiB) to %lu (KiB) because of insufficient memory. "
-				              "If your computer has less available memory than the computer who created the encryption target, you may not successfully decrypt this target. Consider adding more "
-				              "swap spaces as a workaround."), target_mem, new_target_mem);
+				                "If your computer has less available memory than the computer who created the encryption target, you may not successfully decrypt this target. Consider adding more "
+				                "swap spaces as a workaround."), target_mem, new_target_mem);
 			}
 			return new_target_mem;
 		}
@@ -218,7 +242,7 @@ void get_slot_list_for_get_master_key(int slot_seq[KEY_SLOT_COUNT + 1], int targ
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			slot_seq[i] = i;
 		}
-		srand((unsigned)time(NULL));
+		srand((unsigned) time(NULL));
 		
 		for (int i = KEY_SLOT_COUNT - 1; i > 0; i--) {
 			int j = rand() % (i + 1);
@@ -243,7 +267,7 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 	int slot_seq[KEY_SLOT_COUNT + 1];
 	get_slot_list_for_get_master_key(slot_seq, target_slot);
 	
-	for (int i = 0; slot_seq[i] != -1; i++){
+	for (int i = 0; slot_seq[i] != -1; i++) {
 		operate_key_slot_using_inited_key(&self.keys[slot_seq[i]], inited_key, self.master_key_mask, true);
 		memcpy(inited_keys[slot_seq[i]], inited_key, HASHLEN);
 	}
@@ -253,11 +277,11 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 		xor_with_len(HASHLEN, inited_keys[unlocked_slot], self.keys[unlocked_slot].key_mask, master_key);
 	} else {
 		print_error(_("Cannot unlock target because time or memory limit has reached. This is probably because a wrong key "
-		            "has been provided, or your compute resources may be too insufficient to unlock the target created "
-		            "by a faster computer within the preset time. If the latter is correct, try increasing the maximum memory limit "
-		            "using --max-unlock-memory. If the operation cannot be completed due to insufficient system "
-		            "memory, consider exporting the master key on a more computationally powerful device and then use the "
-		            "master key to unlock the target."));
+		              "has been provided, or your compute resources may be too insufficient to unlock the target created "
+		              "by a faster computer within the preset time. If the latter is correct, try increasing the maximum memory limit "
+		              "using --max-unlock-memory. If the operation cannot be completed due to insufficient system "
+		              "memory, consider exporting the master key on a more computationally powerful device and then use the "
+		              "master key to unlock the target."));
 	}
 	return unlocked_slot;
 }
