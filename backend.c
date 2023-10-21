@@ -246,9 +246,7 @@ void get_slot_list_for_get_master_key(int slot_seq[KEY_SLOT_COUNT + 1], int targ
 		
 		for (int i = KEY_SLOT_COUNT - 1; i > 0; i--) {
 			int j = rand() % (i + 1);
-			int temp = slot_seq[i];
-			slot_seq[i] = slot_seq[j];
-			slot_seq[j] = temp;
+			swap(slot_seq[i], slot_seq[j]);
 			slot_seq[KEY_SLOT_COUNT] = -1;
 		}
 	} else {
@@ -346,7 +344,7 @@ void interactive_ask_new_key(Key * new_key) {
 	}
 }
 
-#define READ_HEADER \
+#define OPERATION_READ_HEADER \
 Data data;          \
 if (is_decoy == true){ \
     print_warning(_("Unlocking %s assuming decoy partition exits"), device);   \
@@ -355,9 +353,12 @@ is_decoy = detect_fat32_on_device(device); \
 int64_t offset = is_decoy ? -(int64_t)sizeof(Data) : 0;                            \
 get_header_from_device(&data, device, offset); \
 
+#define OPERATION_DECLINE_SUSPEND \
+if (is_header_suspended(data)){   \
+print_error(_("The header is suspended. Resume header to perform this operation.")); \
+}
 
 #define OPERATION_BACKEND_UNLOCK    \
-    READ_HEADER \
 [[maybe_unused]] int unlocked_slot = -1;                 \
 if (key.key_type != EMOBJ_key_file_type_none){\
 unlocked_slot = get_master_key(data, master_key, key, target_unlock_slot, max_unlock_mem, max_unlock_time);\
@@ -370,7 +371,7 @@ bool revoked_untagged_slot[KEY_SLOT_COUNT];              \
 check_master_key_and_slots_revoke(&data, revoked_untagged_slot);\
 for (int i = 0; i < KEY_SLOT_COUNT; i++){                \
 if (revoked_untagged_slot[i] == true){     \
-print_warning("Slot %i on device %s have been revoked without using the password.", i, device);                    \
+print_warning(_("Slot %i on device %s have been revoked without using the password."), i, device);                    \
 }}                                  \
 
 #define OPERATION_LOCK_AND_WRITE \
@@ -378,6 +379,8 @@ transform_header(&data);\
 operate_all_keyslots(data.keys, data.metadata.inited_key, data.master_key_mask, false);\
 operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask);\
 write_header_to_device(&data, device, offset);
+
+#define PARAMS_FOR_KEY Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time, bool is_decoy
 
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, uint64_t target_memory, double target_time, bool is_decoy) {
 	Data data;
@@ -398,27 +401,56 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	}
 }
 
-int action_open(const char * device, const char * target_name, Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double
-max_unlock_time, bool is_target_readonly, bool is_dry_run, bool is_decoy) {
-	
+bool is_suspended(const char * device, bool is_decoy){
+	if (is_decoy){
+		return false;
+	}
+	OPERATION_READ_HEADER
+	return is_header_suspended(data);
+}
+
+void action_open_suspended(const char * device, const char * target_name, bool is_target_readonly){
+	bool is_decoy = false;
+	OPERATION_READ_HEADER
+
+	uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
+	get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, disk_key);
+	create_crypt_mapping_from_disk_key(device, target_name, data.metadata, disk_key, is_target_readonly);
+}
+
+void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_target_readonly, bool is_dry_run) {
+
+	OPERATION_READ_HEADER
 	OPERATION_BACKEND_UNLOCK
 	
 	if (!is_dry_run) {
 		uint8_t disk_key[HASHLEN];
 		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, disk_key);
 		create_crypt_mapping_from_disk_key(device, target_name, data.metadata, disk_key, is_target_readonly);
+	} else {
+		printf(_("dry run complete. Slot %i opened with master key:\n"), unlocked_slot);
+		print_hex_array(HASHLEN, master_key);
+		printf(_("Additional encryption device parameters: \n"
+					"Crypto algorithm: %s\n"
+					"Start sector %lu\n"
+					"End sector %lu\n\n"), data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector);
+		printf(_("key slot status:\n"));
+		for (int i = 0; i < KEY_SLOT_COUNT; i++){
+			if (data.metadata.key_slot_is_used[i]){
+				printf(_("Slot %i occupied with password identifier: "), i);
+				print_hex_array(HASHLEN / 4, data.metadata.inited_key[i]);
+			}
+		}
 	}
-	return unlocked_slot;
 }
 
 void action_close(const char * device) {
 	remove_crypt_mapping(device);
 }
 
-int action_addkey(const char * device, const Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time, int target_slot,
-                  uint64_t target_memory,
-                  double target_time, bool is_decoy) {
-	
+int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t target_memory, double target_time) {
+	OPERATION_READ_HEADER
+	OPERATION_DECLINE_SUSPEND
 	OPERATION_BACKEND_UNLOCK
 	
 	Key new_key;
@@ -429,18 +461,15 @@ int action_addkey(const char * device, const Key key, uint8_t master_key[32], in
 	return added_slot;
 }
 
-int action_revokekey(const char * device, const Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time,
-                     bool is_revoke_all, bool is_obliterate, bool is_decoy) {
-	
+int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bool is_obliterate) {
+	OPERATION_READ_HEADER
 	if (is_revoke_all) {
-		READ_HEADER
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			revoke_given_key_slot(&data, i, false);
 		}
 		write_header_to_device(&data, device, offset);
 		return -1;
 	} else if (is_obliterate) {
-		READ_HEADER
 		ask_for_conformation(_("Device %s will not be accessible, even if holding the master key, unless backup has created. Continue?"), device);
 		for (int i = 0; i < 3; i++) {
 			fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
@@ -448,13 +477,12 @@ int action_revokekey(const char * device, const Key key, uint8_t master_key[32],
 		}
 		return -1;
 	} else if (target_unlock_slot != -1) {
-		READ_HEADER
 		revoke_given_key_slot(&data, target_unlock_slot, false);
 		write_header_to_device(&data, device, offset);
 		return target_unlock_slot;
 	}
 	
-	
+	OPERATION_DECLINE_SUSPEND
 	OPERATION_BACKEND_UNLOCK
 	
 	revoke_given_key_slot(&data, unlocked_slot, true);
@@ -463,27 +491,60 @@ int action_revokekey(const char * device, const Key key, uint8_t master_key[32],
 	return unlocked_slot;
 }
 
-void action_backup(const char * device, const char * filename, const Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double
-max_unlock_time, bool is_decoy, bool is_no_transform, bool is_restore) {
+void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, bool is_no_transform) {
 	if (access(filename, F_OK) != -1) {
 		print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename) {}
 	}
+	OPERATION_READ_HEADER
+	OPERATION_DECLINE_SUSPEND
 	if (is_no_transform) {
-		READ_HEADER
-		write_header_to_device(&data, filename, offset);
-	} else if (is_restore) {
-		ask_for_conformation(_("Restoring header to device: %s, All content will be lost. Continue?"), device);
-		const char * tmp;
-		tmp = device;
-		device = filename;
-		filename = tmp;
-		READ_HEADER
-		write_header_to_device(&data, filename, offset);
+		write_header_to_device(&data, filename, 0);
 	} else {
 		OPERATION_BACKEND_UNLOCK
 		device = filename;
+		offset = 0;
 		OPERATION_LOCK_AND_WRITE
 	}
+}
+
+void action_restore(const char * device, const char * filename, bool is_decoy){
+	check_file(device, true);
+	ask_for_conformation(_("Restoring header to device: %s, All content will be lost. Continue?"), device);
+	swap(device, filename);
+	OPERATION_READ_HEADER
+	swap(device, filename);
+	is_decoy = is_decoy || detect_fat32_on_device(device);
+	write_header_to_device(&data, device, is_decoy ? -(int64_t)sizeof(Data) : 0);
+}
+
+void action_suspend(const char * device, PARAMS_FOR_KEY){
+	check_file(device, true);
+	OPERATION_READ_HEADER
+	if (is_header_suspended(data)){
+		print_error(_("The device %s is already suspended."), device);
+	}
+	Data data_copy;
+	memcpy(&data_copy, &data, sizeof(data_copy));
+	OPERATION_BACKEND_UNLOCK
+	do {
+		suspend_encryption(&data_copy, master_key);
+		write_header_to_device(&data_copy, device, offset);
+	} while(0);
+}
+
+void action_resume(const char * device, PARAMS_FOR_KEY){
+	check_file(device, true);
+	OPERATION_READ_HEADER
+	if (!is_header_suspended(data)){
+		print_error(_("The device %s is already encrypted."), device);
+	}
+	Data data_copy;
+	memcpy(&data_copy, &data, sizeof(data_copy));
+	OPERATION_BACKEND_UNLOCK
+	do {
+		resume_encryption(&data_copy, master_key);
+		write_header_to_device(&data_copy, device, offset);
+	} while(0);
 }
 
 void init() {

@@ -37,6 +37,7 @@
 const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 59874, 162755, 442413, 1202604,
 									 3269017, 8886111, 24154953, 65659969, 178482301, 485165195};
 
+const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
 
 FILE * random_fd;
 
@@ -47,18 +48,18 @@ typedef struct __attribute__((packed)) {
 } Key_slot;
 
 typedef struct __attribute__((packed)) {
-	uint8_t inited_key[KEY_SLOT_COUNT][HASHLEN];
-	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
-	bool key_slot_is_used[KEY_SLOT_COUNT];
 	uint8_t disk_key_mask[HASHLEN];
 	uint64_t start_sector;
 	uint64_t end_sector;  // in sector
 	char enc_type[32];
+	uint8_t inited_key[KEY_SLOT_COUNT][HASHLEN];
+	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
+	bool key_slot_is_used[KEY_SLOT_COUNT];
 	uint64_t check_key_magic_number;
 } Metadata;
 
 typedef struct __attribute__((packed)) STR_data {
-	__attribute__((unused)) uint8_t head[16]; // '\xe8' '\xb4' '\xb4' '\xe8' '\xb4' '\xb4' 'l' 'e' 'v' 'e' 'l' '-' '1' '2' '8' '!'
+	__attribute__((unused)) uint8_t head[16];
 	uint8_t master_key_mask[HASHLEN];
 	Key_slot keys[KEY_SLOT_COUNT];
 	Metadata metadata;
@@ -74,13 +75,6 @@ static __attribute_maybe_unused__ uint64_t rdtsc() {
 	__asm__ __volatile__("rdtsc" : "=a"(rax), "=d"(rdx) : :);
 	return (rdx << 32) | rax;
 #endif
-}
-
-void print_hex_array(size_t length, const uint8_t arr[length]) {
-	for (size_t i = 0; i < length; ++i) {
-		printf("%02x ", arr[i]);
-	}
-	printf("\n");
 }
 
 void init_random_generator(char * generator_addr) {
@@ -230,25 +224,21 @@ void set_master_key_to_slot(Key_slot * key_slot, const uint8_t password_hash[HAS
 	
 }
 
-void get_metadata_key_or_disk_key_from_master_key(const uint8_t master_key[32], const uint8_t mask[32], uint8_t key[32]) {
+void get_metadata_key_or_disk_key_from_master_key(const uint8_t master_key[HASHLEN], const uint8_t mask[HASHLEN], uint8_t key[HASHLEN]) {
 	uint8_t inter_key[HASHLEN];
-	memcpy(inter_key, master_key, HASHLEN);
-	for (int i = 0; i < HASHLEN; i++) {
-		inter_key[i] = master_key[i] ^ mask[i];
-	}
+	xor_with_len(HASHLEN, master_key, mask, inter_key);
 
 	argon2id_hash_raw(1, BASE_MEM_COST * 4, PARALLELISM, inter_key, HASHLEN, "level-128!level-128!", strlen("level-128!level-128!"), key, HASHLEN);
 	
 }
 
-bool operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t metadata_key_mask[HASHLEN]) {
-	uint8_t metadata_key[HASHLEN];
+bool operate_metadata_using_master_key(Metadata * metadata, const uint8_t master_key[HASHLEN], const uint8_t master_key_mask[HASHLEN]) {
+	uint8_t key[HASHLEN];
 	
-	get_metadata_key_or_disk_key_from_master_key(master_key, metadata_key_mask, metadata_key);
-	xor_with_len(HASHLEN, metadata_key, metadata_key_mask, metadata_key);
+	get_metadata_key_or_disk_key_from_master_key(master_key, master_key_mask, key);
 	
 	struct AES_ctx ctx;
-	AES_init_ctx_iv(&ctx, metadata_key, metadata_key_mask);
+	AES_init_ctx_iv(&ctx, key, master_key_mask);
 	
 	
 	if (metadata->check_key_magic_number != CHECK_KEY_MAGIC_NUMBER) {
@@ -373,3 +363,32 @@ bool check_master_key_and_slots_revoke(Data * decrypted_header, bool revoked_unt
 	return true;
 }
 
+void suspend_encryption(Data * encrypted_header, const uint8_t master_key[HASHLEN]){
+	memcpy(encrypted_header->head, head, sizeof(head));
+	uint8_t key[HASHLEN];
+	
+	get_metadata_key_or_disk_key_from_master_key(master_key, encrypted_header->master_key_mask, key);
+	
+	struct AES_ctx ctx;
+	AES_init_ctx_iv(&ctx, key, encrypted_header->master_key_mask);
+	AES_CBC_decrypt_buffer(&ctx, encrypted_header->metadata.disk_key_mask, (intptr_t)encrypted_header->metadata.inited_key - (intptr_t)encrypted_header->metadata.disk_key_mask);
+	
+	xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
+}
+
+void resume_encryption(Data * encrypted_header, const uint8_t master_key[HASHLEN]){
+	fill_secure_random_bits(encrypted_header->head, sizeof(encrypted_header->head));
+	uint8_t key[HASHLEN];
+	
+	get_metadata_key_or_disk_key_from_master_key(master_key, encrypted_header->master_key_mask, key);
+	
+	struct AES_ctx ctx;
+	AES_init_ctx_iv(&ctx, key, encrypted_header->master_key_mask);
+	AES_CBC_decrypt_buffer(&ctx, encrypted_header->metadata.disk_key_mask, (intptr_t)encrypted_header->metadata.inited_key - (intptr_t)encrypted_header->metadata.disk_key_mask);
+	
+	xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
+}
+
+extern inline bool is_header_suspended(const Data header){
+	return memcmp(header.head, head, 16) == 0;
+}

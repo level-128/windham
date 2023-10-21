@@ -2,13 +2,21 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <assert.h>
 
 
-#pragma once
+#define swap(x,y) do \
+   { assert(sizeof(x) == sizeof(y)); \
+	unsigned char tmp_var[(signed)sizeof(x)]; \
+     memcpy(tmp_var,&(y),sizeof(x)); \
+     memcpy(&(y),&(x),sizeof(x)); \
+     memcpy(&(x),tmp_var,sizeof(x)); \
+    } while(0)
 
-#define var_(z) g_iLine##z##var
+#define var_(x) __temp_var_at_line##x
 #define var__(x) var_(x)
-#define p__tmp_var__ var__(__LINE__)
+#define tmp_var var__(__LINE__)
+
 
 #define CV_VA_NUM_ARGS_HELPER(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...)    N
 #define CV_VA_NUM_ARGS(...) CV_VA_NUM_ARGS_HELPER(__VA_ARGS__ __VA_OPT__(,) 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
@@ -59,10 +67,10 @@
 
 #if NO_PRINT_ != 1
 #define print(...) \
-   int p__tmp_var__ = CV_VA_NUM_ARGS(__VA_ARGS__);\
+   int tmp_var = CV_VA_NUM_ARGS(__VA_ARGS__);\
    p__get_types__(__VA_ARGS__);                   \
-   p__expands_args(p__tmp_var__, __VA_ARGS__);\
-   p__print__(p__tmp_var__)
+   p__expands_args(tmp_var, __VA_ARGS__);\
+   p__print__(tmp_var)
 #else
 #define print(...) 0
 #endif
@@ -89,7 +97,7 @@ bool debug_print_error_suppress = false;
 
 #define print_warning(...) \
     printf("\033[1;33mWARNING: "); \
-    print(__VA_ARGS__);           \
+    printf(__VA_ARGS__);           \
     printf("\033[0m\n")
 
 typedef enum {
@@ -99,6 +107,8 @@ typedef enum {
 	T_PTR,
 	T_BOOL,
 } TYPE_T;
+
+#pragma once
 
 TYPE_T argtype[10];
 void * arg_ptr[10];
@@ -149,7 +159,7 @@ void p__print__(int argcount) {
 					void * x;
 					double y;
 				};
-				union p__temp__void_to_double_cast__ p__tmp_var__; p__tmp_var__.x = arg_ptr[i]; p__print_double(p__tmp_var__.y);
+				union p__temp__void_to_double_cast__ tmp_var; tmp_var.x = arg_ptr[i]; p__print_double(tmp_var.y);
 				break;
 			}
 			case T_BOOL: {
@@ -166,3 +176,9 @@ void p__print__(int argcount) {
 	}
 }
 
+void print_hex_array(size_t length, const uint8_t arr[length]) {
+	for (size_t i = 0; i < length; ++i) {
+		printf("%02x ", arr[i]);
+	}
+	printf("\n");
+}

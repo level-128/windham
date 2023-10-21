@@ -233,7 +233,7 @@ void write_header_to_device(const Data * data, const char * device, int64_t offs
 	if (offset < 0) {
 		fseek(fp, offset, SEEK_END);
 	} else {
-		fseek(fp, 0, SEEK_SET);
+		fseek(fp, offset, SEEK_SET);
 	}
 	
 	result = fwrite(data, 1, sizeof(Data), fp);
