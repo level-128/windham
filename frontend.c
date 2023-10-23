@@ -105,9 +105,9 @@ int frontend_check_actions(char * input) {
 		}
 	}
 	if (memcmp(input, "--", 2) == 0){
-		print_error("Arguments should locate after <action> and <target>.");
+		print_error(_("Arguments should locate after <action> and <target>."));
 	}
-	print_error("<action> not recognized. type 'windham Help' to view help");
+	print_error(_("<action> not recognized. type 'windham Help' to view help"));
 	return -1;
 }
 
@@ -144,7 +144,7 @@ void frontend_print_unlock_args(){
 "\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' and '--target-slot' are mutually exclusive\n"
 "\t--master-key <characters>: using master key to unlock.\n"
 "\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
-"\t--max-unlock-memory <int>: The total maximum available memory to use (KiB) available for decryption. \n"
+"\t--max-unlock-memory <int>: total maximum available memory to use (KiB) available for decryption. \n"
 "\t--max-unlock-time <float>: the suggested total time (sec) to compute the key.\n"));
 };
 
@@ -154,7 +154,6 @@ void frontend_print_common_args(){
 "\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n"
 "\t--yes: do not ask for explicit conformation to potential destructive operations.\n"));
 };
-
 
 noreturn void frontend_help(const char * the_3rd_argv) {
 	if (!the_3rd_argv) {
@@ -205,18 +204,21 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		frontend_print_common_args();
 		
 	} else if (strcmp(actions[3], the_3rd_argv) == 0) {
-		printf(_("Create <target>: create a windham header on a block device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DISKS, BECAUSE THEY "
+		printf(_("New <target>: create a windham header on the device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DISKS, BECAUSE THEY "
 				"COULD BE UNLOCKED USING THE SAME MASTER KEY. \n"
 			  "\n"
 			  "options:\n"
 			  "\t--key <characters>: key input as argument, instead of asking in the terminal.\n"
 			  "\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' are mutually exclusive\n"
 			  "\t--target-slot <int>: choose the target slot to add a new key; the first empty slot will be chosen as default.\n"
-			  "\t--target-memory <int>: The total maximum memory (KiB) available to use. \n"
-			  "\t--target-time <float>: the suggested total time (sec) for adding a key. This is not a hard limit.\n"
-			  "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"
-			  "\t--visible: adding partition identifier to the header. The program does not depend on the partition identifier; it will simply ignore it.\n"));
+			  "\t--target-memory <int>: total maximum memory (KiB) available to use. \n"
+			  "\t--target-time <float>: the suggested total time (sec) for adding the first key. This is not a hard limit.\n"
+			  "\t--encrypt-type <string>: designate an encryption scheme for the new header instead of the default one. It is not recommended, nor necessary, to do so, unless"
+			  " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\"."
+			  "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"));
 		frontend_print_common_args();
+		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If you designated a encryption scheme which contains an unsupported, "
+					"but valid, mode, which will trigger a warning, you cannot open the partition using your system.\n"));
 		
 	} else if (strcmp(actions[4], the_3rd_argv) == 0) {
 		printf(_("AddKey <target>: Add a new key to the existing windham header. The new key will be asked after a successful unlock from the given key.\n"
@@ -265,6 +267,8 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("Resume <target>: unsuspend the device.\n"
 					"\n"));
 		frontend_print_common_args();
+	} else {
+		print_error("<action> not recognized. type 'windham Help' to view help");
 	}
 	exit(0);
 }
@@ -435,20 +439,12 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	switch (action_num) {
 		case 0:
 			check_is_device_mounted(device);
-			if (is_suspended(device, options[NMOBJ_target_decoy])){
-				if (options[NMOBJ_target_dry_run]){
-					print_error(_("--dry-run cannot be use on suspended device."));
-				} else {
-					print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
-				}
-				action_open_suspended(device, params[NMOBJ_to], options[NMOBJ_target_readonly]);
-			} else {
+			if (!action_open_suspended(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly])){
 				ASK_KEY
 				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time,
 				                          options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly]);
 			}
 			
-
 			break;
 		case 1:
 			action_close(device);

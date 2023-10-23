@@ -26,7 +26,7 @@ void test_create_password() {
 	
 	char key[HASHLEN * 2 + 1];
 	fill_secure_random_bits(masterkey, HASHLEN);
-	convert_password_from_disk_key(masterkey, key);
+	convert_disk_key_to_hex_format(masterkey, key);
 	print(key);
 }
 

@@ -5,7 +5,7 @@
 #include <memory.h>
 #include <malloc.h>
 #include "assert.h"
-#include "../print.c"
+#include "../srclib.c"
 #include "../enclib.c"
 
 

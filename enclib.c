@@ -16,18 +16,22 @@
 #define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
 #define CHECK_KEY_MAGIC_NUMBER 0x1373112813731128
 #define DEFAULT_TARGET_TIME 1
-#define MAX_UNLOCK_TIME_FACTOR 3
+#define MAX_UNLOCK_TIME_FACTOR 4
 
 
 #define ECB 0
 #define CTR 0
 
-#include "print.c"
+#include "srclib.c"
 #include "argon2.h"
 #include "aes.h"
 
 #ifndef UINT8_MAX
 #error "the program only supports platform with uint8_t defined"
+#endif
+
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#error "This code cannot be compiled on a big-endian machine."
 #endif
 
 #if KEY_SLOT_EXP_MAX % 4 != 0

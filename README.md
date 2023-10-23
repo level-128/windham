@@ -4,32 +4,30 @@ Windham is free and open-source software for disk encryption, based on the Linux
 which is indistinguishable from cryptographically secure pseudo-random data, and also supports creating a Decoy
 Partition
 
-**_!!!! This software is in an unstable stage. Use it only for evaluation purposes. !!!!_**
-
 ## How To install?
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
-or later.) under release.
-- Compile by your own. __Note: Untested on architectures other than X86_64, Argon2_bench is only available for X86_64__. 
-
-the device-mapper subsystem is required. Install `libdevmapper` on Debian-based 
-distro; or `device-mapper` on Fedora-based / SUSE distro.
+or later.), ARM64 (at least armv8.5-a / armv9-a) and risc-v64 (rv64imafdc) under release.
+- Compile by your own. the device-mapper subsystem is required. Install `libdevmapper` on Debian-based 
+distro; or `device-mapper` on Fedora-based / SUSE distro. It should be already available if you have
+`cryptsetup` (known for manipulating LUKS disk encryption) installed.
 
 
 ## Basic steps:
-1. First, grab the device that you want to encrypt. find your device location under `/dev`, you can do this by using 
-your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`, or `/dev/sdb2` if 
+1. First, find the device that you want to encrypt under `/dev`, you can do this by using 
+your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`; `/dev/sdb2` or `/dev/nvme0n2p2` if 
 you prefer to create an encrypted partition instead.
 2. To create a new Windham device, use command `Windham New *your device*`. For example, creating a Windham device on
 `/dev/sdb`, use command `sudo windham New /dev/sdb` and enter your key-phrase. 
-3. To map your device, use command `windham Open *your device* --map-to=*name*`. For example, to decrypt `/dev/sdb`,
-using `sudo windham Open /dev/sdb --map-to=enc1` will create a mapper device at `/dev/mapper/enc1`.
+3. To map your device, use command `windham Open *your device* --to=*name*`. For example, to decrypt `/dev/sdb`,
+using `sudo windham Open /dev/sdb --to=enc1` will create a mapper device at `/dev/mapper/enc1`.
 4. create filesystem on `/dev/mapper/enc1` as you wish.
 5. To close your device, use `windham close *name*`. 
 
 &nbsp;
 
 [Want to know how Windham works? Here:](/Document/technical_details.md)
+
 
 ## Introduction to Decoy Partition
 
@@ -117,6 +115,9 @@ key to the drive (also the attacker can't tell whether two headers are logically
 will be greatly mitigated. However, if you do not have access to the key, use `windham Backup *your device* --no-transform`
 to back up the header as is.
 
+&nbsp;
+
+- Why I need to provide 
 ---
 
 ## License and Legal issues

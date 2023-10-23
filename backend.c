@@ -3,7 +3,7 @@
 //
 
 #include <sys/stat.h>
-#include <stdint.h>
+#include <inttypes.h>
 #include <termios.h>
 #include <libintl.h>
 
@@ -33,6 +33,10 @@ enum {
 };
 
 bool is_skip_conformation = false;
+
+char * crypt_list[] = {"aes", "twofish", "serpent", NULL};
+char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
+char * iv_list[] = {"plain64", "plain64be", "essiv", "eboiv", NULL};
 
 // Why no #Pragma Once? Because this file should be only include once.
 
@@ -130,9 +134,9 @@ void check_file(const char * filename, bool is_block) {
 
 size_t check_target_mem(size_t target_mem, bool is_encrypt) {
 	if (target_mem == 0) {
-		if ((double) sys_info.free_ram / (double) sys_info.total_ram < 0.3){
-			print_warning("The system is low on memory (< 30%). It is recommended to designate a larger allowed memory to utilize the system swap space via parameter \"%s\".",
-							  is_encrypt ? "--target-memory" : "--max-unlock-memory");
+		if ((double) sys_info.free_ram / (double) sys_info.total_ram < 0.3) {
+			print_warning(_("The system is low on memory (< 30%%). It is recommended to designate a larger allowed memory to utilize the system swap space via parameter \"%s\"."),
+			              is_encrypt ? "--target-memory" : "--max-unlock-memory");
 		}
 		return sys_info.free_ram;
 	}
@@ -344,6 +348,62 @@ void interactive_ask_new_key(Key * new_key) {
 	}
 }
 
+void check_encryption_mode(const char * str, int64_t idx[3]) {
+	int dash_count = 0;
+	for (int i = 0; str[i] != '\0'; i++) {
+		if (str[i] == '-') {
+			dash_count++;
+		}
+	}
+	if (dash_count != 2) {
+		print_error(_("Invalid argument. The encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\""));
+	}
+	char * strcpy = strdup(str);
+	
+	char * token = strtok(strcpy, "-");
+	idx[0] = is_in_list(token, crypt_list);
+	if (idx[0] == -1) {
+		print_error(_("Invalid argument. Unrecognized cipher \"%s\". "), token);
+	}
+	
+	token = strtok(NULL, "-");
+	idx[1] = is_in_list(token, chainmode_list);
+	if (idx[1] == -1) {
+		print_error(_("Invalid argument. Unrecognized chainmode \"%s\". "), token);
+	}
+	
+	token = strtok(NULL, "-");
+	idx[2] = is_in_list(token, iv_list);
+	if (idx[2] == -1) {
+		print_error(_("Invalid argument. Unrecognized ivmode \"%s\". "), token);
+	}
+	free(strcpy);
+}
+
+void action_new_check_crypt(const char * str) {
+	int64_t idx[3];
+	check_encryption_mode(str, idx);
+	char ** crypto_list = get_crypto_list();
+	
+	if (crypto_list == NULL) {
+		return;
+	}
+	
+	char chainmode_name[32];
+	sprintf(chainmode_name, "%s(%s)", chainmode_list[idx[1]], crypt_list[idx[0]]);
+	if (is_in_list(chainmode_name, crypto_list) == -1) {
+		ask_for_conformation(_("The cipher %s you've requested might not be supported by your current system. Although you can create a header that employs this encryption scheme, "
+		                       "your system might not be capable of unlocking it. This means you won't be able to access the encrypted device you've just created with this specific "
+									  "method on this system. You would need to locate a compatible system, recompile your kernel, or find the appropriate kernel module to access the "
+									  "device. Do you wish to proceed?"), chainmode_name);
+	}
+	
+	for (int i = 0; crypto_list[i]; i++) {
+		free(crypto_list[i]);
+	}
+	free(crypto_list);
+}
+
 #define OPERATION_READ_HEADER \
 Data data;          \
 if (is_decoy == true){ \
@@ -387,6 +447,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	uint8_t master_key[HASHLEN];
 	size_t start_sector, end_sector;
 	int64_t offset = is_decoy ? -(int64_t) sizeof(Data) : 0;
+	action_new_check_crypt(enc_type);
 	
 	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 	
@@ -401,25 +462,36 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	}
 }
 
-bool is_suspended(const char * device, bool is_decoy){
-	if (is_decoy){
+bool is_suspended(const char * device, bool is_decoy) {
+	if (is_decoy) {
 		return false;
 	}
 	OPERATION_READ_HEADER
 	return is_header_suspended(data);
 }
 
-void action_open_suspended(const char * device, const char * target_name, bool is_target_readonly){
-	bool is_decoy = false;
+bool action_open_suspended(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly) {
 	OPERATION_READ_HEADER
-
+	if (!is_header_suspended(data)) {
+		return false;
+	}
 	uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
 	get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, disk_key);
-	create_crypt_mapping_from_disk_key(device, target_name, data.metadata, disk_key, is_target_readonly);
+	if (!is_dry_run) {
+		create_crypt_mapping_from_disk_key(device, target_name, data.metadata, disk_key, is_target_readonly);
+		print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
+	} else {
+		printf(_("dry run complete. Device is unlocked and suspended, thus no key slot status could be provided\n"));
+		printf(_("Additional device parameters: \n"
+		         "Crypto algorithm: %s\n"
+		         "Start sector %lu\n"
+		         "End sector %lu\n"), data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector);
+	}
+	return true;
 }
 
-void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_target_readonly, bool is_dry_run) {
-
+void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_dry_run, bool is_target_readonly) {
+	
 	OPERATION_READ_HEADER
 	OPERATION_BACKEND_UNLOCK
 	
@@ -430,13 +502,13 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 	} else {
 		printf(_("dry run complete. Slot %i opened with master key:\n"), unlocked_slot);
 		print_hex_array(HASHLEN, master_key);
-		printf(_("Additional encryption device parameters: \n"
-					"Crypto algorithm: %s\n"
-					"Start sector %lu\n"
-					"End sector %lu\n\n"), data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector);
+		printf(_("Additional device parameters: \n"
+		         "Crypto algorithm: %s\n"
+		         "Start sector %lu\n"
+		         "End sector %lu\n"), data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector);
 		printf(_("key slot status:\n"));
-		for (int i = 0; i < KEY_SLOT_COUNT; i++){
-			if (data.metadata.key_slot_is_used[i]){
+		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+			if (data.metadata.key_slot_is_used[i]) {
 				printf(_("Slot %i occupied with password identifier: "), i);
 				print_hex_array(HASHLEN / 4, data.metadata.inited_key[i]);
 			}
@@ -507,20 +579,20 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 	}
 }
 
-void action_restore(const char * device, const char * filename, bool is_decoy){
+void action_restore(const char * device, const char * filename, bool is_decoy) {
 	check_file(device, true);
 	ask_for_conformation(_("Restoring header to device: %s, All content will be lost. Continue?"), device);
 	swap(device, filename);
 	OPERATION_READ_HEADER
 	swap(device, filename);
 	is_decoy = is_decoy || detect_fat32_on_device(device);
-	write_header_to_device(&data, device, is_decoy ? -(int64_t)sizeof(Data) : 0);
+	write_header_to_device(&data, device, is_decoy ? -(int64_t) sizeof(Data) : 0);
 }
 
-void action_suspend(const char * device, PARAMS_FOR_KEY){
+void action_suspend(const char * device, PARAMS_FOR_KEY) {
 	check_file(device, true);
 	OPERATION_READ_HEADER
-	if (is_header_suspended(data)){
+	if (is_header_suspended(data)) {
 		print_error(_("The device %s is already suspended."), device);
 	}
 	Data data_copy;
@@ -529,13 +601,13 @@ void action_suspend(const char * device, PARAMS_FOR_KEY){
 	do {
 		suspend_encryption(&data_copy, master_key);
 		write_header_to_device(&data_copy, device, offset);
-	} while(0);
+	} while (0);
 }
 
-void action_resume(const char * device, PARAMS_FOR_KEY){
+void action_resume(const char * device, PARAMS_FOR_KEY) {
 	check_file(device, true);
 	OPERATION_READ_HEADER
-	if (!is_header_suspended(data)){
+	if (!is_header_suspended(data)) {
 		print_error(_("The device %s is already encrypted."), device);
 	}
 	Data data_copy;
@@ -544,7 +616,7 @@ void action_resume(const char * device, PARAMS_FOR_KEY){
 	do {
 		resume_encryption(&data_copy, master_key);
 		write_header_to_device(&data_copy, device, offset);
-	} while(0);
+	} while (0);
 }
 
 void init() {

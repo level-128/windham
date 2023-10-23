@@ -15,6 +15,8 @@
 #include <libintl.h>
 
 #define SECTOR_SIZE 512
+#define MAX_LINE_LENGTH 1024
+#define TARGET_PREFIX "name         : "
 
 #pragma once
 
@@ -111,6 +113,40 @@ size_t get_device_sector_cnt(const char * device) {
 	return size;
 }
 
+char ** get_crypto_list() {
+	int crypto_count = 0;
+	FILE * file;
+	char line[MAX_LINE_LENGTH];
+	char ** crypto_list = NULL;
+	
+	file = fopen("/proc/crypto", "r");
+	if (file == NULL) {
+		print_warning(_("Cannot determine available encryption mode on the system. Please ensure that the kernel encryption subsystem is available."));
+		return NULL;
+	}
+	
+	while (fgets(line, sizeof(line), file)) {
+		if (strncmp(line, TARGET_PREFIX, strlen(TARGET_PREFIX)) == 0) {
+			char * name = line + strlen(TARGET_PREFIX);
+			if (*name != '_' && strcmp("stdrng\n", name) != 0) {
+				(crypto_count)++;
+				crypto_list = realloc(crypto_list, sizeof(char *) * crypto_count);
+				
+				crypto_list[crypto_count - 1] = strdup(name);
+				
+				char * end = crypto_list[crypto_count - 1] + strlen(crypto_list[crypto_count - 1]) - 1;
+				if (*end == '\n') {
+					*end = '\0';
+				}
+			}
+		}
+	}
+	crypto_list = realloc(crypto_list, sizeof(char *) * (crypto_count + 1));
+	crypto_list[crypto_count] = NULL;
+	fclose(file);
+	return crypto_list;
+}
+
 void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * start_sector, size_t * end_sector){
 	size_t device_size = get_device_sector_cnt(device);
 	size_t safe_node = (0x78000b + (16<<20)) / 512; // safe sector
@@ -129,7 +165,7 @@ void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * st
 	}
 }
 
-void convert_password_from_disk_key(const uint8_t master_key[32], char key[HASHLEN * 2 + 1]) {
+void convert_disk_key_to_hex_format(const uint8_t master_key[32], char key[HASHLEN * 2 + 1]) {
 	const char *hex_chars = "0123456789abcdef";
 	
 	for (size_t i = 0; i < HASHLEN; ++i) {
@@ -161,7 +197,7 @@ void remove_crypt_mapping(const char * name) {
 int create_crypt_mapping(const char * device, const char * name, const char * enc_type, const char * password, size_t start_sector, size_t end_sector, __attribute__((unused)) bool read_only) {
 	struct dm_task * dmt;
 	char params[512];
-//	print("device size", device_size, " start sector", start_sector);
+//	print("enc_type", enc_type, " start sector", start_sector);
 	
 	snprintf(params, sizeof(params), "%s %s 0 %s %zu", enc_type, password, device, start_sector);
 //	print("crypt_map argument:", params);
@@ -194,7 +230,7 @@ int create_crypt_mapping(const char * device, const char * name, const char * en
 
 void create_crypt_mapping_from_disk_key(const char * device, const char * target_name, Metadata metadata, const uint8_t disk_key[HASHLEN], bool read_only){
 	char password[HASHLEN * 2 + 1];
-	convert_password_from_disk_key(disk_key, password);
+	convert_disk_key_to_hex_format(disk_key, password);
 	create_crypt_mapping(device, target_name, metadata.enc_type, password, metadata.start_sector, metadata.end_sector, read_only);
 }
 
