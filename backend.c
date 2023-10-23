@@ -296,7 +296,7 @@ int check_is_duplicate_and_get_slot(Data decrypted_self, uint8_t inited_key[HASH
 	//check is duplicate
 	for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 		if (memcmp(decrypted_self.metadata.inited_key[i], inited_key, HASHLEN) == 0) {
-			print_error(_("The given key is used at slot %i"), i);
+			print_error(_("The given key is used, or have just revoked, at slot %i"), i);
 		}
 	}
 	return target_slot;
@@ -451,6 +451,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	
 	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 	
+	fill_secure_random_bits(master_key, HASHLEN);
 	decide_start_and_end_sector(device, is_decoy, &start_sector, &end_sector);
 	initialize_new_header(&data, enc_type, start_sector, end_sector);
 	add_key(&data, master_key, key, target_slot, target_memory, target_time);
@@ -507,10 +508,18 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 		         "Start sector %lu\n"
 		         "End sector %lu\n"), data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector);
 		printf(_("key slot status:\n"));
+		
+		uint8_t temp[HASHLEN] = {0};
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			if (data.metadata.key_slot_is_used[i]) {
-				printf(_("Slot %i occupied with password identifier: "), i);
-				print_hex_array(HASHLEN / 4, data.metadata.inited_key[i]);
+				if (memcmp(data.metadata.inited_key[i], temp, HASHLEN) == 0){
+					printf(_("Slot %i has been revoked.\n"), i);
+				} else {
+					printf(_("Slot %i occupied with password; identifier: "), i);
+					print_hex_array(HASHLEN / 4, data.metadata.inited_key[i]);
+				}
+			} else {
+				printf(_("Slot %i is empty.\n"), i);
 			}
 		}
 	}

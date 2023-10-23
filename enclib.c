@@ -285,11 +285,7 @@ void initialize_new_header(Data * uninitialized_header, const char * enc_type, s
 	
 //	operate_metadata_using_master_key(&uninitialized_header->metadata, master_key, uninitialized_header->master_key_mask, true);
 	memset(uninitialized_header->metadata.key_slot_is_used, false, sizeof(uninitialized_header->metadata.key_slot_is_used));
-	if (enc_type != NULL) {
-		strcpy(uninitialized_header->metadata.enc_type, enc_type);
-	} else {
-		strcpy(uninitialized_header->metadata.enc_type, DEFAULT_DISK_ENC_MODE);
-	}
+	strcpy(uninitialized_header->metadata.enc_type, enc_type);
 	uninitialized_header->metadata.check_key_magic_number = CHECK_KEY_MAGIC_NUMBER;
 	
 	uninitialized_header->metadata.start_sector = start_sector;

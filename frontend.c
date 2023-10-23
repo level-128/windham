@@ -7,7 +7,6 @@
 
 #include <libintl.h>
 #include <locale.h>
-#include <libgen.h>
 
 
 #define _(STRING) gettext(STRING)
@@ -87,7 +86,7 @@ const int8_t check_allowed[] =
 				// AddKey
 		 CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, CHECK_COMMON, -1,
 				// RevokeKey
-		 CHECK_ALLOWED_OPEN, NMOBJ_target_all, NMOBJ_target_obliterate, CHECK_COMMON, -1,
+		 CHECK_ALLOWED_OPEN, NMOBJ_target_slot, NMOBJ_target_all, NMOBJ_target_obliterate, CHECK_COMMON, -1,
 		 		// Backup
 		 CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_target_no_transform, CHECK_COMMON, -1,
 				// Restore
@@ -95,7 +94,7 @@ const int8_t check_allowed[] =
 		      // Suspend
 		 CHECK_ALLOWED_OPEN, CHECK_COMMON, -1,
 		      // Resume
-		 CHECK_COMMON, -1};
+		 CHECK_ALLOWED_OPEN, CHECK_COMMON, -1};
 
 
 int frontend_check_actions(char * input) {
@@ -131,7 +130,7 @@ void frontend_check_invalid_param(int action_num) {
 				}
 			}
 			if (check_allowed[j] == -1) {
-				print_error(_("argument: %s is not valid under action: %s"), (char *) long_options[i].name, (char *) actions[action_num]);
+				print_error(_("argument: %s is not valid under action: %s"), (char *) long_options[i].name, (char *) actions[action_num + 1]);
 			}
 		}
 	}
@@ -167,8 +166,8 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("Argon2id memory size exponential count: %i\n"), KEY_SLOT_EXP_MAX);
 		printf(_("Argon2id base memory size (KiB): %i\n"), BASE_MEM_COST);
 		printf(_("Argon2id parallelism: %i\n"), PARALLELISM);
-		printf(_("Default encryption target time multiplier: %i\n"), DEFAULT_ENC_TARGET_TIME);
-		printf(_("Default decryption benchmark multiplier: %i\n"), MAX_UNLOCK_TIME_FACTOR);
+		printf(_("Default encryption target time: %i\n"), DEFAULT_ENC_TARGET_TIME);
+		printf(_("Default decryption target time (per slot): %i\n"), MAX_UNLOCK_TIME_FACTOR);
 		printf(_("Default encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
 		#ifdef __GNUC__
 		printf(_("Compiler: GCC %d.%d.%d\n"), __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
@@ -187,6 +186,8 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 				"\n"
 				"    You should have received a copy of the GNU General Public License\n"
 				"    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"));
+		printf(_("\n\tThere is also an \"Additional permissions\" applied from Article (7) when using, propagating and conveying the unmodified covered work. This \"additional "
+					"permissions\" is legal binding, which grants additional permissions to the licensee. See license.md for details."));
 		
 	} else if (strcmp(actions[1], the_3rd_argv) == 0) {
 		printf(_("Open <target>: Unlock <target> and create a mapper. The key, by default, is read from the terminal.\n"
@@ -204,7 +205,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		frontend_print_common_args();
 		
 	} else if (strcmp(actions[3], the_3rd_argv) == 0) {
-		printf(_("New <target>: create a windham header on the device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DISKS, BECAUSE THEY "
+		printf(_("New <target>: create a windham header on the device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DEVICES, BECAUSE THEY "
 				"COULD BE UNLOCKED USING THE SAME MASTER KEY. \n"
 			  "\n"
 			  "options:\n"
@@ -214,11 +215,11 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 			  "\t--target-memory <int>: total maximum memory (KiB) available to use. \n"
 			  "\t--target-time <float>: the suggested total time (sec) for adding the first key. This is not a hard limit.\n"
 			  "\t--encrypt-type <string>: designate an encryption scheme for the new header instead of the default one. It is not recommended, nor necessary, to do so, unless"
-			  " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\"."
+			  " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\".\n"
 			  "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"));
 		frontend_print_common_args();
-		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If you designated a encryption scheme which contains an unsupported, "
-					"but valid, mode, which will trigger a warning, you cannot open the partition using your system.\n"));
+		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the designated encryption scheme contains an unsupported, "
+					"but valid, mode, which will trigger a warning, the partition cannot be opened using your system.\n"));
 		
 	} else if (strcmp(actions[4], the_3rd_argv) == 0) {
 		printf(_("AddKey <target>: Add a new key to the existing windham header. The new key will be asked after a successful unlock from the given key.\n"
@@ -234,6 +235,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("RevokeKey <target>: remove a existing key from the header.\n"
 				"\n"
 				"options:\n"
+				"\t--target-slot <int>: revoke the key inside the target slot. No password required.\n"
 				"\t--all: revoke all slots; the device is inaccessible unless using master key to unlock.\n"
 				"\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
 				"\t--obliterate: Wipe the header and destroy all data."));
@@ -266,6 +268,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 	}else if  (strcmp(actions[9], the_3rd_argv) == 0) {
 		printf(_("Resume <target>: unsuspend the device.\n"
 					"\n"));
+		frontend_print_unlock_args();
 		frontend_print_common_args();
 	} else {
 		print_error("<action> not recognized. type 'windham Help' to view help");
@@ -454,7 +457,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			
 			ASK_KEY
 			
-			action_create(device, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
+			action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
 			break;
 		case 3:
 			
@@ -468,7 +471,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 					ASK_KEY
 				}
 			}
-			action_revokekey(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], params[NMOBJ_target_all], options[NMOBJ_target_obliterate]);
+			action_revokekey(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_all], options[NMOBJ_target_obliterate]);
 			break;
 		case 5:
 			if (!(options[NMOBJ_target_no_transform] || options[NMOBJ_target_restore])){
