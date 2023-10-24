@@ -75,7 +75,7 @@ bool detect_fat32_on_device(const char * device){
 	return memcmp(&content[3], "mkfs.fat", 8) == 0;
 }
 
-bool check_is_device_mounted(char * device){
+bool check_is_device_mounted(const char * device){
 	FILE *fp = fopen("/proc/mounts", "r");
 	if (fp == NULL) {
 		print_warning(_("Cannot detect device %s mount status."), device);
@@ -91,7 +91,7 @@ bool check_is_device_mounted(char * device){
 		if ((location = strstr(line, device)) != NULL) {
 			fclose(fp);
 			char * token = strtok(location + strlen(device) + 1, " ");
-			print_error(_("Device %s is mounted at %s. Unmount to open device."), device, token);
+			print_error(_("Device %s is mounted at %s. Unmount to continue."), device, token);
 		}
 	}
 	free(line);

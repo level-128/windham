@@ -448,6 +448,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	size_t start_sector, end_sector;
 	int64_t offset = is_decoy ? -(int64_t) sizeof(Data) : 0;
 	action_new_check_crypt(enc_type);
+	check_is_device_mounted(device);
 	
 	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 	
@@ -526,6 +527,9 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 }
 
 void action_close(const char * device) {
+	char device_loc[strlen(device) + strlen("/dev/mapper/") + 1];
+	sprintf(device_loc, "/dev/mapper/%s", device);
+	check_is_device_mounted(device_loc);
 	remove_crypt_mapping(device);
 }
 

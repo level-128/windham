@@ -458,10 +458,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			action_close(device);
 			break;
 		case 2:
-			check_is_device_mounted(device);
-			
 			ASK_KEY
-			
 			action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time,
 			              options[NMOBJ_target_decoy]);
 			break;
