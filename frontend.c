@@ -384,7 +384,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	frontend_check_invalid_param(action_num);
 	frontend_check_invalid_combo(action_num);
 	if (memcmp(device, "--", 2) == 0) {
-		print_error("arguments should locate after <device>. ");
+		print_error(_("arguments should locate after <device>. "));
 	}
 	
 	char * end;
