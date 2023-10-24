@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-23 17:40-0400\n"
+"POT-Creation-Date: 2023-10-24 07:10-0400\n"
 "PO-Revision-Date: 2023-10-16 02:24-0400\n"
 "Last-Translator: level-128\n"
 "Language-Team: Chinese (simplified)\n"
@@ -15,20 +15,16 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: /home/level-128/CLionProjects/windham/frontend.c:108
 msgid "Arguments should locate after <action> and <target>."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:110
 msgid "<action> not recognized. type 'windham Help' to view help"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:134
 #, c-format
 msgid "argument: %s is not valid under action: %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:142
 #, c-format
 msgid ""
 "Unlock options:\n"
@@ -45,7 +41,6 @@ msgid ""
 "key.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:153
 #, c-format
 msgid ""
 "Common options:\n"
@@ -55,7 +50,6 @@ msgid ""
 "operations.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:160
 #, c-format
 msgid ""
 "usage: \"windham <action> <target>\"\n"
@@ -68,52 +62,42 @@ msgid ""
 "changing them may render your device inaccessible.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:165
 #, c-format
 msgid "number of keyslots: %i\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:166
 #, c-format
 msgid "Length of the hash (bit): %i\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:167
 #, c-format
 msgid "Argon2id memory size exponential count: %i\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:168
 #, c-format
 msgid "Argon2id base memory size (KiB): %i\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:169
 #, c-format
 msgid "Argon2id parallelism: %i\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:170
 #, c-format
-msgid "Default encryption target time multiplier: %i\n"
+msgid "Default encryption target time: %i\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:171
 #, c-format
-msgid "Default decryption benchmark multiplier: %i\n"
+msgid "Default decryption target time (per slot): %i\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:172
 #, c-format
 msgid "Default encryption type: %s\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:174
 #, c-format
 msgid "Compiler: GCC %d.%d.%d\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:177
 #, c-format
 msgid ""
 "    Copyright (C) 2023-  W. Wang (level-128)\n"
@@ -131,7 +115,15 @@ msgid ""
 "    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:192
+#, c-format
+msgid ""
+"\n"
+"\tThere is also an \"Additional permissions\" applied from Article (7) when "
+"using, propagating and conveying the unmodified covered work. This "
+"\"additional permissions\" is legal binding, which grants additional "
+"permissions to the licensee. See license.md for details."
+msgstr ""
+
 #, c-format
 msgid ""
 "Open <target>: Unlock <target> and create a mapper. The key, by default, is "
@@ -146,16 +138,14 @@ msgid ""
 "\t--readonly: Set the mapper device to read-only.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:203
 #, c-format
 msgid "Close <target> close the encrypt block device.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:207
 #, c-format
 msgid ""
 "New <target>: create a windham header on the device and add a new key. DO "
-"NOT COPY THE HEADER FROM OTHER ENCRYPTED DISKS, BECAUSE THEY COULD BE "
+"NOT COPY THE HEADER FROM OTHER ENCRYPTED DEVICES, BECAUSE THEY COULD BE "
 "UNLOCKED USING THE SAME MASTER KEY. \n"
 "\n"
 "options:\n"
@@ -172,21 +162,19 @@ msgid ""
 "\t--encrypt-type <string>: designate an encryption scheme for the new header "
 "instead of the default one. It is not recommended, nor necessary, to do so, "
 "unless you have a specific reason. the encryption scheme should obey the "
-"format: \"*cipher*-*chainmode*-*ivmode*\".\t--decoy: Create a decoy FAT32 "
-"partition. The encrypted partition stores at the unallocated sector of the "
-"FAT32 filesystem.\n"
+"format: \"*cipher*-*chainmode*-*ivmode*\".\n"
+"\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at "
+"the unallocated sector of the FAT32 filesystem.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:220
 #, c-format
 msgid ""
 "A list of supported encryption mode on your system is located at file \"/"
-"proc/crypto\". If you designated a encryption scheme which contains an "
-"unsupported, but valid, mode, which will trigger a warning, you cannot open "
-"the partition using your system.\n"
+"proc/crypto\". If the designated encryption scheme contains an unsupported, "
+"but valid, mode, which will trigger a warning, the partition cannot be "
+"opened using your system.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:224
 #, c-format
 msgid ""
 "AddKey <target>: Add a new key to the existing windham header. The new key "
@@ -200,12 +188,13 @@ msgid ""
 "otherwise, auto-detect.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:234
 #, c-format
 msgid ""
 "RevokeKey <target>: remove a existing key from the header.\n"
 "\n"
 "options:\n"
+"\t--target-slot <int>: revoke the key inside the target slot. No password "
+"required.\n"
 "\t--all: revoke all slots; the device is inaccessible unless using master "
 "key to unlock.\n"
 "\t--decoy: Opening the device assuming that the decoy partition exists; "
@@ -213,7 +202,6 @@ msgid ""
 "\t--obliterate: Wipe the header and destroy all data."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:244
 #, c-format
 msgid ""
 "Backup <target>: Backup the header into a separate file.\n"
@@ -224,7 +212,6 @@ msgid ""
 "\t--restore: restore the header from a backup file.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:254
 #, c-format
 msgid ""
 "Restore <target>: Restore the header from a file to the device.\n"
@@ -233,7 +220,6 @@ msgid ""
 "\t--to <location>: REQUIRED; the location of the file.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:260
 #, c-format
 msgid ""
 "Suspend <target>: Make device identifiable and accessible without password. "
@@ -242,14 +228,12 @@ msgid ""
 "\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:267
 #, c-format
 msgid ""
 "Resume <target>: unsuspend the device.\n"
 "\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:277
 #, c-format
 msgid ""
 "Windham (%s) Copyright (C) 2023-  W. Wang (level-128)\n"
@@ -263,124 +247,104 @@ msgid ""
 "conditions;\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:289
 msgid "argument --key, --key-file and --master-key are mutually exclusive."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:292
 msgid ""
 "argument --key, --key-file, --master-key and --target-slot are mutually "
 "exclusive under action: RevokeKey."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:296
 msgid "argument --to is required under action: Open"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:301
 msgid "argument --obliterate can only be use alone."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:305
-msgid "argument --all and --obliterate applies at the same time"
+msgid "argument --all, --obliterate or --target-slot are mutually exclusive."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:312
-#: /home/level-128/CLionProjects/windham/frontend.c:344
 #, c-format
 msgid "error when parsing master key: invalid length"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:316
 msgid ""
 "error when parsing master key: invalid character; only hexadecimal is "
 "accepted."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:386
-#: /home/level-128/CLionProjects/windham/frontend.c:395
+msgid "arguments should locate after <device>. "
+msgstr ""
+
 #, c-format
 msgid "bad input for argument %s: not an integer"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:389
-#: /home/level-128/CLionProjects/windham/frontend.c:398
 #, c-format
 msgid ""
 "bad input for argument %s: slot out of range. Slot count starts at 0, to %i"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:404
-#: /home/level-128/CLionProjects/windham/frontend.c:410
-#: /home/level-128/CLionProjects/windham/frontend.c:416
-#: /home/level-128/CLionProjects/windham/frontend.c:422
 #, c-format
 msgid "bad input for argument %s: not an positive integer"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:527
 msgid "<target> not provided. type 'windham Help' to view help"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/frontend.c:545
 #, c-format
 msgid "Unknown option or missing parameter for %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:45
 msgid ""
 "The program requires root permission. try adding 'sudo', or using argument "
 "'--no-admin' if the target is accessible without root permission"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:66
 msgid "CONFORMATION REQUIRED: "
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:72
 #, c-format
 msgid ""
 "\n"
 "Type \"%s\" to confirm."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:79
 msgid "User has canceled the operation."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:86
 msgid ""
 "Failed to read system information. Can not determine adequate memory size "
 "(or memory limit) for key derivation."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:119
 #, c-format
 msgid "File %s does not exist"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:123
 #, c-format
 msgid "Cannot read %s: insufficient permission."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:126
 #, c-format
 msgid "Cannot write to %s: insufficient permission."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:131
 #, c-format
 msgid "Cannot get size for %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:147
+#, c-format
+msgid ""
+"The system is low on memory (< 30%%). It is recommended to designate a "
+"larger allowed memory to utilize the system swap space via parameter \"%s\"."
+msgstr ""
+
 msgid ""
 "using swap space for Key derivation function. This is potentially insecure "
 "because unencrypted swap space may provide hints to the master key."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:151
 #, c-format
 msgid ""
 "The RAM and swap are not enough to perform the suggested encryption "
@@ -388,7 +352,6 @@ msgid ""
 "from %lu (KiB) to %lu (KiB). This may degrade security, continue?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:154
 #, c-format
 msgid ""
 "Adjusted the requested max RAM consumption from %lu (KiB) to %lu (KiB) "
@@ -398,26 +361,21 @@ msgid ""
 "workaround."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:199
 msgid "Password:"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:201
 msgid "Again:"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:204
 msgid "Passwords do not match."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:206
 #, c-format
 msgid ""
 "the key provided is too short (%zu characters), which is not recommended. To "
 "bypass this restriction, use argument --key instead."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:281
 msgid ""
 "Cannot unlock target because time or memory limit has reached. This is "
 "probably because a wrong key has been provided, or your compute resources "
@@ -429,17 +387,14 @@ msgid ""
 "the target."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:293
 msgid ""
 "All key slots are full. Remove or revoke one or more keys to add a new key."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:299
 #, c-format
-msgid "The given key is used at slot %i"
+msgid "The given key is used, or have just revoked, at slot %i"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:324
 msgid ""
 "AddKey: choose your key format \n"
 "(1) input key from console;\n"
@@ -447,28 +402,23 @@ msgid ""
 "Option: "
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:359
 msgid ""
 "Invalid argument. The encryption scheme should obey the format: \"*cipher*-"
 "*chainmode*-*ivmode*\""
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:366
 #, c-format
 msgid "Invalid argument. Unrecognized cipher \"%s\". "
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:372
 #, c-format
 msgid "Invalid argument. Unrecognized chainmode \"%s\". "
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:378
 #, c-format
 msgid "Invalid argument. Unrecognized ivmode \"%s\". "
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:395
 #, c-format
 msgid ""
 "The cipher %s you've requested might not be supported by your current "
@@ -480,50 +430,40 @@ msgid ""
 "access the device. Do you wish to proceed?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:410
 #, c-format
 msgid "Unlocking %s assuming decoy partition exits"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:418
 msgid "The header is suspended. Resume header to perform this operation."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:427
 msgid "This key has been revoked."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:427
 msgid "Wrong master key."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:434
 #, c-format
 msgid "Slot %i on device %s have been revoked without using the password."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:452
 #, c-format
 msgid ""
 "Creating encrypt partition on device: %s, All content will be lost. Continue?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:482
 #, c-format
 msgid ""
 "Device %s is unlocked and suspended. Don't forget to close it using \"Resume"
 "\" when appropriate."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:484
 #, c-format
 msgid ""
 "dry run complete. Device is unlocked and suspended, thus no key slot status "
 "could be provided\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:485
-#: /home/level-128/CLionProjects/windham/backend.c:505
 #, c-format
 msgid ""
 "Additional device parameters: \n"
@@ -532,155 +472,141 @@ msgid ""
 "End sector %lu\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:503
 #, c-format
 msgid "dry run complete. Slot %i opened with master key:\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:509
 #, c-format
 msgid "key slot status:\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:512
 #, c-format
-msgid "Slot %i occupied with password identifier: "
+msgid "Slot %i has been revoked.\n"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:545
+#, c-format
+msgid "Slot %i occupied with password; identifier: "
+msgstr ""
+
+#, c-format
+msgid "Slot %i is empty.\n"
+msgstr ""
+
 #, c-format
 msgid ""
 "Device %s will not be accessible, even if holding the master key, unless "
 "backup has created. Continue?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:568
 #, c-format
 msgid ""
 "File %s exists. If you want to overwrite the file, you need to delete the "
 "file manually."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:584
 #, c-format
 msgid "Restoring header to device: %s, All content will be lost. Continue?"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:596
 #, c-format
 msgid "The device %s is already suspended."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/backend.c:611
 #, c-format
 msgid "The device %s is already encrypted."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:32
 msgid ""
 "error loading libdevmapper.so. Please install 'libdevmapper' (under debian-"
 "based distro) or 'device-mapper' (under fedora/opensuse-based distro)"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:47
 #, c-format
 msgid "Failed to create FAT32 on %s vfork failed"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:57
 #, c-format
 msgid "Failed to create FAT32 on %s, Make sure that mkfs has installed"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:67
-#: /home/level-128/CLionProjects/windham/mapper.c:103
 #, c-format
 msgid "can not open device %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:70
 #, c-format
 msgid "Failed to detect partition on %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:79
 #, c-format
 msgid "Cannot detect device %s mount status."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:92
 #, c-format
-msgid "Device %s is mounted at %s. Unmount to open device."
+msgid "Device %s is mounted at %s. Unmount to continue."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:109
 #, c-format
 msgid "can not get size from block device %s, reason: %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:124
 msgid ""
 "Cannot determine available encryption mode on the system. Please ensure that "
 "the kernel encryption subsystem is available."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:155
 #, c-format
 msgid ""
 "Device %s is too small to deploy decoy partition; Windham requires at least "
 "%i MiB."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:161
 #, c-format
 msgid "Device %s is too small; Windham requires at least %i MiB."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:184
 #, c-format
 msgid "dm_task_create failed when remove mapping for device %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:191
 #, c-format
 msgid "dm_task_run failed when remove mapping for device %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:206
 #, c-format
 msgid "dm_task_create failed when mapping device %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:216
 #, c-format
 msgid "dm_task_add_target failed when mapping device %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:222
 #, c-format
 msgid "p_dm_task_run failed when mapping device %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:243
-#: /home/level-128/CLionProjects/windham/mapper.c:266
 #, c-format
 msgid "Failed to open %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:254
 #, c-format
 msgid "Failed to read %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/mapper.c:277
 #, c-format
 msgid "Failed to write %s"
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/enclib.c:87
 msgid "Failed to initialize random generator."
 msgstr ""
 
-#: /home/level-128/CLionProjects/windham/enclib.c:94
 msgid "IO error while reading random generator."
+msgstr ""
+
+msgid "SUPPRESS_ERROR"
+msgstr ""
+
+msgid "ERROR"
+msgstr ""
+
+msgid "WARNING"
 msgstr ""

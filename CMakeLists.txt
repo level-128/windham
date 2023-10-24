@@ -1,3 +1,5 @@
+# this makefile works on my opensuse tumbleweed. If you are not running this distro, you might need to change your compiler path.
+
 set(x86_64_compiler "gcc")
 set(aarch64_compiler "arm-suse-linux-gnueabi-gcc")
 set(riscv64_compiler "riscv64-suse-linux-gcc")
@@ -26,11 +28,13 @@ file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
 
 # update translations
 set(LANGUAGES fr zh_CN)
-add_custom_target(update_translations ALL)
+add_custom_target(update_translations ALL
+        DEPENDS ${CMAKE_SOURCE_DIR}/locale/windham.pot)
 
 add_custom_command(
-        TARGET update_translations
-        COMMAND xgettext -k_ -L C -o ${CMAKE_SOURCE_DIR}/locale/windham.pot ${CMAKE_SOURCE_DIR}/frontend.c ${CMAKE_SOURCE_DIR}/backend.c ${CMAKE_SOURCE_DIR}/mapper.c ${CMAKE_SOURCE_DIR}/enclib.c
+        OUTPUT ${CMAKE_SOURCE_DIR}/locale/windham.pot
+        COMMAND xgettext -k_ -L C --no-location  -o ${CMAKE_SOURCE_DIR}/locale/windham.pot ${CMAKE_SOURCE_DIR}/frontend.c ${CMAKE_SOURCE_DIR}/backend.c ${CMAKE_SOURCE_DIR}/mapper.c
+        ${CMAKE_SOURCE_DIR}/enclib.c ${CMAKE_SOURCE_DIR}/srclib.c
         COMMENT "Generating windham.pot from source code"
 )
 
@@ -38,8 +42,16 @@ foreach(LANG ${LANGUAGES})
     add_custom_command(
             TARGET update_translations
             COMMAND msgmerge --update ${CMAKE_SOURCE_DIR}/locale/${LANG}/LC_MESSAGES/windham.po ${CMAKE_SOURCE_DIR}/locale/windham.pot
-            DEPENDS ${CMAKE_SOURCE_DIR}/locale/windham.pot
             COMMENT "Updating ${LANG}/windham.po"
+    )
+endforeach()
+
+add_custom_target(compile_translations)
+foreach(LANG ${LANGUAGES})
+    add_custom_command(
+            TARGET compile_translations
+            COMMAND msgfmt -c -o locale/${LANG}/LC_MESSAGES/windham.mo locale/${LANG}/LC_MESSAGES/windham.po
+            COMMENT "Compiling ${LANG}/windham.po"
     )
 endforeach()
 
@@ -92,18 +104,15 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_argon2_and_executables_for_arch("tigerlake")
         add_argon2_and_executables_for_arch("sapphirerapids")
         add_argon2_and_executables_for_arch("znver3")
-        add_dependencies(windham_haswell update_translations)
 
     elseif(target_arch STREQUAL "aarch64")
         set(CMAKE_C_COMPILER ${aarch64_compiler})
         add_argon2_and_executables_for_arch("armv8.5-a")
         add_argon2_and_executables_for_arch("armv9-a")
-        add_dependencies(windham_armv8.5-a update_translations)
 
     elseif(target_arch STREQUAL "riscv64")
         set(CMAKE_C_COMPILER ${riscv64_compiler})
         add_argon2_and_executables_for_arch("rv64imafdc")
-        add_dependencies(windham_rv64imafdc update_translations)
 
     elseif(target_arch STREQUAL "native")
         add_argon2_and_executables_for_arch("native")

@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#ifndef _
+#define _(x) x
+#endif
 
 #define swap(x,y) do \
    { assert(sizeof(x) == sizeof(y)); \
@@ -80,23 +83,23 @@ bool debug_print_error_suppress = false;
 
 #define print_error(...) \
     if (debug_print_error_suppress){ \
-	 printf("\033[1;33mSUPPRESS_ERROR: "); \
+	 printf("\033[1;33m%s: ", _("SUPPRESS_ERROR")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n");   \
 	 debug_print_error_suppress = false;\
 	 } else {                    \
-    printf("\033[1;31mERROR: "); \
+    printf("\033[1;31m%s: ", _("ERROR")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n");   \
     exit(EXIT_FAILURE);} while (false)
 
 #define print_error_no_exit(...) \
-    printf("\033[1;31mERROR: "); \
+    printf("\033[1;31m%s: ", _("ERROR")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n")
 
 #define print_warning(...) \
-    printf("\033[1;33mWARNING: "); \
+    printf("\033[1;33m%s: ", _("WARNING")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n")
 
