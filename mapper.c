@@ -22,6 +22,7 @@
 
 typeof(dm_task_create) * p_dm_task_create;
 typeof(dm_task_set_name) * p_dm_task_set_name;
+typeof(dm_task_set_ro) * p_dm_task_set_ro;
 typeof(dm_task_run) * p_dm_task_run;
 typeof(dm_task_destroy) * p_dm_task_destroy;
 typeof(dm_task_add_target) * p_dm_task_add_target;
@@ -34,6 +35,7 @@ void mapper_init(){
 	
 	p_dm_task_create = dlsym(handle, "dm_task_create");
 	p_dm_task_set_name = dlsym(handle, "dm_task_set_name");
+	p_dm_task_set_ro = dlsym(handle, "dm_task_set_ro");
 	p_dm_task_run = dlsym(handle, "dm_task_run");
 	p_dm_task_destroy = dlsym(handle, "dm_task_destroy");
 	p_dm_task_add_target = dlsym(handle, "dm_task_add_target");
@@ -194,21 +196,24 @@ void remove_crypt_mapping(const char * name) {
 	}
 }
 
-int create_crypt_mapping(const char * device, const char * name, const char * enc_type, const char * password, size_t start_sector, size_t end_sector, __attribute__((unused)) bool read_only) {
+int create_crypt_mapping(const char * device, const char * name, const char * enc_type, const char * password, size_t start_sector, size_t end_sector, bool read_only) {
 	struct dm_task * dmt;
 	char params[512];
-//	print("enc_type", enc_type, " start sector", start_sector);
-	
+
 	snprintf(params, sizeof(params), "%s %s 0 %s %zu", enc_type, password, device, start_sector);
-//	print("crypt_map argument:", params);
 	
 	if (!(dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
 		print_error(_("dm_task_create failed when mapping device %s"), name);
 	}
 	
+	
 	if (!p_dm_task_set_name(dmt, name)) {
 		p_dm_task_destroy(dmt);
 		exit(EXIT_FAILURE);
+	}
+	
+	if (read_only) {
+		assert(p_dm_task_set_ro(dmt));
 	}
 	
 
