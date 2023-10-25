@@ -12,7 +12,7 @@
 #define _(STRING) gettext(STRING)
 // xgettext -k_ -L C -o locale/windham.pot frontend.c backend.c mapper.c enclib.c
 
-#define VERSION "0.231007.0"
+#define VERSION "0.231023.0.2"
 
 #include "enclib.c"
 #include "backend.c"

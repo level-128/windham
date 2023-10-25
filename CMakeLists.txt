@@ -59,7 +59,7 @@ endforeach()
 # compile according to arch
 function(add_argon2_and_executables_for_arch arch)
 
-    if(INCLUDE_BENCH)
+    if(INCLUDE_BENCH AND target_arch STREQUAL "x86_64")
         add_executable(windham_argonbench_${arch} argon_bench.c ${Argon2_SRC})
         set_target_properties(windham_argonbench_${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
         install(TARGETS windham_argonbench_${arch}
@@ -80,7 +80,7 @@ function(add_argon2_and_executables_for_arch arch)
         set_target_properties(windham_${arch} PROPERTIES OUTPUT_NAME "windham")
     endif()
     install(TARGETS windham_${arch}
-            RUNTIME DESTINATION bin)
+            RUNTIME DESTINATION /usr/sbin)
 
 endfunction()
 

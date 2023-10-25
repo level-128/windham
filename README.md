@@ -18,16 +18,17 @@ distro; or `device-mapper` on Fedora-based / SUSE distro. It should be already a
 your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`; `/dev/sdb2` or `/dev/nvme0n2p2` if 
 you prefer to create an encrypted partition instead.
 2. To create a new Windham device, use command `Windham New *your device*`. For example, creating a Windham device on
-`/dev/sdb`, use command `sudo windham New /dev/sdb` and enter your key-phrase. 
-3. To map your device, use command `windham Open *your device* --to=*name*`. For example, to decrypt `/dev/sdb`,
+`/dev/sdb`, use command `sudo windham New /dev/sdb` and enter your password. 
+3. To map your device, use command `windham Open *your device* --to=*name*`. For example, to open `/dev/sdb`,
 using `sudo windham Open /dev/sdb --to=enc1` will create a mapper device at `/dev/mapper/enc1`.
-4. create filesystem on `/dev/mapper/enc1` as you wish.
+4. create filesystem on `/dev/mapper/enc1`, as if it is an empty hard drive, as you wish.
 5. To close your device, use `windham close *name*`. 
 
 &nbsp;
 
 [Want to know how Windham works? Here:](/Document/technical_details.md)
 
+## Supported 
 
 ## Introduction to Decoy Partition
 

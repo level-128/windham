@@ -15,6 +15,7 @@
  * software. If not, they may be obtained at the above URLs.
  */
 
+
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -23,7 +24,12 @@
 #include "core.h"
 
 #include "blake2.h"
+#if ((defined(__amd64__) || defined(__x86_64__)) && !defined(__Argon2_opt_disable__))
 #include "blamka-round-opt.h"
+#else
+#include "blamka-round-ref.h"
+#include "blake2-impl.h"
+#endif
 
 /*
  * Function fills a new memory block and optionally XORs the old block over the new one.
@@ -34,6 +40,7 @@
  * @param with_xor Whether to XOR into the new block (1) or just overwrite (0)
  * @pre all block pointers must be valid
  */
+#if ((defined(__amd64__) || defined(__x86_64__)) && !defined(__Argon2_opt_disable__))
 #if defined(__AVX512F__)
 static void fill_block(__m512i *state, const block *ref_block,
                        block *next_block, int with_xor) {
@@ -144,9 +151,56 @@ static void fill_block(__m128i *state, const block *ref_block,
     }
 }
 #endif
+#else
+static void fill_block(const block *prev_block, const block *ref_block,
+                       block *next_block, int with_xor) {
+    block blockR, block_tmp;
+    unsigned i;
+
+    copy_block(&blockR, ref_block);
+    xor_block(&blockR, prev_block);
+    copy_block(&block_tmp, &blockR);
+    /* Now blockR = ref_block + prev_block and block_tmp = ref_block + prev_block */
+    if (with_xor) {
+        /* Saving the next block contents for XOR over: */
+        xor_block(&block_tmp, next_block);
+        /* Now blockR = ref_block + prev_block and
+           block_tmp = ref_block + prev_block + next_block */
+    }
+
+    /* Apply Blake2 on columns of 64-bit words: (0,1,...,15) , then
+       (16,17,..31)... finally (112,113,...127) */
+    for (i = 0; i < 8; ++i) {
+        BLAKE2_ROUND_NOMSG(
+            blockR.v[16 * i], blockR.v[16 * i + 1], blockR.v[16 * i + 2],
+            blockR.v[16 * i + 3], blockR.v[16 * i + 4], blockR.v[16 * i + 5],
+            blockR.v[16 * i + 6], blockR.v[16 * i + 7], blockR.v[16 * i + 8],
+            blockR.v[16 * i + 9], blockR.v[16 * i + 10], blockR.v[16 * i + 11],
+            blockR.v[16 * i + 12], blockR.v[16 * i + 13], blockR.v[16 * i + 14],
+            blockR.v[16 * i + 15]);
+    }
+
+    /* Apply Blake2 on rows of 64-bit words: (0,1,16,17,...112,113), then
+       (2,3,18,19,...,114,115).. finally (14,15,30,31,...,126,127) */
+    for (i = 0; i < 8; i++) {
+        BLAKE2_ROUND_NOMSG(
+            blockR.v[2 * i], blockR.v[2 * i + 1], blockR.v[2 * i + 16],
+            blockR.v[2 * i + 17], blockR.v[2 * i + 32], blockR.v[2 * i + 33],
+            blockR.v[2 * i + 48], blockR.v[2 * i + 49], blockR.v[2 * i + 64],
+            blockR.v[2 * i + 65], blockR.v[2 * i + 80], blockR.v[2 * i + 81],
+            blockR.v[2 * i + 96], blockR.v[2 * i + 97], blockR.v[2 * i + 112],
+            blockR.v[2 * i + 113]);
+    }
+
+    copy_block(next_block, &block_tmp);
+    xor_block(next_block, &blockR);
+}
+#endif
+
 
 static void next_addresses(block *address_block, block *input_block) {
     /*Temporary zero-initialized blocks*/
+#if ((defined(__amd64__) || defined(__x86_64__)) && !defined(__Argon2_opt_disable__))
 #if defined(__AVX512F__)
     __m512i zero_block[ARGON2_512BIT_WORDS_IN_BLOCK];
     __m512i zero2_block[ARGON2_512BIT_WORDS_IN_BLOCK];
@@ -156,6 +210,10 @@ static void next_addresses(block *address_block, block *input_block) {
 #else
     __m128i zero_block[ARGON2_OWORDS_IN_BLOCK];
     __m128i zero2_block[ARGON2_OWORDS_IN_BLOCK];
+#endif
+#else
+	uint8_t zero_block[ARGON2_BLOCK_SIZE];
+	uint8_t zero2_block[ARGON2_BLOCK_SIZE];
 #endif
 
     memset(zero_block, 0, sizeof(zero_block));
@@ -171,6 +229,7 @@ static void next_addresses(block *address_block, block *input_block) {
     fill_block(zero2_block, address_block, address_block, 0);
 }
 
+
 void fill_segment(const argon2_instance_t *instance,
                   argon2_position_t position) {
     block *ref_block = NULL, *curr_block = NULL;
@@ -178,13 +237,7 @@ void fill_segment(const argon2_instance_t *instance,
     uint64_t pseudo_rand, ref_index, ref_lane;
     uint32_t prev_offset, curr_offset;
     uint32_t starting_index, i;
-#if defined(__AVX512F__)
-    __m512i state[ARGON2_512BIT_WORDS_IN_BLOCK];
-#elif defined(__AVX2__)
-    __m256i state[ARGON2_HWORDS_IN_BLOCK];
-#else
-    __m128i state[ARGON2_OWORDS_IN_BLOCK];
-#endif
+
     int data_independent_addressing;
 
     if (instance == NULL) {
@@ -229,8 +282,20 @@ void fill_segment(const argon2_instance_t *instance,
         /* Previous block */
         prev_offset = curr_offset - 1;
     }
-
-    memcpy(state, ((instance->memory + prev_offset)->v), ARGON2_BLOCK_SIZE);
+#if ((defined(__amd64__) || defined(__x86_64__)) && !defined(__Argon2_opt_disable__))
+#if defined(__AVX512F__)
+	__m512i state[ARGON2_512BIT_WORDS_IN_BLOCK];
+#elif defined(__AVX2__)
+	__m256i state[ARGON2_HWORDS_IN_BLOCK];
+#else
+    __m128i state[ARGON2_OWORDS_IN_BLOCK];
+#endif
+	memcpy(state, ((instance->memory + prev_offset)->v), ARGON2_BLOCK_SIZE);
+#else
+#define state (instance->memory + prev_offset)
+#endif
+	 
+    
 
     for (i = starting_index; i < instance->segment_length;
          ++i, ++curr_offset, ++prev_offset) {
