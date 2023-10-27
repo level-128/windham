@@ -1,3 +1,7 @@
+
+
+
+
 /*
  * Argon2 reference source code package - reference C implementations
  *
@@ -30,6 +34,8 @@
 #include "blamka-round-ref.h"
 #include "blake2-impl.h"
 #endif
+
+
 
 /*
  * Function fills a new memory block and optionally XORs the old block over the new one.
