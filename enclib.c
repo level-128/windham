@@ -30,6 +30,7 @@
 #error "the program only supports platform with uint8_t defined"
 #endif
 
+
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #error "This code cannot be compiled on a big-endian machine."
 #endif
@@ -81,7 +82,8 @@ static __attribute_maybe_unused__ uint64_t rdtsc() {
 #endif
 }
 
-void init_random_generator(char * generator_addr) {
+void init_enclib(char * generator_addr) {
+	FLAG_clear_internal_memory = 0;
 	random_fd = fopen(generator_addr, "r");
 	if (random_fd == NULL) {
 		print_error(_("Failed to initialize random generator."));

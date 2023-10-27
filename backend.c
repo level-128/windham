@@ -51,17 +51,17 @@ void ask_for_conformation(const char * format, ...) {
 		return;
 	}
 	const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	char random_str[5];
+	char random_str[4];
 	char complete_str[10];
 	char user_input[20];
 	
 	srand(time(NULL)); // NOLINT(*-msc51-cpp)
 	
-	for (int i = 0; i < 4; ++i) {
+	for (int i = 0; i < 3; ++i) {
 		int index = rand() % 64; // NOLINT(*-msc50-cpp)
 		random_str[i] = base64_chars[index];
 	}
-	random_str[4] = '\0';
+	random_str[3] = '\0';
 	
 	printf("\033[1;33m%s\n", _("CONFORMATION REQUIRED: "));
 	va_list args;
@@ -633,7 +633,7 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
 }
 
 void init() {
-	init_random_generator("/dev/urandom");
+	init_enclib("/dev/urandom");
 	get_system_info();
 	mapper_init();
 }
