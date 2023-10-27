@@ -27,7 +27,7 @@ void test_backend_add_key_and_get_key(){
 	
 	// initialize header
 	Data header;
-	initialize_new_header(&header, NULL, 0, 4000);
+	initialize_new_header(&header, DEFAULT_DISK_ENC_MODE, 0, 4000);
 	
 	
 	// test unlock
