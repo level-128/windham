@@ -28,17 +28,24 @@
 /* for explicit_bzero() on glibc */
 #define _DEFAULT_SOURCE
 
+// Modified for Windham
+#define ARGON2_NO_THREADS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "core.h"
-#include "thread.h"
 #include "blake2.h"
 #include "blake2-impl.h"
 
 #ifdef GENKAT
 #include "genkat.h"
+#endif
+
+// Modified for Windham
+#ifndef ARGON2_NO_THREADS
+#include "thread.h"
 #endif
 
 #if defined(__clang__)
@@ -147,6 +154,7 @@ void NOT_OPTIMIZED secure_wipe_memory(void *v, size_t n) {
 /* Memory clear flag defaults to true. */
 int FLAG_clear_internal_memory = 1;
 void clear_internal_memory(void *v, size_t n) {
+	
   if (FLAG_clear_internal_memory && v) {
     secure_wipe_memory(v, n);
   }
