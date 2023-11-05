@@ -196,9 +196,9 @@ char * get_input() {
 
 char * get_key_input_from_the_console(const char * device, bool is_new_key) {
 	char * key, * check_key;
-	print(_("Password for %s:"), device);
+	printf(_("Password for %s:\n"), device);
 	key = get_input();
-	print(_("Again:"));
+	printf(_("\nAgain:\n"));
 	check_key = get_input();
 	if (strcmp(key, check_key) != 0) {
 		print_error(_("Passwords do not match."));
