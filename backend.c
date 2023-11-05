@@ -194,19 +194,52 @@ char * get_input() {
 	return input;
 }
 
-char * get_key_input_from_the_console() {
+char * get_key_input_from_the_console(const char * device, bool is_new_key) {
 	char * key, * check_key;
-	print(_("Password:"));
+	print(_("Password for %s:"), device);
 	key = get_input();
 	print(_("Again:"));
 	check_key = get_input();
 	if (strcmp(key, check_key) != 0) {
 		print_error(_("Passwords do not match."));
-	} else if (strlen(key) < MIN_KEY_CHAR) {
+	} else if (strlen(key) < MIN_KEY_CHAR && is_new_key) {
 		print_error(_("the key provided is too short (%zu characters), which is not recommended. To bypass this restriction, use argument --key instead."), strlen(key));
 	}
 	free(check_key);
 	return key;
+}
+
+char * get_key_input_from_the_console_systemd(const char * device) {
+	int pipefd[2];
+	pid_t pid;
+	char * buf = malloc(2049); // systemd-password allows 2048 bytes of password
+	
+	assert(pipe(pipefd) != -1);
+	
+	pid = vfork();
+	assert(pid != -1);
+	
+	if (pid == 0) {
+		close(pipefd[0]);
+		
+		assert(dup2(pipefd[1], STDOUT_FILENO) == -1);
+		
+		
+		const char * const args[]={device, (char *) NULL};
+		execvp("systemd-ask-password", (char * const *) args);
+		
+		print_error_no_exit("\"systemd-ask-password\" is not available. Param \"--systemd-dialog\" only supports system with systemd as init.");
+		kill(getppid(), SIGQUIT);
+		exit(1);
+	}
+	
+	close(pipefd[1]);
+	
+	ssize_t num_read = read(pipefd[0], buf, sizeof(buf) - 1);
+	assert(num_read != -1);
+
+	buf[num_read] = '\0';
+	return buf;
 }
 
 uint8_t * read_key_file(const Key key, size_t * length) {
@@ -275,15 +308,33 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 	}
 	
 	int unlocked_slot = read_key_from_all_slots(self.keys, inited_keys, slot_seq, max_unlock_mem, max_unlock_time);
-	if (unlocked_slot != -1) {
+	if (unlocked_slot >= 0) {
 		xor_with_len(HASHLEN, inited_keys[unlocked_slot], self.keys[unlocked_slot].key_mask, master_key);
-	} else {
-		print_error(_("Cannot unlock target because time or memory limit has reached. This is probably because a wrong key "
-		              "has been provided, or your compute resources may be too insufficient to unlock the target created "
-		              "by a faster computer within the preset time. If the latter is correct, try increasing the maximum memory limit "
+	} else if (unlocked_slot == NMOBJ_STEP_ERR_NOMEM) {
+		print_error(_("Cannot unlock the target probably due to incorrect key.\n"
+						  "\tIf you are certain that the key is indeed correct, because the memory limit has reached, try increasing the maximum memory limit "
 		              "using --max-unlock-memory. If the operation cannot be completed due to insufficient system "
 		              "memory, consider exporting the master key on a more computationally powerful device and then use the "
 		              "master key to unlock the target."));
+	} else if (unlocked_slot == NMOBJ_STEP_ERR_TIMEOUT){
+		print_error(_("Cannot unlock the target probably due to incorrect key.\n"
+		              "\tIf you are certain that the key is indeed correct, because the time limit has reached, try increasing the maximum time limit "
+		              "using --max-unlock-time."));
+	} else if (unlocked_slot == NMOBJ_STEP_ERR_END){
+		time_t time_;
+		time(&time_);
+		if (time_ < 2208988800){ // year of 2040
+			print_error(_("Please read carefully: You should not be seeing this error message. The occurrence of this error message means that the parameters for the key "
+							  "iteration function have grown to the maximum value by design. Unless your computer has tens of TBs of RAM and you have spent a considerable "
+							  "amount of time computing (if you really did so, then this would imply that the key you just provided is incorrect, which would be a false alarm), "
+							  "the appearance of this error message is abnormal. This may imply that: 1. There is a fatal flaw in the program, one that could directly compromise "
+							  "both its own security and that of the encrypted device. You should immediately stop using this program and report it to the developers; 2. The "
+							  "program has been tampered with by an attacker. As above, you should immediately stop using it. Redownload the program and verify its signature, "
+							  "and also please destroy the hard drives encrypted with the tampered program; 3. You come from a distant future, yet your system time has been "
+							  "altered to the past, and you are using computational power that surpasses the era of the software. In any case, this also means that the software "
+							  "can no longer provide adequate security for the era in which you exist. I am sorry to inform you of the above."));
+		}
+		print_error(_("Incorrect key."));
 	}
 	return unlocked_slot;
 }
@@ -319,7 +370,7 @@ int add_key(Data * decrypted_data, const uint8_t master_key[32], const Key key, 
 	return target_slot;
 }
 
-void interactive_ask_new_key(Key * new_key) {
+void interactive_ask_new_key(Key * new_key, const char * device) {
 	char option;
 	print(_("AddKey: choose your key format \n(1) input key from console;\n(2) use a key file\nOption: "));
 	
@@ -336,7 +387,7 @@ void interactive_ask_new_key(Key * new_key) {
 	
 	print("");
 	if (option == '1') {
-		new_key->key_or_keyfile_location = get_key_input_from_the_console();
+		new_key->key_or_keyfile_location = get_key_input_from_the_console(device, true);
 		new_key->key_type = EMOBJ_key_file_type_input;
 	} else if (option == '2') {
 		char * file_location;
@@ -347,6 +398,7 @@ void interactive_ask_new_key(Key * new_key) {
 		new_key->key_type = EMOBJ_key_file_type_file;
 	}
 }
+
 
 void check_encryption_mode(const char * str, int64_t idx[3]) {
 	int dash_count = 0;
@@ -539,7 +591,7 @@ int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t
 	OPERATION_BACKEND_UNLOCK
 	
 	Key new_key;
-	interactive_ask_new_key(&new_key);
+	interactive_ask_new_key(&new_key, device);
 	int added_slot = add_key(&data, master_key, new_key, target_slot, target_memory, target_time);
 	
 	OPERATION_LOCK_AND_WRITE

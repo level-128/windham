@@ -12,13 +12,10 @@
 #include <unistd.h>
 #include "libdevmapper.h"
 
-#include <libintl.h>
 
 #define SECTOR_SIZE 512
 #define MAX_LINE_LENGTH 1024
 #define TARGET_PREFIX "name         : "
-
-#pragma once
 
 typeof(dm_task_create) * p_dm_task_create;
 typeof(dm_task_set_name) * p_dm_task_set_name;
@@ -27,7 +24,27 @@ typeof(dm_task_run) * p_dm_task_run;
 typeof(dm_task_destroy) * p_dm_task_destroy;
 typeof(dm_task_add_target) * p_dm_task_add_target;
 
+#pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target
+
+#pragma once
+
+void check_container(void) {
+	char * container = NULL;
+	if (getenv("container")) {
+		container = "Flatpak";
+	} else if (getenv("APPIMAGE")) {
+		container = "Appimage";
+	} else if (getenv("SNAP")) {
+		container = "Snap";
+	}
+	if (container){
+		print_warning(_("Running inside a container (%s) is discouraged. Windham needs to interact with the Linux kernel, thus the isolation policy of the container may render the "
+							 "program malfunction."), container);
+	}
+}
+
 void mapper_init(){
+	check_container();
 	void* handle = dlopen("libdevmapper.so", RTLD_LAZY);
 	if (!handle) {
 		print_error(_("error loading libdevmapper.so. Please install 'libdevmapper' (under debian-based distro) or 'device-mapper' (under fedora/opensuse-based distro)"));

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <stdnoreturn.h>
-
+#include <float.h>
 
 #include <libintl.h>
 #include <locale.h>
@@ -37,7 +37,8 @@ enum {
 	NMOBJ_target_restore,
 	NMOBJ_target_decoy,
 	NMOBJ_target_readonly,
-	NMOBJ_target_noadmin,
+	NMOBJ_is_systemd,
+	NMOBJ_is_noadmin,
 	NMOBJ_yes,
 	
 	NMOBJ_target_SIZE,
@@ -66,13 +67,14 @@ const struct option long_options[] = {
 		{"restore",           no_argument,       &options[NMOBJ_target_restore],      1},
 		{"decoy",             no_argument,       &options[NMOBJ_target_decoy],        1},
 		{"readonly",          no_argument,       &options[NMOBJ_target_readonly],     1},
-		{"no-admin",          no_argument,       &options[NMOBJ_target_noadmin],      1},
+		{"systemd-dialog",    no_argument,       &options[NMOBJ_is_systemd],          1},
+		{"no-admin",          no_argument,       &options[NMOBJ_is_noadmin],          1},
 		{"yes",               no_argument,       &options[NMOBJ_yes],                 1},
 		{0, 0,                                   0,                                   0}
 };
 
-#define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy
-#define CHECK_COMMON NMOBJ_target_noadmin, NMOBJ_yes
+#define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_is_systemd
+#define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes
 
 const int8_t check_allowed[] =
 		// Open
@@ -143,8 +145,9 @@ void frontend_print_unlock_args() {
 			       "\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' and '--target-slot' are mutually exclusive\n"
 			       "\t--master-key <characters>: using master key to unlock.\n"
 			       "\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
-			       "\t--max-unlock-memory <int>: total maximum available memory to use (KiB) available for decryption. \n"
-			       "\t--max-unlock-time <float>: the suggested total time (sec) to compute the key.\n"));
+			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
+			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
+					 "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd."));
 };
 
 void frontend_print_common_args() {
@@ -349,7 +352,7 @@ void master_key_to_byte_array(const char * hex_string, uint8_t byte_array[HASHLE
 	}
 }
 
-void frontend_create_key(char * params[], Key * key) {
+void frontend_create_key(char * params[], Key * key, char * device, bool is_systemd) {
 	if (options[NMOBJ_key] == 1) {
 		key->key_or_keyfile_location = params[NMOBJ_key];
 		key->key_type = EMOBJ_key_file_type_key;
@@ -357,7 +360,10 @@ void frontend_create_key(char * params[], Key * key) {
 		key->key_or_keyfile_location = params[NMOBJ_key_file];
 		key->key_type = EMOBJ_key_file_type_file;
 	} else {
-		key->key_or_keyfile_location = get_key_input_from_the_console();
+		if (is_systemd){
+			key->key_or_keyfile_location = get_key_input_from_the_console_systemd(device);
+		}
+		key->key_or_keyfile_location = get_key_input_from_the_console(device, false);
 		key->key_type = EMOBJ_key_file_type_input;
 	}
 }
@@ -367,7 +373,7 @@ void frontend_create_key(char * params[], Key * key) {
 if (options[NMOBJ_master_key]) { \
 master_key_to_byte_array(params[NMOBJ_master_key], master_key); \
 } else { \
-frontend_create_key(params, &key);\
+frontend_create_key(params, &key, device, options[NMOBJ_is_systemd]);\
 }\
 
 
@@ -425,12 +431,16 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		}
 	}
 	if (options[NMOBJ_max_unlock_time] == 1) {
-		max_unlock_time = strtod(params[NMOBJ_max_unlock_time], &end);
-		if (*end != '\0' || target_time < 0) {
-			print_error(_("bad input for argument %s: not an positive integer"), "--max-unlock-time");
+		if (strcmp(params[NMOBJ_max_unlock_time], "-") == 0){
+			max_unlock_time = DBL_MAX;
+		} else {
+			max_unlock_time = strtod(params[NMOBJ_max_unlock_time], &end);
+			if (*end != '\0' || target_time < 0) {
+				print_error(_("bad input for argument %s: not an positive integer"), "--max-unlock-time");
+			}
 		}
 	}
-	if (!options[NMOBJ_target_noadmin]) {
+	if (!options[NMOBJ_is_noadmin]) {
 		is_running_as_root();
 	}
 	if (options[NMOBJ_yes]) {

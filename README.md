@@ -64,7 +64,8 @@ a case that a large amount of file needs to be deleted, reformatting the filesys
 
 ## Contribute:
 
-🥰🥰 Contributions are highly welcome 🥰🥰 
+🥰🥰 Contributions are highly welcome 🥰🥰! 
+
 
 ---
 
@@ -74,8 +75,7 @@ Copyright (C) 2023- W. Wang (level-128)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version. 
+the Free Software Foundation, version 3 of the License.
 
 This program has granted "Additional permissions" applied from article (7) when using, propagating and conveying the 
 unmodified covered work. For details, see file `license.md`.
