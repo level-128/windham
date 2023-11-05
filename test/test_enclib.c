@@ -32,7 +32,6 @@ void test_set_get_master_key(){
 	
 	int unlocked_slot = read_key_from_all_slots(my_data.keys, password_set, slot_seq, 200000000000, 4);
 	xor_with_len(HASHLEN, password_set[unlocked_slot], my_data.keys[unlocked_slot].key_mask, masterkey);
-	
 	assert(unlocked_slot == 0);
 	assert(strcmp((char *) masterkey, "a master key example.          ") == 0);
 	
@@ -53,7 +52,6 @@ void test_metadata(){
 }
 
 void test_enclib(){
-	
 	test_set_get_master_key();
 	test_metadata();
 	

@@ -70,10 +70,6 @@ void test_backend_add_key_and_get_key(){
 }
 
 void test_create_open_chain(char * device_){
-	if (device_ == NULL){
-		return;
-	}
-	
 	is_running_as_root();
 	
 	Key key1, key2;
@@ -103,5 +99,8 @@ void test_create_open_chain(char * device_){
 void test_backend(__attribute__((unused)) char * device){
 //	ask_for_conformation("hello world");
 	test_backend_add_key_and_get_key();
+	if (device == NULL) {
+		return;
+	}
 	test_create_open_chain(device);
 }
