@@ -393,6 +393,9 @@ int fill_memory_blocks(argon2_instance_t *instance) {
 #endif
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+
 int validate_inputs(const argon2_context *context) {
     if (NULL == context) {
         return ARGON2_INCORRECT_PARAMETER;
@@ -519,6 +522,8 @@ int validate_inputs(const argon2_context *context) {
 
     return ARGON2_OK;
 }
+
+#pragma GCC diagnostic pop
 
 void fill_first_blocks(uint8_t *blockhash, const argon2_instance_t *instance) {
     uint32_t l;
