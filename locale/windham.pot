@@ -1,20 +1,21 @@
-# French translations for windham package.
-# Copyright (C) 2023 Weizheng Wang (level-128)
-# This file is distributed under the same license as the level package.
-# level-128 <level-128@gmx.com>, 2023.
-# msgfmt -c -o locale/fr/LC_MESSAGES/windham.mo locale/fr/LC_MESSAGES/windham.po
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
 msgid ""
 msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-11-05 04:17-0500\n"
-"PO-Revision-Date: 2023-10-16 02:24-0400\n"
-"Last-Translator: level-128 <level-128@localhost.localdomain>\n"
-"Language-Team: French <traduc@traduc.org>\n"
-"Language: fr\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 msgid "Arguments should locate after <action> and <target>."
 msgstr ""
@@ -26,7 +27,7 @@ msgstr ""
 msgid "argument: %s is not valid under action: %s"
 msgstr ""
 
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "Unlock options:\n"
 "\t--key <characters>: key input as argument, instead of asking in the "
@@ -42,22 +43,8 @@ msgid ""
 "\t--systemd-dialog: use systemd password input dialog; useful when "
 "integrating with systemd."
 msgstr ""
-"Options de déverrouillage :\n"
-"\t--key <caractères> : entrer la clé comme argument, plutôt que de la "
-"demander dans le terminal.\n"
-"\t--key-file <emplacement> : utiliser un fichier comme clé. Le fichier sera "
-"interprété comme clé (exclusion du caractère EOF). Les options '--key', '--"
-"key-file' et '--target-slot' sont mutuellement exclusives.\n"
-"\t--master-key <caractères> : utiliser une clé maîtresse pour "
-"déverrouiller.\n"
-"\t--unlock-slot <entier> : sélectionner l'emplacement à déverrouiller ; les "
-"autres emplacements seront ignorés.\n"
-"\t--max-unlock-memory <entier> : quantité maximale de mémoire disponible à "
-"utiliser (en KiB) pour le décryptage. \n"
-"\t--max-unlock-time <nombre> : temps total conseillé (en secondes) pour "
-"générer la clé.\n"
 
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "Common options:\n"
 "\t--no-admin: forfeit checking root privileges, may produces undefined "
@@ -65,13 +52,8 @@ msgid ""
 "\t--yes: do not ask for explicit conformation to potential destructive "
 "operations.\n"
 msgstr ""
-"Options communes :\n"
-"\t--no-admin : renoncer à la vérification des privilèges root, peut "
-"entraîner un comportement indéfini. \n"
-"\t--yes : ne pas demander de confirmation explicite pour les opérations "
-"potentiellement destructrices.\n"
 
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "usage: \"windham <action> <target>\"\n"
 "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'RevokeKey' "
@@ -82,16 +64,6 @@ msgid ""
 "pre-compiled arguments. These arguments serve an informative purpose; "
 "changing them may render your device inaccessible.\n"
 msgstr ""
-"utilisation : \"windham <action> <cible>\"\n"
-"les actions possibles sont : 'Open'  'Close'  'New'  'AddKey'  'RevokeKey' "
-"et 'Backup'\n"
-"\n"
-"Tapez \"windham Help <action>\" pour voir le texte d'aide spécifique à "
-"chaque action.\n"
-"\n"
-"arguments précompilés. Ces arguments ont un but informatif ; les modifier "
-"peut rendre votre\n"
-"appareil inaccessible.\n"
 
 #, c-format
 msgid "number of keyslots: %i\n"
@@ -129,7 +101,7 @@ msgstr ""
 msgid "Compiler: GCC %d.%d.%d\n"
 msgstr ""
 
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "    Copyright (C) 2023-  W. Wang (level-128)\n"
 "\n"
@@ -145,23 +117,6 @@ msgid ""
 "    You should have received a copy of the GNU General Public License\n"
 "    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"
 msgstr ""
-"    Copyright (C) 2023-  W. Wang (level-128)\n"
-"\n"
-"    Ce programme est un logiciel libre : vous pouvez le redistribuer et/ou "
-"le modifier\n"
-"    selon les termes de la Licence Publique Générale GNU telle que publiée "
-"par\n"
-"    la Free Software Foundation, que ce soit la version 3 de la Licence, ou\n"
-"    (à votre choix) toute version ultérieure.\n"
-"\n"
-"    Ce programme est distribué dans l'espoir qu'il sera utile,\n"
-"    mais SANS AUCUNE GARANTIE ; sans même la garantie implicite de\n"
-"    COMMERCIABILITÉ ou D'ADÉQUATION À UN USAGE PARTICULIER. Voir la\n"
-"    Licence Publique Générale GNU pour plus de détails.\n"
-"\n"
-"    Vous devriez avoir reçu une copie de la Licence Publique Générale GNU\n"
-"    avec ce programme. Si ce n'est pas le cas, consultez <https://www.gnu."
-"org/licenses/>.\n"
 
 #, c-format
 msgid ""
@@ -294,16 +249,6 @@ msgid ""
 "This is free software, and you are welcome to redistribute it under certain "
 "conditions;\n"
 msgstr ""
-"Windham (%s) Copyright (C) 2023-  W. Wang (level-128)\n"
-"\n"
-"utilisation : \"windham <action> <cible>\"\n"
-"Pour obtenir de l'aide, tapez 'windham Help' pour voir l'aide sur toutes les "
-"actions possibles\n"
-"\n"
-"Ce programme est fourni SANS AUCUNE GARANTIE ; pour plus de détails, tapez "
-"'Help --license'.\n"
-"Ceci est un logiciel libre, et vous êtes invité à le redistribuer selon "
-"certaines conditions;\n"
 
 msgid "argument --key, --key-file and --master-key are mutually exclusive."
 msgstr ""
@@ -360,26 +305,21 @@ msgid ""
 msgstr ""
 
 msgid "CONFORMATION REQUIRED: "
-msgstr "CONFIRMATION REQUISE : "
+msgstr ""
 
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "\n"
 "Type \"%s\" to confirm."
 msgstr ""
-"\n"
-"Tapez \"%s\" pour confirmer."
 
 msgid "User has canceled the operation."
-msgstr "L'utilisateur a annulé l'opération."
+msgstr ""
 
 msgid ""
 "Failed to read system information. Can not determine adequate memory size "
 "(or memory limit) for key derivation."
 msgstr ""
-"Impossible de lire les informations du système. Impossible de déterminer la "
-"taille de mémoire adéquate (ou la limite de mémoire) pour la dérivation de "
-"la clé."
 
 #, c-format
 msgid "File %s does not exist"
@@ -424,24 +364,21 @@ msgid ""
 "workaround."
 msgstr ""
 
-#, fuzzy, c-format
+#, c-format
 msgid "Password for %s:"
-msgstr "Mot de passe :"
+msgstr ""
 
 msgid "Again:"
-msgstr "Confirmez le mot de passe :"
+msgstr ""
 
 msgid "Passwords do not match."
-msgstr "Les mots de passe ne correspondent pas."
+msgstr ""
 
 #, c-format
 msgid ""
 "the key provided is too short (%zu characters), which is not recommended. To "
 "bypass this restriction, use argument --key instead."
 msgstr ""
-"la clé fournie est trop courte (%zu caractères), ce qui n'est pas "
-"recommandé. Pour contourner cette restriction, utilisez l'argument --key à "
-"la place."
 
 msgid ""
 "Cannot unlock the target probably due to incorrect key.\n"
@@ -546,8 +483,6 @@ msgstr ""
 msgid ""
 "Creating encrypt partition on device: %s, All content will be lost. Continue?"
 msgstr ""
-"Création d'une partition cryptée sur le périphérique : %s. Tout le contenu "
-"sera perdu. Continuer ?"
 
 #, c-format
 msgid ""
@@ -601,11 +536,9 @@ msgid ""
 "file manually."
 msgstr ""
 
-#, fuzzy, c-format
+#, c-format
 msgid "Restoring header to device: %s, All content will be lost. Continue?"
 msgstr ""
-"Création d'une partition cryptée sur le périphérique : %s. Tout le contenu "
-"sera perdu. Continuer ?"
 
 #, c-format
 msgid "The device %s is already suspended."
