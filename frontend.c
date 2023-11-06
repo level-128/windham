@@ -12,7 +12,8 @@
 #define _(STRING) gettext(STRING)
 // xgettext -k_ -L C -o locale/windham.pot frontend.c backend.c mapper.c enclib.c
 
-#define VERSION "0.231023.0.2"
+#define VERSION "0.231106.0.0"
+#define DEFAULT_EXEC_DIR "/etc/windham"
 
 #include "enclib.c"
 #include "backend.c"
@@ -38,6 +39,7 @@ enum {
 	NMOBJ_target_decoy,
 	NMOBJ_target_readonly,
 	NMOBJ_is_systemd,
+	NMOBJ_is_nofail,
 	NMOBJ_is_noadmin,
 	NMOBJ_yes,
 	
@@ -68,23 +70,22 @@ const struct option long_options[] = {
 		{"decoy",             no_argument,       &options[NMOBJ_target_decoy],        1},
 		{"readonly",          no_argument,       &options[NMOBJ_target_readonly],     1},
 		{"systemd-dialog",    no_argument,       &options[NMOBJ_is_systemd],          1},
+		{"nofail",            no_argument,       &options[NMOBJ_is_nofail],           1},
 		{"no-admin",          no_argument,       &options[NMOBJ_is_noadmin],          1},
 		{"yes",               no_argument,       &options[NMOBJ_yes],                 1},
 		{0, 0,                                   0,                                   0}
 };
 
-#define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_is_systemd
+#define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail
 #define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes
 
 const int8_t check_allowed[] =
 		// Open
-		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_target_readonly,
-		 NMOBJ_target_dry_run, CHECK_COMMON, -1,
+		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_target_readonly, NMOBJ_target_dry_run, CHECK_COMMON, -1,
 				// Close
        CHECK_COMMON, -1,
 				// New
-       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type,
-       NMOBJ_target_decoy, CHECK_COMMON, -1,
+       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, CHECK_COMMON, -1,
 				// AddKey
        CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, CHECK_COMMON, -1,
 				// RevokeKey
@@ -456,11 +457,12 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	// "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume"
 	switch (action_num) {
 		case 0:
+			check_file(device, !options[NMOBJ_target_readonly], options[NMOBJ_is_nofail]);
 			check_is_device_mounted(device);
 			if (!action_open_suspended(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly])) {
 				ASK_KEY
-				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time,
-				            options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly]);
+				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run],
+								options[NMOBJ_target_readonly]);
 			}
 			
 			break;
@@ -468,26 +470,27 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			action_close(device);
 			break;
 		case 2:
+			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
-			action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time,
-			              options[NMOBJ_target_decoy]);
+			action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
 			break;
 		case 3:
-			
+			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
 			
 			action_addkey(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], target_slot, target_mem, target_time);
 			break;
 		case 4:
+			check_file(device, true, options[NMOBJ_is_nofail]);
 			if (target_slot == -1 && options[NMOBJ_target_obliterate] == 0) {
 				if (options[NMOBJ_target_all] == 0) {
 					ASK_KEY
 				}
 			}
-			action_revokekey(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_all],
-			                 options[NMOBJ_target_obliterate]);
+			action_revokekey(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_all], options[NMOBJ_target_obliterate]);
 			break;
 		case 5:
+			check_file(device, false, options[NMOBJ_is_nofail]);
 			if (!(options[NMOBJ_target_no_transform] || options[NMOBJ_target_restore])) {
 				ASK_KEY
 			}
@@ -497,10 +500,12 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			action_restore(device, params[NMOBJ_to], options[NMOBJ_target_decoy]);
 			break;
 		case 7:
+			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
 			action_suspend(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		case 8:
+			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
 			action_resume(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;

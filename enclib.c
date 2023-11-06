@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
-#include <memory.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <libintl.h>
@@ -39,8 +38,7 @@
 	#error "KEY_SLOT_EXP_MAX must devideable by 4, ensuring Key_slot is AES blocksize alligned."
 #endif
 
-const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 59874, 162755, 442413, 1202604,
-									 3269017, 8886111, 24154953, 65659969, 178482301, 485165195};
+const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 59874, 162755, 442413, 1202604, 3269017, 8886111, 24154953, 65659969, 178482301, 485165195};
 
 const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
 
@@ -59,12 +57,13 @@ typedef struct __attribute__((packed)) {
 	char enc_type[32];
 	uint8_t inited_key[KEY_SLOT_COUNT][HASHLEN];
 	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
-	bool key_slot_is_used[KEY_SLOT_COUNT];
+	int8_t key_slot_is_used[KEY_SLOT_COUNT];
+	__attribute__((unused)) uint8_t reserved[50];
 	uint64_t check_key_magic_number;
 } Metadata;
 
 typedef struct __attribute__((packed)) STR_data {
-	__attribute__((unused)) uint8_t head[16];
+	uint8_t head[16];
 	uint8_t master_key_mask[HASHLEN];
 	Key_slot keys[KEY_SLOT_COUNT];
 	Metadata metadata;

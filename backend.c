@@ -114,15 +114,18 @@ void get_system_info() {
 	fclose(meminfo);
 }
 
-void check_file(const char * filename, bool is_block) {
+void check_file(const char * filename, bool is_write, bool is_nofail) {
 	if (access(filename, F_OK) != 0) {
+		if (is_nofail){
+			exit(0);
+		}
 		print_error(_("File %s does not exist"), filename);
 	}
 	
 	if (access(filename, R_OK) != 0) {
 		print_error(_("Cannot read %s: insufficient permission."), filename);
 	}
-	if (is_block && access(filename, W_OK) != 0) {
+	if (is_write && access(filename, W_OK) != 0) {
 		print_error(_("Cannot write to %s: insufficient permission."), filename);
 	}
 	
@@ -244,7 +247,7 @@ char * get_key_input_from_the_console_systemd(const char * device) {
 
 uint8_t * read_key_file(const Key key, size_t * length) {
 	char * filename = key.key_or_keyfile_location;
-	check_file(filename, false);
+	check_file(filename, false, false);
 	
 	FILE * file = fopen(filename, "rb");
 	
@@ -321,21 +324,16 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 		              "\tIf you are certain that the key is indeed correct, because the time limit has reached, try increasing the maximum time limit "
 		              "using --max-unlock-time."));
 	} else if (unlocked_slot == NMOBJ_STEP_ERR_END){
-		time_t time_;
-		time(&time_);
-		if (time_ < 2208988800){ // year of 2040
-			print_error(_("Please read carefully: You should not be seeing this error message. The occurrence of this error message means that the parameters for the key "
-							  "iteration function have grown to the maximum value by design. Unless your computer has tens of TBs of RAM and you have spent a considerable "
-							  "amount of time computing (if you really did so, then this would imply that the key you just provided is incorrect, which would be a false alarm), "
-							  "the appearance of this error message is abnormal. This may imply that: 1. There is a fatal flaw in the program, one that could directly compromise "
-							  "both its own security and that of the encrypted device. You should immediately stop using this program and report it to the developers; 2. The "
-							  "program has been tampered with by an attacker. As above, you should immediately stop using it. Redownload the program and verify its signature, "
-							  "and also please destroy the hard drives encrypted with the tampered program; 3. You come from a distant future, yet your system time has been "
-							  "altered to the past, and you are using computational power that surpasses the era of the software. In any case, this also means that the software "
-							  "can no longer provide adequate security for the era in which you exist. I am sorry to inform you of the above."));
-		}
-		print_error(_("Incorrect key."));
-	}
+		print_error(_("Please read carefully: You should not be seeing this error message. The occurrence of this error message means that the parameters for the key "
+						  "iteration function have grown to the maximum value by design. Unless your computer has tens of TBs of RAM and you have spent a considerable "
+						  "amount of time computing (if you really did so, then this would imply that the key you just provided is incorrect, which would be a false alarm), "
+						  "the appearance of this error message is abnormal. This may imply that: 1. There is a fatal flaw in the program, one that could directly compromise "
+						  "both its own security and that of the encrypted device. You should immediately stop using this program and report it to the developers; 2. The "
+						  "program has been tampered with by an attacker. As above, you should immediately stop using it. Redownload the program and verify its signature, "
+						  "and also please destroy the hard drives encrypted with the tampered program; 3. You come from a distant future, and you are using computational "
+						  "power that surpasses the era of the software. In any case, this also means that the software "
+						  "can no longer provide adequate security for the era in which you exist. I am sorry to inform you of the above."));
+}
 	return unlocked_slot;
 }
 
@@ -645,7 +643,6 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 }
 
 void action_restore(const char * device, const char * filename, bool is_decoy) {
-	check_file(device, true);
 	ask_for_conformation(_("Restoring header to device: %s, All content will be lost. Continue?"), device);
 	swap(device, filename);
 	OPERATION_READ_HEADER
@@ -655,7 +652,6 @@ void action_restore(const char * device, const char * filename, bool is_decoy) {
 }
 
 void action_suspend(const char * device, PARAMS_FOR_KEY) {
-	check_file(device, true);
 	OPERATION_READ_HEADER
 	if (is_header_suspended(data)) {
 		print_error(_("The device %s is already suspended."), device);
@@ -670,7 +666,6 @@ void action_suspend(const char * device, PARAMS_FOR_KEY) {
 }
 
 void action_resume(const char * device, PARAMS_FOR_KEY) {
-	check_file(device, true);
 	OPERATION_READ_HEADER
 	if (!is_header_suspended(data)) {
 		print_error(_("The device %s is already encrypted."), device);
