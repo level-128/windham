@@ -26,12 +26,12 @@ void test_set_get_master_key(){
 	}
 	
 	strcpy((char *) password_set, "hello world!"); // "hello world!" plus random uninitialized memory
-	set_master_key_to_slot(&my_data.keys[0], (const uint8_t *) password_set, 150000000000, 1, (uint8_t *) "a master key example.          ");
+	set_master_key_to_slot(&my_data.keyslots[0], (const uint8_t *) password_set, 150000000000, 1, (uint8_t *) "a master key example.          ");
 	
 	fill_secure_random_bits(masterkey, HASHLEN);
 	
-	int unlocked_slot = read_key_from_all_slots(my_data.keys, password_set, slot_seq, 200000000000, 4);
-	xor_with_len(HASHLEN, password_set[unlocked_slot], my_data.keys[unlocked_slot].key_mask, masterkey);
+	int unlocked_slot = read_key_from_all_slots(my_data.keyslots, password_set, slot_seq, 200000000000, 4);
+	xor_with_len(HASHLEN, password_set[unlocked_slot], my_data.keyslots[unlocked_slot].key_mask, masterkey);
 	assert(unlocked_slot == 0);
 	assert(strcmp((char *) masterkey, "a master key example.          ") == 0);
 	
@@ -44,11 +44,9 @@ void test_metadata(){
 	strcpy(my_data.metadata.enc_type, DEFAULT_DISK_ENC_MODE);
 	fill_secure_random_bits((uint8_t *) &my_data, sizeof(Data));
 	my_data.metadata.check_key_magic_number = CHECK_KEY_MAGIC_NUMBER;
-	assert(operate_metadata_using_master_key(&my_data.metadata, masterkey, my_data.master_key_mask));
+	assert(lock_or_unlock_metadata_using_master_key(&my_data, masterkey));
 
-	assert(operate_metadata_using_master_key(&my_data.metadata, masterkey, my_data.master_key_mask));
-
-	
+	assert(lock_or_unlock_metadata_using_master_key(&my_data, masterkey));
 }
 
 void test_enclib(){

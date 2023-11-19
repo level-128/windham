@@ -1,6 +1,3 @@
-//	Argon2 reference source code package - reference C implementations.
-// Modified to adapt Windham
-//
 //	Copyright (C) <2023->  <W. Wang (level-128)>
 //
 //	This program is free software: you can redistribute it and/or modify
@@ -22,10 +19,24 @@
 #include "test_mapper.c"
 
 int main(int argc, char * argv[]){
-	init_enclib("/dev/urandom");
-	get_system_info();
-	test_enclib();
-	test_mapper(argc == 2 ? argv[1] : NULL);
-	test_backend(argc == 2 ? argv[1] : NULL);
-
+	print_enable = true;
+	
+	if (argc < 2){
+		print_error("Useage: <module> <device>. <module> is one of the 'enclib' 'mapper' 'backend'");
+	}
+	
+	init();
+	if (strcmp(argv[1], "enclib") == 0) {
+		test_enclib();
+	} else if (strcmp(argv[1], "mapper") == 0){
+		check_file(argv[2], true, false);
+		test_mapper(argv[2]);
+	} else if (strcmp(argv[1], "backend") == 0){
+		check_file(argv[2], true, false);
+		test_backend(argv[2]);
+	} else {
+		print_error("wrong param, <module> is one of the 'enclib' 'mapper' 'backend'");
+	}
+	
+	
 }

@@ -38,7 +38,7 @@ Address                                              Layout
                             +---------------------------------------------------------+
 0x10                        | Metadata                                                | ---+
                             |   +-----------------------------------------------------+    |
-                            |   | inited_key (KEY_SLOT_COUNT x HASHLEN bytes)         |    |
+                            |   | keyslot_key (KEY_SLOT_COUNT x HASHLEN bytes)         |    |
                             |   +-----------------------------------------------------+    |
                             |   | all_key_mask (KEY_SLOT_COUNT x HASHLEN bytes)       |    |
                             |   +-----------------------------------------------------+    |
@@ -67,7 +67,7 @@ Address                                              Layout
                             |   | hash_salt (HASHLEN bytes)                           |    |
                             |   +-----------------------------------------------------+    |
                             |   | len_exp (KEY_SLOT_EXP_MAX x 4 bytes)                |    | Encrypted using
-                            |   +-----------------------------------------------------+    | inited_key and
+                            |   +-----------------------------------------------------+    | keyslot_key and
                             |   | key_mask (HASHLEN bytes)                            |    | master_key_mask
                             |   +-----------------------------------------------------+    |
                             |                         ...                             |    |

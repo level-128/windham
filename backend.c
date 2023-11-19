@@ -9,7 +9,6 @@
 
 #define MIN_KEY_CHAR 7
 
-
 #include "sha256.h"
 #include "mapper.c"
 
@@ -164,8 +163,7 @@ size_t check_target_mem(size_t target_mem, bool is_encrypt) {
 	return target_mem;
 }
 
-
-char * get_input() {
+char * get_password_input() {
 	struct termios oldt, newt;
 	int size = 20;
 	char * input = (char *) malloc(size * sizeof(char));
@@ -200,9 +198,9 @@ char * get_input() {
 char * get_key_input_from_the_console(const char * device, bool is_new_key) {
 	char * key, * check_key;
 	printf(_("Password for %s:\n"), device);
-	key = get_input();
+	key = get_password_input();
 	printf(_("\nAgain:\n"));
-	check_key = get_input();
+	check_key = get_password_input();
 	if (strcmp(key, check_key) != 0) {
 		print_error(_("Passwords do not match."));
 	} else if (strlen(key) < MIN_KEY_CHAR && is_new_key) {
@@ -299,20 +297,21 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 	uint8_t inited_key[HASHLEN];
 	uint8_t inited_keys[KEY_SLOT_COUNT][HASHLEN];
 	init_key(key, inited_key);
+	for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+		memcpy(inited_keys[i], inited_key, HASHLEN);
+	}
+	
+	operate_all_keyslots_using_inited_key(self.keyslots, inited_key, self.master_key_mask, self.uuid_and_salt, true);
 	
 	max_unlock_mem = check_target_mem(max_unlock_mem, false);
 	
-	int slot_seq[KEY_SLOT_COUNT + 1];
-	get_slot_list_for_get_master_key(slot_seq, target_slot);
+	int slot_seq[KEY_SLOT_COUNT + 1]; // sequence for unlock
+	get_slot_list_for_get_master_key(slot_seq, target_slot); // randomize the unlock sequence, or if target slot is designated, use the target_slot instead.
 	
-	for (int i = 0; slot_seq[i] != -1; i++) {
-		operate_key_slot_using_inited_key(&self.keys[slot_seq[i]], inited_key, self.master_key_mask, true);
-		memcpy(inited_keys[slot_seq[i]], inited_key, HASHLEN);
-	}
 	
-	int unlocked_slot = read_key_from_all_slots(self.keys, inited_keys, slot_seq, max_unlock_mem, max_unlock_time);
+	int unlocked_slot = read_key_from_all_slots(self.keyslots, inited_keys, slot_seq, max_unlock_mem, max_unlock_time);
 	if (unlocked_slot >= 0) {
-		xor_with_len(HASHLEN, inited_keys[unlocked_slot], self.keys[unlocked_slot].key_mask, master_key);
+		xor_with_len(HASHLEN, inited_keys[unlocked_slot], self.keyslots[unlocked_slot].key_mask, master_key);
 	} else if (unlocked_slot == NMOBJ_STEP_ERR_NOMEM) {
 		print_error(_("Cannot unlock the target probably due to incorrect key.\n"
 						  "\tIf you are certain that the key is indeed correct, because the memory limit has reached, try increasing the maximum memory limit "
@@ -337,55 +336,63 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 	return unlocked_slot;
 }
 
-int check_is_duplicate_and_get_slot(Data decrypted_self, uint8_t inited_key[HASHLEN], int target_slot) {
-	if ((target_slot = select_available_key_slot(decrypted_self.metadata, target_slot, decrypted_self.keys)) == -1) {
-		print_error(_("All key slots are full. Remove or revoke one or more keys to add a new key."));
-	}
-	
-	//check is duplicate
-	for (int i = 0; i < KEY_SLOT_COUNT; i++) {
-		if (memcmp(decrypted_self.metadata.inited_key[i], inited_key, HASHLEN) == 0) {
-			print_error(_("The given key is used, or have just revoked, at slot %i"), i);
-		}
-	}
-	return target_slot;
-}
 
-int add_key(Data * decrypted_data, const uint8_t master_key[32], const Key key, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
-	uint8_t password_hash[HASHLEN];
+int add_key(Data * decrypted_self, const uint8_t master_key[32], const Key key, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
 	uint8_t inited_key[HASHLEN];
+	uint8_t keyslot_key[HASHLEN];
 	
 	init_key(key, inited_key);
 	
 	// select slot
-	target_slot = check_is_duplicate_and_get_slot(*decrypted_data, inited_key, target_slot);
+	if ((target_slot = select_available_key_slot(decrypted_self->metadata, target_slot, decrypted_self->keyslots)) == -1) {
+		print_error(_("All key slots are full. Remove or revoke one or more keys to add a new key."));
+	}
+	
+	get_keyslot_key_from_inited_key(inited_key, decrypted_self->uuid_and_salt, keyslot_key);
+	
+	for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+		if (memcmp(decrypted_self->metadata.keyslot_key[i], keyslot_key, HASHLEN) == 0) {
+			print_error(_("The given key is used at slot %i"), i);
+		}
+	}
 	
 	max_unlock_mem = check_target_mem(max_unlock_mem, true);
 	
-	memcpy(password_hash, inited_key, HASHLEN);
-	set_master_key_to_slot(&decrypted_data->keys[target_slot], password_hash, max_unlock_mem, max_unlock_time, master_key);
-	register_key_slot_as_used(decrypted_data, inited_key, target_slot);
+	set_master_key_to_slot(&decrypted_self->keyslots[target_slot], inited_key, max_unlock_mem, max_unlock_time, master_key);
+	register_key_slot_as_used(decrypted_self, keyslot_key, target_slot);
 	return target_slot;
 }
 
+char * interactive_ask_new_key_test_key = NULL;
+
 void interactive_ask_new_key(Key * new_key, const char * device) {
 	char option;
-	print(_("AddKey: choose your key format \n(1) input key from console;\n(2) use a key file\nOption: "));
-	
-	struct termios oldt, newt;
-	
-	tcgetattr(STDIN_FILENO, &oldt);
-	newt = oldt;
-	newt.c_lflag &= ~(ICANON | ECHO);
-	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-	
-	option = (char) getchar();
-	
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-	
-	print("");
+	if (interactive_ask_new_key_test_key == NULL) {
+		print(_("AddKey: choose your key format \n(1) input key from console;\n(2) use a key file\nOption: "));
+		
+		struct termios oldt, newt;
+		
+		tcgetattr(STDIN_FILENO, &oldt);
+		newt = oldt;
+		newt.c_lflag &= ~(ICANON | ECHO);
+		tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+		
+		option = (char) getchar();
+		
+		tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+		
+		print("");
+	} else {
+		option = '1';
+	}
 	if (option == '1') {
-		new_key->key_or_keyfile_location = get_key_input_from_the_console(device, true);
+		if (interactive_ask_new_key_test_key == NULL) {
+			new_key->key_or_keyfile_location = get_key_input_from_the_console(device, true);
+		} else {
+			new_key->key_or_keyfile_location = malloc(strlen(interactive_ask_new_key_test_key) + 1);
+			strcpy(new_key->key_or_keyfile_location, interactive_ask_new_key_test_key);
+			interactive_ask_new_key_test_key = NULL;
+		}
 		new_key->key_type = EMOBJ_key_file_type_input;
 	} else if (option == '2') {
 		char * file_location;
@@ -398,7 +405,7 @@ void interactive_ask_new_key(Key * new_key, const char * device) {
 }
 
 
-void check_encryption_mode(const char * str, int64_t idx[3]) {
+void check_encryption_mode_arg(const char * str, int64_t idx[3]) {
 	int dash_count = 0;
 	for (int i = 0; str[i] != '\0'; i++) {
 		if (str[i] == '-') {
@@ -430,9 +437,9 @@ void check_encryption_mode(const char * str, int64_t idx[3]) {
 	free(strcpy);
 }
 
-void action_new_check_crypt(const char * str) {
+void action_new_check_crypt_support_status(const char * str) {
 	int64_t idx[3];
-	check_encryption_mode(str, idx);
+	check_encryption_mode_arg(str, idx);
 	char ** crypto_list = get_crypto_list();
 	
 	if (crypto_list == NULL) {
@@ -473,10 +480,10 @@ print_error(_("The header is suspended. Resume header to perform this operation.
 if (key.key_type != EMOBJ_key_file_type_none){\
 unlocked_slot = get_master_key(data, master_key, key, target_unlock_slot, max_unlock_mem, max_unlock_time);\
 }\
-if (operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask) == false) {\
+if (lock_or_unlock_metadata_using_master_key(&data, master_key) == false) {\
 print_error(key.key_type != EMOBJ_key_file_type_none ? _("This key has been revoked.") : _("Wrong master key."));\
 }                                  \
-operate_all_keyslots(data.keys, data.metadata.inited_key, data.master_key_mask, true);                                    \
+operate_all_keyslots_using_keyslot_key_in_metadata(data.keyslots, data.metadata.keyslot_key, data.master_key_mask, true); /* open all key slots */  \
 bool revoked_untagged_slot[KEY_SLOT_COUNT];              \
 check_master_key_and_slots_revoke(&data, revoked_untagged_slot);\
 for (int i = 0; i < KEY_SLOT_COUNT; i++){                \
@@ -485,26 +492,26 @@ print_warning(_("Slot %i on device %s have been revoked without using the passwo
 }}                                  \
 
 #define OPERATION_LOCK_AND_WRITE \
-transform_header(&data);\
-operate_all_keyslots(data.keys, data.metadata.inited_key, data.master_key_mask, false);\
-operate_metadata_using_master_key(&data.metadata, master_key, data.master_key_mask);\
+assign_new_header_iv(&data);\
+operate_all_keyslots_using_keyslot_key_in_metadata(data.keyslots, data.metadata.keyslot_key, data.master_key_mask, false);\
+lock_or_unlock_metadata_using_master_key(&data, master_key);\
 write_header_to_device(&data, device, offset);
 
 #define PARAMS_FOR_KEY Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time, bool is_decoy
 
-void action_create(const char * device, const char * enc_type, const Key key, int target_slot, uint64_t target_memory, double target_time, bool is_decoy) {
+void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, bool is_decoy, size_t block_size) {
 	Data data;
 	uint8_t master_key[HASHLEN];
 	size_t start_sector, end_sector;
 	int64_t offset = is_decoy ? -(int64_t) sizeof(Data) : 0;
-	action_new_check_crypt(enc_type);
+	action_new_check_crypt_support_status(enc_type);
 	check_is_device_mounted(device);
 	
 	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 	
 	fill_secure_random_bits(master_key, HASHLEN);
-	decide_start_and_end_sector(device, is_decoy, &start_sector, &end_sector);
-	initialize_new_header(&data, enc_type, start_sector, end_sector);
+	decide_start_and_end_sector(device, is_decoy, &start_sector, &end_sector, block_size);
+	initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);
 	add_key(&data, master_key, key, target_slot, target_memory, target_time);
 	
 	OPERATION_LOCK_AND_WRITE
@@ -522,52 +529,61 @@ bool is_suspended(const char * device, bool is_decoy) {
 	return is_header_suspended(data);
 }
 
-bool action_open_suspended(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly) {
+bool action_open_suspended(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
+									bool is_no_write_workqueue) {
 	OPERATION_READ_HEADER
 	if (!is_header_suspended(data)) {
 		return false;
 	}
-	uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
-	get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, disk_key);
 	if (!is_dry_run) {
-		create_crypt_mapping_from_disk_key(device, target_name, data.metadata, disk_key, is_target_readonly);
+		uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
+		get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
+		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 		print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
 	} else {
+		char uuid_str[37];
+		generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
 		printf(_("dry run complete. Device is unlocked and suspended, thus no key slot status could be provided\n"));
 		printf(_("Additional device parameters: \n"
+					"UUID: %s\n"
 		         "Crypto algorithm: %s\n"
 		         "Start sector %lu\n"
-		         "End sector %lu\n"), data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector);
+		         "End sector %lu\n"
+					"Block size %hu\n"), uuid_str, data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size);
 	}
 	return true;
 }
 
-void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_dry_run, bool is_target_readonly) {
+void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue, bool is_no_write_workqueue) {
 	
 	OPERATION_READ_HEADER
 	OPERATION_BACKEND_UNLOCK
 	
 	if (!is_dry_run) {
 		uint8_t disk_key[HASHLEN];
-		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, disk_key);
-		create_crypt_mapping_from_disk_key(device, target_name, data.metadata, disk_key, is_target_readonly);
+		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
+		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 	} else {
+		char uuid_str[37];
+		generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
 		printf(_("dry run complete. Slot %i opened with master key:\n"), unlocked_slot);
 		print_hex_array(HASHLEN, master_key);
 		printf(_("Additional device parameters: \n"
+		         "UUID: %s\n"
 		         "Crypto algorithm: %s\n"
 		         "Start sector %lu\n"
-		         "End sector %lu\n"), data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector);
+		         "End sector %lu\n"
+		         "Block size %hu\n"), uuid_str, data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size);
 		printf(_("key slot status:\n"));
 		
 		uint8_t temp[HASHLEN] = {0};
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			if (data.metadata.key_slot_is_used[i]) {
-				if (memcmp(data.metadata.inited_key[i], temp, HASHLEN) == 0){
+				if (memcmp(data.metadata.keyslot_key[i], temp, HASHLEN) == 0){
 					printf(_("Slot %i has been revoked.\n"), i);
 				} else {
 					printf(_("Slot %i occupied with password; identifier: "), i);
-					print_hex_array(HASHLEN / 4, data.metadata.inited_key[i]);
+					print_hex_array(HASHLEN / 4, data.metadata.keyslot_key[i]);
 				}
 			} else {
 				printf(_("Slot %i is empty.\n"), i);
@@ -658,7 +674,7 @@ void action_suspend(const char * device, PARAMS_FOR_KEY) {
 	}
 	Data data_copy;
 	memcpy(&data_copy, &data, sizeof(data_copy));
-	OPERATION_BACKEND_UNLOCK
+	OPERATION_BACKEND_UNLOCK // get master key only
 	do {
 		suspend_encryption(&data_copy, master_key);
 		write_header_to_device(&data_copy, device, offset);

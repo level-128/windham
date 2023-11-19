@@ -10,9 +10,8 @@
 
 
 #define _(STRING) gettext(STRING)
-// xgettext -k_ -L C -o locale/windham.pot frontend.c backend.c mapper.c enclib.c
 
-#define VERSION "0.231106.0.0"
+#define VERSION "0.231118.0.0"
 #define DEFAULT_EXEC_DIR "/etc/windham"
 
 #include "enclib.c"
@@ -30,6 +29,7 @@ enum {
 	NMOBJ_target_mem, //AddKey only
 	NMOBJ_target_time, //AddKey only
 	NMOBJ_encrypt_type,
+	NMOBJ_block_size,
 	
 	NMOBJ_target_all,
 	NMOBJ_target_obliterate,
@@ -38,6 +38,9 @@ enum {
 	NMOBJ_target_restore,
 	NMOBJ_target_decoy,
 	NMOBJ_target_readonly,
+	NMOBJ_target_allow_discards,
+	NMOBJ_target_no_read_workqueue,
+	NMOBJ_target_no_write_workqueue,
 	NMOBJ_is_systemd,
 	NMOBJ_is_nofail,
 	NMOBJ_is_noadmin,
@@ -50,30 +53,34 @@ const char * const actions[] = {"Help", "Open", "Close", "New", "AddKey", "Revok
 int options[NMOBJ_target_SIZE] = {0};
 
 const struct option long_options[] = {
-		{"to",                required_argument, &options[NMOBJ_to],                  1},
-		{"key",               required_argument, &options[NMOBJ_key],                 1},
-		{"key-file",          required_argument, &options[NMOBJ_key_file],            1},
-		{"master-key",        required_argument, &options[NMOBJ_master_key],          1},
-		{"target-slot",       required_argument, &options[NMOBJ_target_slot],         1},
-		{"unlock-slot",       required_argument, &options[NMOBJ_unlock_slot],         1},
-		{"max-unlock-memory", required_argument, &options[NMOBJ_max_unlock_mem],      1},
-		{"max-unlock-time",   required_argument, &options[NMOBJ_max_unlock_time],     1},
-		{"target-memory",     required_argument, &options[NMOBJ_target_mem],          1},
-		{"target-time",       required_argument, &options[NMOBJ_target_time],         1},
-		{"encrypt-type",      required_argument, &options[NMOBJ_encrypt_type],        1},
+		{"to",                 required_argument, &options[NMOBJ_to],                        1},
+		{"key",                required_argument, &options[NMOBJ_key],                       1},
+		{"key-file",           required_argument, &options[NMOBJ_key_file],                  1},
+		{"master-key",         required_argument, &options[NMOBJ_master_key],                1},
+		{"target-slot",        required_argument, &options[NMOBJ_target_slot],               1},
+		{"unlock-slot",        required_argument, &options[NMOBJ_unlock_slot],               1},
+		{"max-unlock-memory",  required_argument, &options[NMOBJ_max_unlock_mem],            1},
+		{"max-unlock-time",    required_argument, &options[NMOBJ_max_unlock_time],           1},
+		{"target-memory",      required_argument, &options[NMOBJ_target_mem],                1},
+		{"target-time",        required_argument, &options[NMOBJ_target_time],               1},
+		{"encrypt-type",       required_argument, &options[NMOBJ_encrypt_type],              1},
+		{"block-size",         required_argument, &options[NMOBJ_block_size],                1},
 		
-		{"all",               no_argument,       &options[NMOBJ_target_all],          1},
-		{"obliterate",        no_argument,       &options[NMOBJ_target_obliterate],   1},
-		{"dry-run",           no_argument,       &options[NMOBJ_target_dry_run],      1},
-		{"no-transform",      no_argument,       &options[NMOBJ_target_no_transform], 1},
-		{"restore",           no_argument,       &options[NMOBJ_target_restore],      1},
-		{"decoy",             no_argument,       &options[NMOBJ_target_decoy],        1},
-		{"readonly",          no_argument,       &options[NMOBJ_target_readonly],     1},
-		{"systemd-dialog",    no_argument,       &options[NMOBJ_is_systemd],          1},
-		{"nofail",            no_argument,       &options[NMOBJ_is_nofail],           1},
-		{"no-admin",          no_argument,       &options[NMOBJ_is_noadmin],          1},
-		{"yes",               no_argument,       &options[NMOBJ_yes],                 1},
-		{0, 0,                                   0,                                   0}
+		{"all",                no_argument,       &options[NMOBJ_target_all],                1},
+		{"obliterate",         no_argument,       &options[NMOBJ_target_obliterate],         1},
+		{"dry-run",            no_argument,       &options[NMOBJ_target_dry_run],            1},
+		{"no-transform",       no_argument,       &options[NMOBJ_target_no_transform],       1},
+		{"restore",            no_argument,       &options[NMOBJ_target_restore],            1},
+		{"decoy",              no_argument,       &options[NMOBJ_target_decoy],              1},
+		{"readonly",           no_argument,       &options[NMOBJ_target_readonly],           1},
+		{"allow-discards",     no_argument,       &options[NMOBJ_target_allow_discards],     1},
+		{"no-read-workqueue",  no_argument,       &options[NMOBJ_target_no_read_workqueue],  1},
+		{"no-write-workqueue", no_argument,       &options[NMOBJ_target_no_write_workqueue], 1},
+		{"systemd-dialog",     no_argument,       &options[NMOBJ_is_systemd],                1},
+		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
+		{"no-admin",           no_argument,       &options[NMOBJ_is_noadmin],                1},
+		{"yes",                no_argument,       &options[NMOBJ_yes],                       1},
+		{0, 0,                                    0,                                         0}
 };
 
 #define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail
@@ -81,11 +88,11 @@ const struct option long_options[] = {
 
 const int8_t check_allowed[] =
 		// Open
-		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_target_readonly, NMOBJ_target_dry_run, CHECK_COMMON, -1,
+		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_target_readonly, NMOBJ_target_dry_run, NMOBJ_target_allow_discards, NMOBJ_target_no_read_workqueue, NMOBJ_target_no_write_workqueue, CHECK_COMMON, -1,
 				// Close
        CHECK_COMMON, -1,
 				// New
-       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, CHECK_COMMON, -1,
+       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, NMOBJ_block_size, CHECK_COMMON, -1,
 				// AddKey
        CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, CHECK_COMMON, -1,
 				// RevokeKey
@@ -148,7 +155,7 @@ void frontend_print_unlock_args() {
 			       "\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
 			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
 			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
-					 "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd."));
+			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd."));
 };
 
 void frontend_print_common_args() {
@@ -175,6 +182,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("Default encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
 #ifdef __GNUC__
 		printf(_("Compiler: GCC %d.%d.%d\n"), __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+		printf(_("Compile time: %s, %s"), __DATE__, __TIME__);
 #endif
 	} else if (strcmp("--license", the_3rd_argv) == 0) {
 		printf(_("    Copyright (C) 2023-  W. Wang (level-128)\n"
@@ -282,10 +290,10 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 
 noreturn void frontend_no_input() {
 	printf(_("Windham (%s) Copyright (C) 2023-  W. Wang (level-128)\n\n"
-	
+	         
 	         "usage: \"windham <action> <target>\"\n"
 	         "For help, type 'windham Help' to view help for all possible actions\n\n"
-	
+	         
 	         "This program comes with ABSOLUTELY NO WARRANTY; for details type 'Help --license'.\n"
 	         "This is free software, and you are welcome to redistribute it under certain conditions;\n"), VERSION);
 	exit(0);
@@ -361,7 +369,7 @@ void frontend_create_key(char * params[], Key * key, char * device, bool is_syst
 		key->key_or_keyfile_location = params[NMOBJ_key_file];
 		key->key_type = EMOBJ_key_file_type_file;
 	} else {
-		if (is_systemd){
+		if (is_systemd) {
 			key->key_or_keyfile_location = get_key_input_from_the_console_systemd(device);
 		}
 		key->key_or_keyfile_location = get_key_input_from_the_console(device, false);
@@ -382,10 +390,11 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	uint8_t master_key[HASHLEN];
 	int target_slot = -1;
 	int unlock_slot = -1;
-	uint64_t target_mem = 0;
-	uint64_t max_unlock_mem = 0;
+	size_t target_mem = 0;
+	size_t max_unlock_mem = 0;
 	double target_time = DEFAULT_TARGET_TIME;
 	double max_unlock_time = DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR;
+	size_t block_size = DEFAULT_BLOCK_SIZE;
 	
 	
 	frontend_check_invalid_param(action_num);
@@ -432,7 +441,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		}
 	}
 	if (options[NMOBJ_max_unlock_time] == 1) {
-		if (strcmp(params[NMOBJ_max_unlock_time], "-") == 0){
+		if (strcmp(params[NMOBJ_max_unlock_time], "-") == 0) {
 			max_unlock_time = DBL_MAX;
 		} else {
 			max_unlock_time = strtod(params[NMOBJ_max_unlock_time], &end);
@@ -441,6 +450,13 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			}
 		}
 	}
+	if (options[NMOBJ_block_size] == 1) {
+		block_size = strtoull(params[NMOBJ_block_size], &end, 10);
+		if (*end != '\0' || (block_size != 512 && block_size != 1024 && block_size != 2048 && block_size != 4096)) {
+			print_error(_("bad input for argument --block-size: not 512, 1024, 2048 or 4096"));
+		}
+	}
+	
 	if (!options[NMOBJ_is_noadmin]) {
 		is_running_as_root();
 	}
@@ -459,10 +475,11 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		case 0:
 			check_file(device, !options[NMOBJ_target_readonly], options[NMOBJ_is_nofail]);
 			check_is_device_mounted(device);
-			if (!action_open_suspended(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly])) {
+			if (!action_open_suspended(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly], options[NMOBJ_target_allow_discards],
+												options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue])) {
 				ASK_KEY
 				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run],
-								options[NMOBJ_target_readonly]);
+				            options[NMOBJ_target_readonly],options[NMOBJ_target_allow_discards], options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue]);
 			}
 			
 			break;
@@ -472,7 +489,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		case 2:
 			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
-			action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
+			action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy], block_size);
 			break;
 		case 3:
 			check_file(device, true, options[NMOBJ_is_nofail]);

@@ -68,25 +68,25 @@
          default          \
        : T_PTR)
 
-#if NO_PRINT_ != 1
+bool print_enable = false;
+
 #define print(...) \
+   if (print_enable){                \
    int tmp_var = CV_VA_NUM_ARGS(__VA_ARGS__);\
    p__get_types__(__VA_ARGS__);                   \
    p__expands_args(tmp_var, __VA_ARGS__);\
-   p__print__(tmp_var)
-#else
-#define print(...) 0
-#endif
+   p__print__(tmp_var);} while(0)
 
 
-bool debug_print_error_suppress = false;
+
+int debug_print_error_suppress = 0;
 
 #define print_error(...) \
     if (debug_print_error_suppress){ \
 	 printf("\033[1;33m%s: ", _("SUPPRESS_ERROR")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n");   \
-	 debug_print_error_suppress = false;\
+	 debug_print_error_suppress--;\
 	 } else {                    \
     printf("\033[1;31m%s: ", _("ERROR")); \
     printf(__VA_ARGS__);           \
