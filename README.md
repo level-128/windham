@@ -13,22 +13,37 @@ Windham is free and open-source software for disk encryption, an implementation 
 ## How To install?
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
-or later.) under release.
+or later.) under release (if available).
 - Compile by your own. the device-mapper subsystem is required. Install `libdevmapper` on Debian-based 
-distro; or `device-mapper` on Fedora-based / SUSE distro. It should be already available if you have
-`cryptsetup` (known for manipulating LUKS disk encryption) installed. Also, `cmake`, `gettext-devel` and `gcc` are required.
+distro; or `device-mapper` on Fedora-based / SUSE distro. It should be already available in most distros.
+Also, `cmake`, `gettext-devel`(Fedora/SUSE) / `libgettextpo-dev`(Debian-based) and `gcc` are required.
+Compiling windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sudo make install`).
 
 
 ## Basic usage:
 1. First, find the device that you want to encrypt under `/dev`, you can do this by using 
 your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`; `/dev/sdb2` or `/dev/nvme0n2p2` if 
 you prefer to create an encrypted partition instead.
-2. To create a new Windham device, use command `Windham New *your device*`. For example, creating a Windham device on
+2. To create a new Windham device, use command `windham New *your device*`. For example, creating a Windham device on
 `/dev/sdb`, use command `sudo windham New /dev/sdb` and enter your password. 
 3. To map your device, use command `windham Open *your device* --to=*name*`. For example, to open `/dev/sdb`,
 using `sudo windham Open /dev/sdb --to=enc1` will create a mapper device at `/dev/mapper/enc1`.
-4. create filesystem on `/dev/mapper/enc1`, as if it is an empty hard drive, as you wish.
+4. create filesystem on `/dev/mapper/enc1`, as if it is an empty partition, as you wish.
 5. To close your device, use `windham close *name*`. 
+6. (Optional, but recommended) Use `windham Open *your device* --dry-run` to view your master key; back it up into a safe place.
+The master key can access, control and modify the entire partition.
+
+## Advanced features:
+
+- Suspend support. Use `windham Suspend` to suspend an encrypted device. The device will be accessible by everyone. But, 
+relax, your passwords and master keys are secure, and being able to access your encrypted device doesn't mean that someone 
+else can read your passphrases or tamper the encryption that you've set up.  
+- Add up to 6 passphrases. Also, you can revoke your passphrases by `windham RevokeKey`. Using a revoked passphrases will 
+trigger an error (`This key has been revoked.`), instead of an ambiguous error message when the key is incorrect. You can
+revoke a passphrase even if you don't have the corresponding passphrase by `windham RevokeKey --target-slot=*slot*` (which 
+is pretty useful when you forgot your passphrase).
+- Use `windham Backup --to=*location*` to back up the header when tinkering with the partitions. Corruption of the header
+will render the crypt device inaccessible.
 
 &nbsp;
 
@@ -52,7 +67,7 @@ deleted the decoy partition, auto-detection will not work. In this case, use arg
 
 ### Note for using Decoy Partition
 There is no protection to ensure the modification of the decoy partition will not overwrite the encrypted partition. In 
-a case that a large amount of file needs to be deleted, reformatting the filesystem is a better idea. 
+a case that a large amount of file needs to be deleted, reformatting the filesystem is a better idea.
 
 ---
 
@@ -66,8 +81,9 @@ a case that a large amount of file needs to be deleted, reformatting the filesys
 
 🥰🥰 Contributions are highly welcome 🥰🥰! 
 
-Oh, make sure that you 
+Oh, make sure that you have acknowledged [the code of conduct](CODE_OF_CONDUCT.md). 
 
+Any questions? email me: level-128@gmx.com
 
 ---
 
