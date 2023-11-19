@@ -26,36 +26,6 @@ file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
 file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
 
 
-# update translations
-set(LANGUAGES fr zh_CN)
-add_custom_target(update_translations ALL
-        DEPENDS ${CMAKE_SOURCE_DIR}/locale/windham.pot)
-
-add_custom_command(
-        OUTPUT ${CMAKE_SOURCE_DIR}/locale/windham.pot
-        COMMAND xgettext -k_ -L C --no-location  -o ${CMAKE_SOURCE_DIR}/locale/windham.pot ${CMAKE_SOURCE_DIR}/frontend.c ${CMAKE_SOURCE_DIR}/backend.c ${CMAKE_SOURCE_DIR}/mapper.c
-        ${CMAKE_SOURCE_DIR}/enclib.c ${CMAKE_SOURCE_DIR}/srclib.c
-        COMMENT "Generating windham.pot from source code"
-)
-
-foreach(LANG ${LANGUAGES})
-    add_custom_command(
-            TARGET update_translations
-            COMMAND msgmerge --update ${CMAKE_SOURCE_DIR}/locale/${LANG}/LC_MESSAGES/windham.po ${CMAKE_SOURCE_DIR}/locale/windham.pot
-            COMMENT "Updating ${LANG}/windham.po"
-    )
-endforeach()
-
-add_custom_target(compile_translations)
-foreach(LANG ${LANGUAGES})
-    add_custom_command(
-            TARGET compile_translations
-            COMMAND msgfmt -c -o locale/${LANG}/LC_MESSAGES/windham.mo locale/${LANG}/LC_MESSAGES/windham.po
-            COMMENT "Compiling ${LANG}/windham.po"
-    )
-endforeach()
-
-
 # compile according to arch
 function(add_argon2_and_executables_for_arch arch)
 
@@ -66,7 +36,7 @@ function(add_argon2_and_executables_for_arch arch)
                 RUNTIME DESTINATION bin
                 RENAME windham_argonbench)
     endif()
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(CMAKE_BUILD_TYPE STREQUAL "Test")
         add_executable(windham_test test/test.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
         set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
         install(TARGETS windham_test
@@ -86,7 +56,7 @@ endfunction()
 
 
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+if(CMAKE_BUILD_TYPE STREQUAL "Test")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -Wextra -g -O0")
     add_argon2_and_executables_for_arch("native")
 
@@ -120,5 +90,35 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     else()
         message( FATAL_ERROR "unknown arch" )
     endif()
+
+elseif(CMAKE_BUILD_TYPE STREQUAL "Language")
+    # update translations
+    set(LANGUAGES fr zh_CN)
+    add_custom_target(update_translations ALL
+            DEPENDS ${CMAKE_SOURCE_DIR}/locale/windham.pot)
+
+    add_custom_command(
+            OUTPUT ${CMAKE_SOURCE_DIR}/locale/windham.pot
+            COMMAND xgettext -k_ -L C --no-location  -o ${CMAKE_SOURCE_DIR}/locale/windham.pot ${CMAKE_SOURCE_DIR}/frontend.c ${CMAKE_SOURCE_DIR}/backend.c ${CMAKE_SOURCE_DIR}/mapper.c
+            ${CMAKE_SOURCE_DIR}/enclib.c ${CMAKE_SOURCE_DIR}/srclib.c
+            COMMENT "Generating windham.pot from source code"
+    )
+
+    foreach(LANG ${LANGUAGES})
+        add_custom_command(
+                TARGET update_translations
+                COMMAND msgmerge --update ${CMAKE_SOURCE_DIR}/locale/${LANG}/LC_MESSAGES/windham.po ${CMAKE_SOURCE_DIR}/locale/windham.pot
+                COMMENT "Updating ${LANG}/windham.po"
+        )
+    endforeach()
+
+    add_custom_target(compile_translations)
+    foreach(LANG ${LANGUAGES})
+        add_custom_command(
+                TARGET compile_translations
+                COMMAND msgfmt -c -o locale/${LANG}/LC_MESSAGES/windham.mo locale/${LANG}/LC_MESSAGES/windham.po
+                COMMENT "Compiling ${LANG}/windham.po"
+        )
+    endforeach()
 
 endif()
