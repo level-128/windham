@@ -148,19 +148,19 @@ void frontend_check_invalid_param(int action_num) {
 
 void frontend_print_unlock_args() {
 	printf(_(
-			       "Unlock options:\n"
+			       "\nUnlock options:\n"
 			       "\t--key <characters>: key input as argument, instead of asking in the terminal.\n"
 			       "\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' and '--target-slot' are mutually exclusive\n"
 			       "\t--master-key <characters>: using master key to unlock.\n"
 			       "\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
 			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
 			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
-			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd."));
+			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"));
 };
 
 void frontend_print_common_args() {
 	printf(_(
-			       "Common options:\n"
+			       "\nCommon options:\n"
 			       "\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n"
 			       "\t--yes: do not ask for explicit conformation to potential destructive operations.\n"));
 };
@@ -202,13 +202,16 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "permissions\" is legal binding, which grants additional permissions to the licensee. See license.md for details."));
 		
 	} else if (strcmp(actions[1], the_3rd_argv) == 0) {
-		printf(_("Open <target>: Unlock <target> and create a mapper. The key, by default, is read from the terminal.\n"
+		printf(_("Open <target>: Unlock <target> and create a mapper (decrypted crypt device) under /dev/mapper/<location>. The key, by default, is read from the terminal.\n"
 		         "\n"
 		         "options:\n"
 		         "\t--to <location>: REQUIRED; the target location of the mapper. The mapper will be named as <location>, locate under /dev/mapper/<location>\n"
 		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
-		         "\t--dry-run: run without operating on the block device.\n"
-		         "\t--readonly: Set the mapper device to read-only.\n"));
+		         "\t--dry-run: run without operating on the block device then print the master key and device parameters.\n"
+		         "\t--readonly: Set the mapper device to read-only.\n"
+					"\t--allow-discards: Allow TRIM command being sent to the crypt device.\n"
+					"\t--no-read-workqueue: Process read requests synchronously instead of using a internal workqueue.\n"
+					"\t--no-write-workqueue: Process write requests synchronously instead of using a internal workqueue.\n"));
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		
@@ -228,6 +231,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\t--target-time <float>: the suggested total time (sec) for adding the first key. This is not a hard limit.\n"
 		         "\t--encrypt-type <string>: designate an encryption scheme for the new header instead of the default one. It is not recommended, nor necessary, to do so, unless"
 		         " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\".\n"
+					"\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
 		         "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"));
 		frontend_print_common_args();
 		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the designated encryption scheme contains an unsupported, "
