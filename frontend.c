@@ -16,6 +16,7 @@
 
 #include "enclib.c"
 #include "backend.c"
+#include "argon_bench.c"
 
 enum {
 	NMOBJ_to,
@@ -49,7 +50,7 @@ enum {
 	NMOBJ_target_SIZE,
 };
 
-const char * const actions[] = {"Help", "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume"};
+const char * const actions[] = {"Help", "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume", "Bench"};
 int options[NMOBJ_target_SIZE] = {0};
 
 const struct option long_options[] = {
@@ -104,7 +105,9 @@ const int8_t check_allowed[] =
 				// Suspend
        CHECK_ALLOWED_OPEN, CHECK_COMMON, -1,
 				// Resume
-       CHECK_ALLOWED_OPEN, CHECK_COMMON, -1};
+       CHECK_ALLOWED_OPEN, CHECK_COMMON, -1,
+		      // Bench
+		 -1};
 
 
 int frontend_check_actions(char * input) {
@@ -286,7 +289,10 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\n"));
 		frontend_print_unlock_args();
 		frontend_print_common_args();
-	} else {
+	} else if (strcmp(actions[10], the_3rd_argv) == 0) {
+		printf(_("Bench: Performing Argon2 benchmark\n"
+		         "\n"));
+	}  else  {
 		print_error("<action> not recognized. type 'windham Help' to view help");
 	}
 	exit(0);
@@ -566,8 +572,10 @@ int main(int argc, char * argv[argc]) {
 	if (argc == 2) {
 		if (action_num == -1) {
 			frontend_help(NULL);
-		} else {
+		} else if (action_num != 9) { // benchmark
 			print_error(_("<target> not provided. type 'windham Help' to view help"));
+		} else { // run benchmark
+			benchmark();
 		}
 	}
 	

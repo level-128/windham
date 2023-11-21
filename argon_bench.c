@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -27,29 +27,31 @@
 
 #include "argon2.h"
 
-static uint64_t rdtsc(void) {
 #ifdef _WIN32
+static uint64_t rdtsc(void) {
 	return __rdtsc();
+	}
 #else
 #if defined(__amd64__) || defined(__x86_64__)
+static uint64_t rdtsc(void) {
 	uint64_t rax, rdx;
 	__asm__ __volatile__("rdtsc" : "=a"(rax), "=d"(rdx) : :);
 	return (rdx << 32) | rax;
-#elif defined(__i386__) || defined(__i386) || defined(__X86__)
-	uint64_t rax;
-	__asm__ __volatile__("rdtsc" : "=A"(rax) : :);
-	return rax;
-#else
-#error "Not implemented!"
-#endif
-#endif
 }
+#else
+static uint64_t rdtsc(void){return 0;};
+#endif
+#endif
 
-/*
- * Benchmarks Argon2 with salt length 16, password length 16, t_cost 3,
-   and different m_cost and threads
- */
-static void benchmark() {
+
+
+_Noreturn void benchmark() {
+#if defined(__amd64__) || defined(__x86_64__)
+	printf(_("Start Argon2B3id benchmark:\n"));
+#else
+	print_error(_("'windham Bench' only supports x86-64 (AMD64) architecture."));
+#endif
+
 #define BENCH_OUTLEN 32
 #define BENCH_INLEN 32
 	const uint32_t inlen = BENCH_INLEN;
@@ -67,7 +69,7 @@ static void benchmark() {
 	memset(pwd_array, 0, inlen);
 	memset(salt_array, 1, inlen);
 	
-	for (m_cost = (uint32_t) 1 << 10; m_cost <= (uint32_t) 1 << 22; m_cost *= 2) {
+	for (m_cost = (uint32_t) 1 << 15; m_cost <= (uint32_t) 1 << 22; m_cost *= 2) {
 		unsigned i;
 		for (i = 0; i < 4; ++i) {
 			double run_time = 0;
@@ -91,16 +93,12 @@ static void benchmark() {
 			mcycles = (double) (stop_cycles - start_cycles) / (1UL << 20);
 			run_time += ((double) stop_time - start_time) / (CLOCKS_PER_SEC);
 			
-			printf("%d iterations  %d MiB %d threads:  %2.2f cpb %2.2f "
-					 "Mcycles \n", t_cost,
-					 m_cost >> 10, thread_n, (float) delta / 1024, mcycles);
-			
-			
-			printf("%2.4f seconds\n\n", run_time);
+			printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, %2.2f Cycles per byte, %2.2f "
+					 "Mcycles. Result: \n"), t_cost,
+					 m_cost >> 10, thread_n, run_time, (float) delta / 1024, mcycles);
+			print_hex_array(outlen, out);
 		}
 	}
+	exit(0);
 }
 
-int main() {
-	benchmark();
-}
