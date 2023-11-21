@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -18,11 +18,10 @@
 #ifndef BLAKE_ROUND_MKA_H
 #define BLAKE_ROUND_MKA_H
 
-#include "blake2.h"
-#include "blake2-impl.h"
+#include "helper_func.h"
 
 /* designed by the Lyra PHC team */
-static BLAKE2_INLINE uint64_t fBlaMka(uint64_t x, uint64_t y) {
+static INLINE uint64_t fBlaMka(uint64_t x, uint64_t y) {
     const uint64_t m = UINT64_C(0xFFFFFFFF);
     const uint64_t xy = (x & m) * (y & m);
     return x + y + 2 * xy;

@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -22,14 +22,14 @@
 #include <string.h>
 
 #ifdef _WIN32
-#define BLAKE2_INLINE __inline
+#define INLINE __inline
 #elif defined(__GNUC__) || defined(__clang__)
-#define BLAKE2_INLINE __inline__
+#define INLINE __inline__
 #else
-#define BLAKE2_INLINE
+#define INLINE
 #endif
 
-/* Argon2 Team - Begin Code */
+/* Argon2B3 Team - Begin Code */
 /*
    Not an exhaustive list, but should cover the majority of modern platforms
    Additionally, the code will always be correct---this is only a performance
@@ -43,9 +43,9 @@
     defined(_M_ARM)
 #define NATIVE_LITTLE_ENDIAN
 #endif
-/* Argon2 Team - End Code */
+/* Argon2B3 Team - End Code */
 
-static BLAKE2_INLINE uint32_t load32(const void *src) {
+static INLINE uint32_t load32(const void *src) {
 #if defined(NATIVE_LITTLE_ENDIAN)
     uint32_t w;
     memcpy(&w, src, sizeof w);
@@ -60,7 +60,7 @@ static BLAKE2_INLINE uint32_t load32(const void *src) {
 #endif
 }
 
-static BLAKE2_INLINE uint64_t load64(const void *src) {
+static INLINE uint64_t load64(const void *src) {
 #if defined(NATIVE_LITTLE_ENDIAN)
     uint64_t w;
     memcpy(&w, src, sizeof w);
@@ -79,7 +79,7 @@ static BLAKE2_INLINE uint64_t load64(const void *src) {
 #endif
 }
 
-static BLAKE2_INLINE void store32(void *dst, uint32_t w) {
+static INLINE void store32(void *dst, uint32_t w) {
 #if defined(NATIVE_LITTLE_ENDIAN)
     memcpy(dst, &w, sizeof w);
 #else
@@ -94,7 +94,7 @@ static BLAKE2_INLINE void store32(void *dst, uint32_t w) {
 #endif
 }
 
-static BLAKE2_INLINE void store64(void *dst, uint64_t w) {
+static INLINE void store64(void *dst, uint64_t w) {
 #if defined(NATIVE_LITTLE_ENDIAN)
     memcpy(dst, &w, sizeof w);
 #else
@@ -117,7 +117,7 @@ static BLAKE2_INLINE void store64(void *dst, uint64_t w) {
 #endif
 }
 
-static BLAKE2_INLINE uint64_t load48(const void *src) {
+static INLINE uint64_t load48(const void *src) {
     const uint8_t *p = (const uint8_t *)src;
     uint64_t w = *p++;
     w |= (uint64_t)(*p++) << 8;
@@ -128,7 +128,7 @@ static BLAKE2_INLINE uint64_t load48(const void *src) {
     return w;
 }
 
-static BLAKE2_INLINE void store48(void *dst, uint64_t w) {
+static INLINE void store48(void *dst, uint64_t w) {
     uint8_t *p = (uint8_t *)dst;
     *p++ = (uint8_t)w;
     w >>= 8;
@@ -143,11 +143,11 @@ static BLAKE2_INLINE void store48(void *dst, uint64_t w) {
     *p++ = (uint8_t)w;
 }
 
-static BLAKE2_INLINE uint32_t rotr32(const uint32_t w, const unsigned c) {
+static INLINE uint32_t rotr32(const uint32_t w, const unsigned c) {
     return (w >> c) | (w << (32 - c));
 }
 
-static BLAKE2_INLINE uint64_t rotr64(const uint64_t w, const unsigned c) {
+static INLINE uint64_t rotr64(const uint64_t w, const unsigned c) {
     return (w >> c) | (w << (64 - c));
 }
 

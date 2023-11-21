@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -420,7 +420,7 @@ const char *argon2_error_message(int error_code) {
     case ARGON2_INCORRECT_PARAMETER:
         return "Argon2_Context context is NULL";
     case ARGON2_INCORRECT_TYPE:
-        return "There is no such version of Argon2";
+        return "There is no such version of Argon2B3";
     case ARGON2_OUT_PTR_MISMATCH:
         return "Output pointer mismatch";
     case ARGON2_THREADS_TOO_FEW:

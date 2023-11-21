@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -18,7 +18,7 @@
 #ifndef BLAKE_ROUND_MKA_OPT_H
 #define BLAKE_ROUND_MKA_OPT_H
 
-#include "blake2-impl.h"
+#include "helper_func.h"
 
 #include <emmintrin.h>
 #if defined(__SSSE3__)
@@ -56,7 +56,7 @@
 #else
 #endif
 
-static BLAKE2_INLINE __m128i fBlaMka(__m128i x, __m128i y) {
+static INLINE __m128i fBlaMka(__m128i x, __m128i y) {
     const __m128i z = _mm_mul_epu32(x, y);
     return _mm_add_epi64(_mm_add_epi64(x, y), _mm_add_epi64(z, z));
 }

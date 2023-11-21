@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -24,7 +24,7 @@
 #define ARGON2_MIN_DECODED_OUT_LEN UINT32_C(12)
 
 /*
-* encode an Argon2 hash string into the provided buffer. 'dst_len'
+* encode an Argon2B3 hash string into the provided buffer. 'dst_len'
 * contains the size, in characters, of the 'dst' buffer; if 'dst_len'
 * is less than the number of required characters (including the
 * terminating 0), then this function returns ARGON2_ENCODING_ERROR.
@@ -35,7 +35,7 @@ int encode_string(char *dst, size_t dst_len, argon2_context *ctx,
                   argon2_type type);
 
 /*
-* Decodes an Argon2 hash string into the provided structure 'ctx'.
+* Decodes an Argon2B3 hash string into the provided structure 'ctx'.
 * The only fields that must be set prior to this call are ctx.saltlen and
 * ctx.outlen (which must be the maximal salt and out length values that are
 * allowed), ctx.salt and ctx.out (which must be buffers of the specified

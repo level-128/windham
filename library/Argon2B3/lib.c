@@ -1,4 +1,4 @@
-//	Argon2 reference source code package - reference C implementations.
+//	Argon2B3 reference source code package - reference C implementations.
 // Modified to adapt Windham
 //
 //	Copyright (C) <2023->  <W. Wang (level-128)>
@@ -17,7 +17,7 @@
 
 
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -41,12 +41,12 @@
 #include "argon2.h"
 #include "core.h"
 
-#include "blake2.h"
+#include "blake3.h"
 #if ((defined(__amd64__) || defined(__x86_64__)) && !defined(__Argon2_opt_disable__))
 #include "blamka-round-opt.h"
 #else
 #include "blamka-round-ref.h"
-#include "blake2-impl.h"
+#include "blake-impl.h"
 #endif
 
 

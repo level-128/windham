@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -23,7 +23,7 @@
 #include "core.h"
 
 /*
- * Example code for a decoder and encoder of "hash strings", with Argon2
+ * Example code for a decoder and encoder of "hash strings", with Argon2B3
  * parameters.
  *
  * This code comprises three sections:
@@ -35,7 +35,7 @@
  *   the relevant functions are made public (non-static) and be given
  *   reasonable names to avoid collisions with other functions.
  *
- *   -- The second section is specific to Argon2. It encodes and decodes
+ *   -- The second section is specific to Argon2B3. It encodes and decodes
  *   the parameters, salts and outputs. It does not compute the hash
  *   itself.
  *
@@ -237,7 +237,7 @@ static const char *decode_decimal(const char *str, unsigned long *v) {
 
 /* ==================================================================== */
 /*
- * Code specific to Argon2.
+ * Code specific to Argon2B3.
  *
  * The code below applies the following format:
  *

@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -18,11 +18,12 @@
 #ifndef ARGON2_CORE_H
 #define ARGON2_CORE_H
 
+#include <stdint.h>
 #include "argon2.h"
 
 #define CONST_CAST(x) (x)(uintptr_t)
 
-/**********************Argon2 internal constants*******************************/
+/**********************Argon2B3 internal constants*******************************/
 
 enum argon2_core_constants {
     /* Memory block size in bytes */
@@ -42,7 +43,7 @@ enum argon2_core_constants {
     ARGON2_PREHASH_SEED_LENGTH = 72
 };
 
-/*************************Argon2 internal data types***********************/
+/*************************Argon2B3 internal data types***********************/
 
 /*
  * Structure for the (1KB) memory block implemented as 128 64-bit words.
@@ -63,7 +64,7 @@ void copy_block(block *dst, const block *src);
 void xor_block(block *dst, const block *src);
 
 /*
- * Argon2 instance: memory pointer, number of passes, amount of memory, type,
+ * Argon2B3 instance: memory pointer, number of passes, amount of memory, type,
  * and derived values.
  * Used to evaluate the number and location of blocks to construct in each
  * thread
@@ -83,7 +84,7 @@ typedef struct Argon2_instance_t {
 } argon2_instance_t;
 
 /*
- * Argon2 position: where we construct the block right now. Used to distribute
+ * Argon2B3 position: where we construct the block right now. Used to distribute
  * work between threads.
  */
 typedef struct Argon2_position_t {
@@ -99,7 +100,7 @@ typedef struct Argon2_thread_data {
     argon2_position_t pos;
 } argon2_thread_data;
 
-/*************************Argon2 core functions********************************/
+/*************************Argon2B3 core functions********************************/
 
 /* Allocates memory to the given pointer, uses the appropriate allocator as
  * specified in the context. Total allocated memory is num*size.
@@ -154,7 +155,7 @@ uint32_t index_alpha(const argon2_instance_t *instance,
 /*
  * Function that validates all inputs against predefined restrictions and return
  * an error code
- * @param context Pointer to current Argon2 context
+ * @param context Pointer to current Argon2B3 context
  * @return ARGON2_OK if everything is all right, otherwise one of error codes
  * (all defined in <argon2.h>
  */
@@ -163,10 +164,10 @@ int validate_inputs(const argon2_context *context);
 /*
  * Hashes all the inputs into @a blockhash[PREHASH_DIGEST_LENGTH], clears
  * password and secret if needed
- * @param  context  Pointer to the Argon2 internal structure containing memory
+ * @param  context  Pointer to the Argon2B3 internal structure containing memory
  * pointer, and parameters for time and space requirements.
  * @param  blockhash Buffer for pre-hashing digest
- * @param  type Argon2 type
+ * @param  type Argon2B3 type
  * @pre    @a blockhash must have at least @a PREHASH_DIGEST_LENGTH bytes
  * allocated
  */
@@ -185,9 +186,9 @@ void fill_first_blocks(uint8_t *blockhash, const argon2_instance_t *instance);
  * Function allocates memory, hashes the inputs with Blake,  and creates first
  * two blocks. Returns the pointer to the main memory with 2 blocks per lane
  * initialized
- * @param  context  Pointer to the Argon2 internal structure containing memory
+ * @param  context  Pointer to the Argon2B3 internal structure containing memory
  * pointer, and parameters for time and space requirements.
- * @param  instance Current Argon2 instance
+ * @param  instance Current Argon2B3 instance
  * @return Zero if successful, -1 if memory failed to allocate. @context->state
  * will be modified if successful.
  */
@@ -196,9 +197,9 @@ int initialize(argon2_instance_t *instance, argon2_context *context);
 /*
  * XORing the last block of each lane, hashing it, making the tag. Deallocates
  * the memory.
- * @param context Pointer to current Argon2 context (use only the out parameters
+ * @param context Pointer to current Argon2B3 context (use only the out parameters
  * from it)
- * @param instance Pointer to current instance of Argon2
+ * @param instance Pointer to current instance of Argon2B3
  * @pre instance->state must point to necessary amount of memory
  * @pre context->out must point to outlen bytes of memory
  * @pre if context->free_cbk is not NULL, it should point to a function that
