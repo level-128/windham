@@ -11,7 +11,7 @@ TEST_VECTORS = json.load(open(TEST_VECTORS_PATH))
 
 
 def run_blake3(args, input):
-    output = subprocess.run([path.join(HERE, "blake3_512bit")] + args,
+    output = subprocess.run([path.join(HERE, "blake3")] + args,
                             input=input,
                             stdout=subprocess.PIPE,
                             check=True)

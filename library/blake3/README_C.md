@@ -50,7 +50,7 @@ on x86\_64 with a Unix-like OS, you can compile a working binary like
 this:
 
 ```bash
-gcc -O3 -o example example.c blake3_512bit.c blake3_dispatch.c blake3_portable.c \
+gcc -O3 -o example example.c blake3.c blake3_dispatch.c blake3_portable.c \
     blake3_sse2_x86-64_unix.S blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S \
     blake3_avx512_x86-64_unix.S
 ```
@@ -234,7 +234,7 @@ Here's an example of building a shared library on x86\_64 Linux using
 the assembly implementations:
 
 ```bash
-gcc -shared -O3 -o libblake3.so blake3_512bit.c blake3_dispatch.c blake3_portable.c \
+gcc -shared -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c \
     blake3_sse2_x86-64_unix.S blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S \
     blake3_avx512_x86-64_unix.S
 ```
@@ -249,7 +249,7 @@ gcc -c -fPIC -O3 -msse2 blake3_sse2.c -o blake3_sse2.o
 gcc -c -fPIC -O3 -msse4.1 blake3_sse41.c -o blake3_sse41.o
 gcc -c -fPIC -O3 -mavx2 blake3_avx2.c -o blake3_avx2.o
 gcc -c -fPIC -O3 -mavx512f -mavx512vl blake3_avx512.c -o blake3_avx512.o
-gcc -shared -O3 -o libblake3.so blake3_512bit.c blake3_dispatch.c blake3_portable.c \
+gcc -shared -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c \
     blake3_avx2.o blake3_avx512.o blake3_sse41.o blake3_sse2.o
 ```
 
@@ -265,7 +265,7 @@ x86 with only portable code:
 
 ```bash
 gcc -shared -O3 -o libblake3.so -DBLAKE3_NO_SSE2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_AVX2 \
-    -DBLAKE3_NO_AVX512 blake3_512bit.c blake3_dispatch.c blake3_portable.c
+    -DBLAKE3_NO_AVX512 blake3.c blake3_dispatch.c blake3_portable.c
 ```
 
 ## ARM NEON
@@ -276,7 +276,7 @@ other ARM targets, since not all of them support it. To enable it, set
 ARM Linux with NEON support:
 
 ```bash
-gcc -shared -O3 -o libblake3.so -DBLAKE3_USE_NEON=1 blake3_512bit.c blake3_dispatch.c \
+gcc -shared -O3 -o libblake3.so -DBLAKE3_USE_NEON=1 blake3.c blake3_dispatch.c \
     blake3_portable.c blake3_neon.c
 ```
 
@@ -284,7 +284,7 @@ To explicitiy disable using NEON instructions on AArch64, set
 `BLAKE3_USE_NEON=0`.
 
 ```bash
-gcc -shared -O3 -o libblake3.so -DBLAKE3_USE_NEON=0 blake3_512bit.c blake3_dispatch.c \
+gcc -shared -O3 -o libblake3.so -DBLAKE3_USE_NEON=0 blake3.c blake3_dispatch.c \
     blake3_portable.c 
 ```
 
@@ -306,7 +306,7 @@ The portable implementation should work on most other architectures. For
 example:
 
 ```bash
-gcc -shared -O3 -o libblake3.so blake3_512bit.c blake3_dispatch.c blake3_portable.c
+gcc -shared -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c
 ```
 
 # Multithreading

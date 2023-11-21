@@ -21,7 +21,7 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 file(GLOB Argon2_SRC ${CMAKE_SOURCE_DIR}/library/Argon2B3/*.c)
-set(BLAKE_DIR ${CMAKE_SOURCE_DIR}/library/blake3_512bit)
+set(BLAKE_DIR ${CMAKE_SOURCE_DIR}/library/blake3)
 file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c ${BLAKE_DIR}/blake3_sse2_x86-64_unix.S
         ${BLAKE_DIR}/blake3_sse41_x86-64_unix.S ${BLAKE_DIR}/blake3_avx2_x86-64_unix.S ${BLAKE_DIR}/blake3_avx512_x86-64_unix.S)
 file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
