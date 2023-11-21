@@ -118,7 +118,7 @@ static uint64_t write_or_read_mem_count_from_len_exp_and_update_salt(Key_slot * 
 //	print("read:", (uint32_t) *key_slot->len_exp[len_exp_index]);
 //	print_hex_array(hash, HASHLEN);
 	if (is_write) {
-		uint8_t plain_text[4] = {0, 0, 0, 0};
+		uint8_t plain_text[4] = {0};
 		xor_with_len(sizeof(uint8_t) * 4, hash, plain_text, key_slot->len_exp[len_exp_index]); //
 		
 		memcpy(&salt[HASHLEN + len_exp_index * sizeof(uint8_t) * 4], key_slot->len_exp[len_exp_index], sizeof(uint8_t) * 4);
@@ -152,6 +152,9 @@ static int argon2id_hash_calc(const uint8_t pwd[HASHLEN], uint_fast8_t len_exp_i
 	}
 	return 0;
 }
+
+//static void get_random_mem_count_from_avg(uint8_t)
+// TODO
 
 static int read_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size) {
 	uint8_t new_pwd[HASHLEN];

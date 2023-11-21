@@ -107,11 +107,11 @@ void test_create_open_chain(char * device_){
 	
 	action_suspend(device_, key1, master_key, -1, 40000, DBL_MAX, false);
 	
-	assert(action_open_suspended(device_, "my_crypt_device", false, false, false) == true);
+	assert(action_open_suspended(device_, "my_crypt_device", false, false, false, false, false, false) == true);
 	action_close("my_crypt_device");
 	
 	debug_print_error_suppress = 2;
-	action_open(device_, "my_crypt_device", key2, master_key, -1, 0, 3, false, false, false);
+	action_open(device_, "my_crypt_device", key2, master_key, -1, 0, 3, false, false, false, false, true, false);
 	assert(debug_print_error_suppress == 0);
 	
 }
