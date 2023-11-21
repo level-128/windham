@@ -1,5 +1,5 @@
 /*
- * Argon2 reference source code package - reference C implementations
+ * Argon2B3 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
@@ -39,7 +39,7 @@ extern "C" {
 #endif
 
 /*
- * Argon2 input parameter restrictions
+ * Argon2B3 input parameter restrictions
  */
 
 /* Minimum and maximum number of lanes (degree of parallelism) */
@@ -48,7 +48,7 @@ extern "C" {
 
 /* Minimum and maximum number of threads */
 #define ARGON2_MIN_THREADS UINT32_C(1)
-#define ARGON2_MAX_THREADS UINT32_C(1)
+#define ARGON2_MAX_THREADS UINT32_C(64)
 
 /* Number of synchronization points between lanes per pass */
 #define ARGON2_SYNC_POINTS UINT32_C(4)
@@ -161,11 +161,11 @@ typedef enum Argon2_ErrorCodes {
 typedef int (*allocate_fptr)(uint8_t **memory, size_t bytes_to_allocate);
 typedef void (*deallocate_fptr)(uint8_t *memory, size_t bytes_to_allocate);
 
-/* Argon2 external data structures */
+/* Argon2B3 external data structures */
 
 /*
  *****
- * Context: structure to hold Argon2 inputs:
+ * Context: structure to hold Argon2B3 inputs:
  *  output array and its length,
  *  password and its length,
  *  salt and its length,
@@ -217,7 +217,7 @@ typedef struct Argon2_Context {
     uint32_t flags; /* array of bool options */
 } argon2_context;
 
-/* Argon2 primitive type */
+/* Argon2B3 primitive type */
 typedef enum Argon2_type {
   Argon2_d = 0,
   Argon2_i = 1,
@@ -241,7 +241,7 @@ ARGON2_PUBLIC const char *argon2_type2string(argon2_type type, int uppercase);
 
 /*
  * Function that performs memory-hard hashing with certain degree of parallelism
- * @param  context  Pointer to the Argon2 internal structure
+ * @param  context  Pointer to the Argon2B3 internal structure
  * @return Error code if smth is wrong, ARGON2_OK otherwise
  */
 ARGON2_PUBLIC int argon2_ctx(argon2_context *context, argon2_type type);
@@ -348,39 +348,39 @@ ARGON2_PUBLIC int argon2_verify(const char *encoded, const void *pwd,
                                 const size_t pwdlen, argon2_type type);
 
 /**
- * Argon2d: Version of Argon2 that picks memory blocks depending
+ * Argon2d: Version of Argon2B3 that picks memory blocks depending
  * on the password and salt. Only for side-channel-free
  * environment!!
  *****
- * @param  context  Pointer to current Argon2 context
+ * @param  context  Pointer to current Argon2B3 context
  * @return  Zero if successful, a non zero error code otherwise
  */
 ARGON2_PUBLIC int argon2d_ctx(argon2_context *context);
 
 /**
- * Argon2i: Version of Argon2 that picks memory blocks
+ * Argon2i: Version of Argon2B3 that picks memory blocks
  * independent on the password and salt. Good for side-channels,
  * but worse w.r.t. tradeoff attacks if only one pass is used.
  *****
- * @param  context  Pointer to current Argon2 context
+ * @param  context  Pointer to current Argon2B3 context
  * @return  Zero if successful, a non zero error code otherwise
  */
 ARGON2_PUBLIC int argon2i_ctx(argon2_context *context);
 
 /**
- * Argon2id: Version of Argon2 where the first half-pass over memory is
+ * Argon2id: Version of Argon2B3 where the first half-pass over memory is
  * password-independent, the rest are password-dependent (on the password and
  * salt). OK against side channels (they reduce to 1/2-pass Argon2i), and
  * better with w.r.t. tradeoff attacks (similar to Argon2d).
  *****
- * @param  context  Pointer to current Argon2 context
+ * @param  context  Pointer to current Argon2B3 context
  * @return  Zero if successful, a non zero error code otherwise
  */
 ARGON2_PUBLIC int argon2id_ctx(argon2_context *context);
 
 /**
  * Verify if a given password is correct for Argon2d hashing
- * @param  context  Pointer to current Argon2 context
+ * @param  context  Pointer to current Argon2B3 context
  * @param  hash  The password hash to verify. The length of the hash is
  * specified by the context outlen member
  * @return  Zero if successful, a non zero error code otherwise
@@ -389,7 +389,7 @@ ARGON2_PUBLIC int argon2d_verify_ctx(argon2_context *context, const char *hash);
 
 /**
  * Verify if a given password is correct for Argon2i hashing
- * @param  context  Pointer to current Argon2 context
+ * @param  context  Pointer to current Argon2B3 context
  * @param  hash  The password hash to verify. The length of the hash is
  * specified by the context outlen member
  * @return  Zero if successful, a non zero error code otherwise
@@ -398,7 +398,7 @@ ARGON2_PUBLIC int argon2i_verify_ctx(argon2_context *context, const char *hash);
 
 /**
  * Verify if a given password is correct for Argon2id hashing
- * @param  context  Pointer to current Argon2 context
+ * @param  context  Pointer to current Argon2B3 context
  * @param  hash  The password hash to verify. The length of the hash is
  * specified by the context outlen member
  * @return  Zero if successful, a non zero error code otherwise
