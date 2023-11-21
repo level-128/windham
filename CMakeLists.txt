@@ -6,13 +6,12 @@ set(riscv64_compiler "riscv64-suse-linux-gcc")
 
 set(target_arch "native") # X86_64 aarch64 riscv64 or native
 
-option(INCLUDE_BENCH "Include Argon2 benchmark program" ON)
-
 #
 
 cmake_minimum_required(VERSION 3.24)
 project(windham C)
 set(CMAKE_C_STANDARD 23)
+enable_language(ASM)
 
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -21,7 +20,10 @@ endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-file(GLOB Argon2_SRC ${CMAKE_SOURCE_DIR}/library/Argon2/*.c)
+file(GLOB Argon2_SRC ${CMAKE_SOURCE_DIR}/library/Argon2B3/*.c)
+set(BLAKE_DIR ${CMAKE_SOURCE_DIR}/library/blake3_512bit)
+file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c ${BLAKE_DIR}/blake3_sse2_x86-64_unix.S
+        ${BLAKE_DIR}/blake3_sse41_x86-64_unix.S ${BLAKE_DIR}/blake3_avx2_x86-64_unix.S ${BLAKE_DIR}/blake3_avx512_x86-64_unix.S)
 file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
 file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
 
@@ -29,22 +31,15 @@ file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
 # compile according to arch
 function(add_argon2_and_executables_for_arch arch)
 
-    if(INCLUDE_BENCH AND target_arch STREQUAL "x86_64")
-        add_executable(windham_argonbench_${arch} argon_bench.c ${Argon2_SRC})
-        set_target_properties(windham_argonbench_${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
-        install(TARGETS windham_argonbench_${arch}
-                RUNTIME DESTINATION bin
-                RENAME windham_argonbench)
-    endif()
     if(CMAKE_BUILD_TYPE STREQUAL "Test")
-        add_executable(windham_test test/test.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
+        add_executable(windham_test test/test.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${Blake3_SRC})
         set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
         install(TARGETS windham_test
                 RUNTIME DESTINATION bin
                 RENAME windham_test)
     endif()
 
-    add_executable(windham_${arch} frontend.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
+    add_executable(windham_${arch} frontend.c ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${Blake3_SRC})
     set_target_properties(windham_${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
     if(arch STREQUAL "native")
         set_target_properties(windham_${arch} PROPERTIES OUTPUT_NAME "windham")
@@ -63,7 +58,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Test")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto")
     set(CMAKE_AR "gcc-ar")
     set(CMAKE_NM "gcc-nm")
     set(CMAKE_RANLIB "gcc-ranlib")
