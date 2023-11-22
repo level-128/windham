@@ -43,8 +43,6 @@ endif ()
 
 # compile according to arch
 function(add_argon2_and_executables_for_arch arch)
-    message(STATUS "System Processor: ${CMAKE_SYSTEM_PROCESSOR}")
-    message(STATUS "Host System Processor: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
     if(CMAKE_BUILD_TYPE STREQUAL "Test")
         add_executable(windham_test test/test.c  ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
         set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
