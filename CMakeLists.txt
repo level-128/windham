@@ -59,6 +59,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprefetch-loop-arrays")
     set(CMAKE_AR "gcc-ar")
     set(CMAKE_NM "gcc-nm")
     set(CMAKE_RANLIB "gcc-ranlib")
@@ -80,6 +81,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_argon2_and_executables_for_arch("rv64imafdc")
 
     elseif(target_arch STREQUAL "native")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native")
         add_argon2_and_executables_for_arch("native")
 
     else()
