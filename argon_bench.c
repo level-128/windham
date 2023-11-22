@@ -25,7 +25,7 @@
 #include <intrin.h>
 #endif
 
-#include "argon2.h"
+#include "argon2B3.h"
 
 #ifdef _WIN32
 static uint64_t rdtsc(void) {
@@ -69,10 +69,9 @@ _Noreturn void benchmark() {
 	memset(pwd_array, 0, inlen);
 	memset(salt_array, 1, inlen);
 	
-	for (m_cost = (uint32_t) 1 << 15; m_cost <= (uint32_t) 1 << 22; m_cost *= 2) {
+	for (m_cost = (uint32_t) 1 << 16; m_cost <= (uint32_t) 1 << 22; m_cost *= 2) {
 		unsigned i;
 		for (i = 0; i < 4; ++i) {
-			double run_time = 0;
 			uint32_t thread_n = thread_test[i];
 			
 			clock_t start_time, stop_time;
@@ -91,11 +90,10 @@ _Noreturn void benchmark() {
 			
 			delta = (stop_cycles - start_cycles) / (m_cost);
 			mcycles = (double) (stop_cycles - start_cycles) / (1UL << 20);
-			run_time += ((double) stop_time - start_time) / (CLOCKS_PER_SEC);
 			
 			printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, %2.2f Cycles per byte, %2.2f "
 					 "Mcycles. Result: \n"), t_cost,
-					 m_cost >> 10, thread_n, run_time, (float) delta / 1024, mcycles);
+					 m_cost >> 10, thread_n, ((double) stop_time - start_time) / (CLOCKS_PER_SEC), (float) delta / 1024, mcycles);
 			print_hex_array(outlen, out);
 		}
 	}
