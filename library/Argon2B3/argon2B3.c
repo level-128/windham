@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "argon2.h"
+#include "argon2B3.h"
 #include "encoding.h"
 #include "core.h"
 

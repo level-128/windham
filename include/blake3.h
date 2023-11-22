@@ -77,8 +77,6 @@ BLAKE3_API void blake3_hasher_reset(blake3_hasher *self);
 
 // Argon2B3
 
-BLAKE3_API int blake3_hasher_full(void *out, size_t outlen, const void *in, size_t inlen);
-
 BLAKE3_API int blake3_hasher_long(void *pout, size_t outlen, const void *in, size_t inlen);
 
 #ifdef __cplusplus

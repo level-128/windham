@@ -38,7 +38,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "argon2.h"
+#include "argon2B3.h"
 #include "core.h"
 
 #include "blake3.h"

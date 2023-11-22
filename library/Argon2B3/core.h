@@ -19,7 +19,7 @@
 #define ARGON2_CORE_H
 
 #include <stdint.h>
-#include "argon2.h"
+#include "argon2B3.h"
 
 #define CONST_CAST(x) (x)(uintptr_t)
 

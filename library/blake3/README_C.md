@@ -1,5 +1,9 @@
 The official C implementation of BLAKE3.
 
+# Note:
+
+This 
+
 # Example
 
 An example program that hashes bytes from standard input and prints the

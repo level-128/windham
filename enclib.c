@@ -23,7 +23,7 @@
 #define CTR 0
 
 #include "srclib.c"
-#include "argon2.h"
+#include "argon2B3.h"
 #include "aes.h"
 #include "sha256.h"
 

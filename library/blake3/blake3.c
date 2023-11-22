@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "blake3.h"
 #include "blake3_impl.h"
@@ -620,24 +621,6 @@ void blake3_hasher_reset(blake3_hasher *self) {
 // modified from the original Argon2 team code
 
 // simple API, key not supported
-int blake3_hasher_full(void *out, size_t outlen, const void *in, size_t inlen) {
-	blake3_hasher S;
-	
-	/* Verify parameters */
-	if (NULL == in && inlen > 0) {
-		return -1;
-	}
-	
-	if (NULL == out || outlen == 0 || outlen > BLAKE3_OUT_LEN) {
-		return -1;
-	}
-	
-	blake3_hasher_init(&S);
-	blake3_hasher_update(&S, in, inlen);
-	blake3_hasher_finalize(&S, out, outlen);
-	return 0;
-}
-
 int blake3_hasher_long(void *pout, size_t outlen, const void *in, size_t inlen) {
 	uint8_t *out = (uint8_t *)pout;
 	blake3_hasher blake_state;
@@ -646,35 +629,9 @@ int blake3_hasher_long(void *pout, size_t outlen, const void *in, size_t inlen) 
 	/* Ensure little-endian byte order! */
 	store32(outlen_bytes, (uint32_t)outlen);
 	
-	if (outlen <= BLAKE3_OUT_LEN) {
-		blake3_hasher_init(&blake_state);
-		blake3_hasher_update(&blake_state, outlen_bytes, sizeof(outlen_bytes));
-		blake3_hasher_update(&blake_state, in, inlen);
-		blake3_hasher_finalize(&blake_state, out, outlen);
-	} else {
-		uint32_t toproduce;
-		uint8_t out_buffer[BLAKE3_OUT_LEN];
-		uint8_t in_buffer[BLAKE3_OUT_LEN];
-		blake3_hasher_init(&blake_state);
-		blake3_hasher_update(&blake_state, outlen_bytes, sizeof(outlen_bytes));
-		blake3_hasher_update(&blake_state, in, inlen);
-		blake3_hasher_finalize(&blake_state, out_buffer, BLAKE3_OUT_LEN);
-		memcpy(out, out_buffer, BLAKE3_OUT_LEN / 2);
-		out += BLAKE3_OUT_LEN / 2;
-		toproduce = (uint32_t)outlen - BLAKE3_OUT_LEN / 2;
-		
-		while (toproduce > BLAKE3_OUT_LEN) {
-			memcpy(in_buffer, out_buffer, BLAKE3_OUT_LEN);
-			blake3_hasher_full(out_buffer, BLAKE3_OUT_LEN, in_buffer,
-			                   BLAKE3_OUT_LEN);
-			memcpy(out, out_buffer, BLAKE3_OUT_LEN / 2);
-			out += BLAKE3_OUT_LEN / 2;
-			toproduce -= BLAKE3_OUT_LEN / 2;
-		}
-		
-		memcpy(in_buffer, out_buffer, BLAKE3_OUT_LEN);
-		blake3_hasher_full(out_buffer, toproduce, in_buffer, BLAKE3_OUT_LEN);
-		memcpy(out, out_buffer, toproduce);
-	}
+	blake3_hasher_init(&blake_state);
+	blake3_hasher_update(&blake_state, outlen_bytes, sizeof(outlen_bytes));
+	blake3_hasher_update(&blake_state, in, inlen);
+	blake3_hasher_finalize(&blake_state, out, outlen);
 	return 0;
 }
