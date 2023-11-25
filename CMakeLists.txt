@@ -45,6 +45,7 @@ endif ()
 function(add_argon2_and_executables_for_arch arch)
     if(CMAKE_BUILD_TYPE STREQUAL "Test")
         add_executable(windham_test test/test.c  ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
+        target_link_libraries(windham_test m)
         set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
         install(TARGETS windham_test
                 RUNTIME DESTINATION bin
@@ -52,6 +53,7 @@ function(add_argon2_and_executables_for_arch arch)
     endif()
 
     add_executable(windham_${arch} frontend.c  ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
+    target_link_libraries(windham_${arch} m)
     set_target_properties(windham_${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
     if(arch STREQUAL "native")
         set_target_properties(windham_${arch} PROPERTIES OUTPUT_NAME "windham")
