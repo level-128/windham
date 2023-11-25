@@ -68,7 +68,7 @@
          default          \
        : T_PTR)
 
-bool print_enable = false;
+bool print_enable;
 
 #define print(...) \
    if (print_enable){                \

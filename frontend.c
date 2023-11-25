@@ -46,6 +46,7 @@ enum {
 	NMOBJ_is_nofail,
 	NMOBJ_is_noadmin,
 	NMOBJ_yes,
+	NMOBJ_print_debug,
 	
 	NMOBJ_target_SIZE,
 };
@@ -81,11 +82,12 @@ const struct option long_options[] = {
 		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
 		{"no-admin",           no_argument,       &options[NMOBJ_is_noadmin],                1},
 		{"yes",                no_argument,       &options[NMOBJ_yes],                       1},
+		{"pdebug",                no_argument,       &options[NMOBJ_print_debug],                       1},
 		{0, 0,                                    0,                                         0}
 };
 
 #define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail
-#define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes
+#define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug
 
 const int8_t check_allowed[] =
 		// Open
@@ -474,6 +476,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		is_skip_conformation = true;
 	}
 	
+	print_enable = false;
 	init();
 	Key key;
 	key.key_or_keyfile_location = NULL;

@@ -500,6 +500,7 @@ write_header_to_device(&data, device, offset);
 #define PARAMS_FOR_KEY Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time, bool is_decoy
 
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, bool is_decoy, size_t block_size) {
+	printf("create: %s %s %s %i %lu %f %b %lu", device, enc_type, key.key_or_keyfile_location, target_slot, target_memory, target_time, is_decoy, block_size);
 	Data data;
 	uint8_t master_key[HASHLEN];
 	size_t start_sector, end_sector;

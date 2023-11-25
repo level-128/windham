@@ -56,6 +56,7 @@ void mapper_init(){
 		p_dm_task_create = dlsym(handle, "dm_task_create");
 		p_dm_task_set_name = dlsym(handle, "dm_task_set_name");
 		p_dm_task_set_ro = dlsym(handle, "dm_task_set_ro");
+		p_dm_task_set_uuid = dlsym(handle, "dm_task_set_uuid");
 		p_dm_task_run = dlsym(handle, "dm_task_run");
 		p_dm_task_destroy = dlsym(handle, "dm_task_destroy");
 		p_dm_task_add_target = dlsym(handle, "dm_task_add_target");
