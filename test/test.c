@@ -14,6 +14,8 @@
 
 #define _(x) x // not using gnu gettext
 
+#define ENCLIB_DEBUG
+
 #include "test_enclib.c"
 #include "test_backend.c"
 #include "test_mapper.c"
