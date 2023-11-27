@@ -40,7 +40,7 @@ enum argon2_core_constants {
 
     /* Pre-hashing digest length and its extension*/
     ARGON2_PREHASH_DIGEST_LENGTH = 64,
-    ARGON2_PREHASH_SEED_LENGTH = 72
+    ARGON2_PREHASH_SEED_LENGTH = 64 * 2
 };
 
 /*************************Argon2B3 internal data types***********************/
@@ -171,7 +171,7 @@ int validate_inputs(const argon2_context *context);
  * @pre    @a blockhash must have at least @a PREHASH_DIGEST_LENGTH bytes
  * allocated
  */
-void initial_hash(uint8_t *blockhash, argon2_context *context,
+int initial_hash(uint8_t *blockhash, argon2_context *context,
                   argon2_type type);
 
 /*

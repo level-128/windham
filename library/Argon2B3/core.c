@@ -1,8 +1,12 @@
 /*
  * Argon2B3 reference source code package - reference C implementations
+ * This code is a part of Windham.
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
+ *
+ * Copyright 2023
+ * Weizheng Wang (level-128)
  *
  * You may use this work under the terms of a Creative Commons CC0 1.0
  * License/Waiver or the Apache Public License 2.0, at your option. The terms of
@@ -512,21 +516,25 @@ int validate_inputs(const argon2_context *context) {
     return ARGON2_OK;
 }
 
+
+// rewrote by the Windham author: Weizheng Wang (level-128)
+// Change the first and second block in each lane from G(H0||0||i) or
+//	G(H0||1||i) to G(0 || i || *56 bytes of 0* || H0) and G(1 || i || *56 bytes of 0* || H0)
 void fill_first_blocks(uint8_t *blockhash, const argon2_instance_t *instance) {
     uint32_t l;
-    /* Make the first and second block in each lane as G(H0||0||i) or
-       G(H0||1||i) */
     uint8_t blockhash_bytes[ARGON2_BLOCK_SIZE];
+	 
     for (l = 0; l < instance->lanes; ++l) {
-
-        store32(blockhash + ARGON2_PREHASH_DIGEST_LENGTH, 0);
-        store32(blockhash + ARGON2_PREHASH_DIGEST_LENGTH + 4, l);
+		 // first block
+        store32(blockhash, 0);
+        store32(blockhash + 4, l);
 	    blake3_hasher_long(blockhash_bytes, ARGON2_BLOCK_SIZE, blockhash,
                      ARGON2_PREHASH_SEED_LENGTH);
         load_block(&instance->memory[l * instance->lane_length + 0],
                    blockhash_bytes);
 
-        store32(blockhash + ARGON2_PREHASH_DIGEST_LENGTH, 1);
+		  // second block
+        store32(blockhash, 1);
 	    blake3_hasher_long(blockhash_bytes, ARGON2_BLOCK_SIZE, blockhash,
                      ARGON2_PREHASH_SEED_LENGTH);
         load_block(&instance->memory[l * instance->lane_length + 1],
@@ -535,80 +543,98 @@ void fill_first_blocks(uint8_t *blockhash, const argon2_instance_t *instance) {
     clear_internal_memory(blockhash_bytes, ARGON2_BLOCK_SIZE);
 }
 
-void initial_hash(uint8_t *blockhash, argon2_context *context,
+
+// rewrote by the Windham author: Weizheng Wang (level-128)
+// Original initial_hash Algorithm:
+
+//	 buffer ← parallelism ∥ tagLength ∥ memorySizeKB ∥ iterations ∥ version ∥ hashType
+//	 ∥ Length(password)       ∥ Password
+//	 ∥ Length(salt)           ∥ salt
+//	 ∥ Length(key)            ∥ key
+//	 ∥ Length(associatedData) ∥ associatedData
+//			H0 ← Blake2b(buffer, 64) //default hash size of Blake2b is 64-bytes
+
+// Modified:
+//  memory_for_metadata ← parallelism ∥ tagLength ∥ memorySizeKB ∥ iterations ∥ version ∥ hashType
+//	 ∥ Length(password) ∥ Length(salt) ∥ Length(key) ∥ Length(associatedData)
+//
+//	 Padding memory_for_metadata to 64 bytes with 0
+//
+//  memory_for_salt_sec_ad = salt ∥ key ∥ associatedData
+//
+//	 Padding memory_for_salt_sec_ad to the floor of 64 bytes with 0
+//
+//			H0 ← BLAKE3(memory_for_metadata ∥ memory_for_salt_sec_ad ∥ Password, 64)
+int initial_hash(uint8_t *blockhash, argon2_context *context,
                   argon2_type type) {
 	blake3_hasher BlakeHash;
     uint8_t value[sizeof(uint32_t)];
 
     if (NULL == context || NULL == blockhash) {
-        return;
+        return ARGON2_OK;
     }
 	
 	blake3_hasher_init(&BlakeHash);
+	
+	uint32_t memory_for_metadata[10 + 6]; // 10 elements and padding to 64 bytes, occupies one BLAKE3 block length
+	
+	// metadata
+	store32(&memory_for_metadata[0], context->lanes);
+	store32(&memory_for_metadata[1], context->outlen);
+	store32(&memory_for_metadata[2], context->m_cost);
+	store32(&memory_for_metadata[3], context->t_cost);
+	store32(&memory_for_metadata[4], context->version);
+	store32(&memory_for_metadata[5], (uint32_t)type);
+	store32(&memory_for_metadata[6], context->pwdlen);
+	store32(&memory_for_metadata[7], context->saltlen);
+	store32(&memory_for_metadata[8], context->secretlen);
+	store32(&memory_for_metadata[9], context->adlen);
+	
+	memset(&memory_for_metadata[10], 0, sizeof(uint32_t) * 6);
+	
+	blake3_hasher_update(&BlakeHash, memory_for_metadata, sizeof(memory_for_metadata));
+	
 
-    store32(&value, context->lanes);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    store32(&value, context->outlen);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    store32(&value, context->m_cost);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    store32(&value, context->t_cost);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    store32(&value, context->version);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    store32(&value, (uint32_t)type);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    store32(&value, context->pwdlen);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    if (context->pwd != NULL) {
-	    blake3_hasher_update(&BlakeHash, (const uint8_t *)context->pwd,
-                       context->pwdlen);
-
-        if (context->flags & ARGON2_FLAG_CLEAR_PASSWORD) {
-            secure_wipe_memory(context->pwd, context->pwdlen);
-            context->pwdlen = 0;
-        }
-    }
-
-    store32(&value, context->saltlen);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    if (context->salt != NULL) {
-	    blake3_hasher_update(&BlakeHash, (const uint8_t *)context->salt,
-                       context->saltlen);
-    }
-
-    store32(&value, context->secretlen);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    if (context->secret != NULL) {
-	    blake3_hasher_update(&BlakeHash, (const uint8_t *)context->secret,
-                       context->secretlen);
-
-        if (context->flags & ARGON2_FLAG_CLEAR_SECRET) {
-            secure_wipe_memory(context->secret, context->secretlen);
-            context->secretlen = 0;
-        }
-    }
-
-    store32(&value, context->adlen);
-	blake3_hasher_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
-
-    if (context->ad != NULL) {
-	    blake3_hasher_update(&BlakeHash, (const uint8_t *)context->ad,
-                       context->adlen);
-    }
+	// alloc memory for salt, secret, and associated data, and floor to 64 bytes
+	uint8_t * memory_for_salt_sec_ad = calloc(1,
+			(context->saltlen + context->secretlen + context->adlen + 63) / 64 * 64);
+		 if (memory_for_salt_sec_ad == NULL){
+		 return ARGON2_MEMORY_ALLOCATION_ERROR;
+	 }
+		
+	memcpy(memory_for_salt_sec_ad, context->salt, context->saltlen);
+	memcpy(memory_for_salt_sec_ad + context->saltlen, context->secret, context->secretlen);
+	memcpy(memory_for_salt_sec_ad + context->saltlen + context->secretlen, context->ad, context->adlen);
+	
+	if (context->secret != NULL) {
+		if (context->flags & ARGON2_FLAG_CLEAR_SECRET) {
+			secure_wipe_memory(context->secret, context->secretlen);
+			context->secretlen = 0;
+		}
+	}
+	
+	blake3_hasher_update(&BlakeHash, memory_for_salt_sec_ad, sizeof(memory_for_salt_sec_ad));
+	free(memory_for_salt_sec_ad);
+	
+	
+	// last, update the password hasher
+	if (context->pwd != NULL) {
+		blake3_hasher_update(&BlakeHash, (const uint8_t *)context->pwd,
+		                     context->pwdlen);
+		
+		if (context->flags & ARGON2_FLAG_CLEAR_PASSWORD) {
+			secure_wipe_memory(context->pwd, context->pwdlen);
+			context->pwdlen = 0;
+		}
+	}
 	
 	blake3_hasher_finalize(&BlakeHash, blockhash, ARGON2_PREHASH_DIGEST_LENGTH);
+	 
+	 return ARGON2_OK;
 }
 
+
+// Changed initial H_0 algorithm
 int initialize(argon2_instance_t *instance, argon2_context *context) {
     uint8_t blockhash[ARGON2_PREHASH_SEED_LENGTH];
     int result = ARGON2_OK;
@@ -625,14 +651,15 @@ int initialize(argon2_instance_t *instance, argon2_context *context) {
     }
 
     /* 2. Initial hashing */
-    /* H_0 + 8 extra bytes to produce the first blocks */
-    /* uint8_t blockhash[ARGON2_PREHASH_SEED_LENGTH]; */
     /* Hashing all inputs */
-    initial_hash(blockhash, context, instance->type);
-    /* Zeroing 8 extra bytes */
-    clear_internal_memory(blockhash + ARGON2_PREHASH_DIGEST_LENGTH,
-                          ARGON2_PREHASH_SEED_LENGTH -
-                              ARGON2_PREHASH_DIGEST_LENGTH);
+	 // the result stores from the 65th byte of the blockhash, the 1-64th byte
+	 // will be used in fill_first_blocks
+    result = initial_hash(blockhash + 64, context, instance->type);
+	if (result != ARGON2_OK) {
+		return result;
+	}
+    /* Zeroing the first 64 bytes */
+    clear_internal_memory(blockhash, ARGON2_PREHASH_SEED_LENGTH - ARGON2_PREHASH_DIGEST_LENGTH);
 
 #ifdef GENKAT
     initial_kat(blockhash, context, instance->type);
@@ -640,8 +667,11 @@ int initialize(argon2_instance_t *instance, argon2_context *context) {
 
     /* 3. Creating first blocks, we always have at least two blocks in a slice
      */
+	 // fill_first_blocks has changed in Argon2B3
     fill_first_blocks(blockhash, instance);
     /* Clearing the hash */
+	 
+	 
     clear_internal_memory(blockhash, ARGON2_PREHASH_SEED_LENGTH);
 
     return ARGON2_OK;
