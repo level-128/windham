@@ -46,8 +46,12 @@ is pretty useful when you forgot your passphrase).
 will render the crypt device inaccessible.
 
 &nbsp;
+### Want to know how Windham works? Here:
 
-[Want to know how Windham works? Here:](/Document/technical_details.md)
+[The introduction to Windham's memory-hard hash function:](https://gitlab.com/level-128/argon2b3)
+
+[technical details](/Document/technical_details.md)
+
 
 ## Introduction to Decoy Partition
 
