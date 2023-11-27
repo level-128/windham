@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-05 04:17-0500\n"
+"POT-Creation-Date: 2023-11-25 08:18-0500\n"
 "PO-Revision-Date: 2023-10-16 02:24-0400\n"
 "Last-Translator: level-128 <level-128@localhost.localdomain>\n"
 "Language-Team: French <traduc@traduc.org>\n"
@@ -28,6 +28,7 @@ msgstr ""
 
 #, fuzzy, c-format
 msgid ""
+"\n"
 "Unlock options:\n"
 "\t--key <characters>: key input as argument, instead of asking in the "
 "terminal.\n"
@@ -40,7 +41,7 @@ msgid ""
 "for decryption. \n"
 "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
 "\t--systemd-dialog: use systemd password input dialog; useful when "
-"integrating with systemd."
+"integrating with systemd.\n"
 msgstr ""
 "Options de déverrouillage :\n"
 "\t--key <caractères> : entrer la clé comme argument, plutôt que de la "
@@ -59,6 +60,7 @@ msgstr ""
 
 #, fuzzy, c-format
 msgid ""
+"\n"
 "Common options:\n"
 "\t--no-admin: forfeit checking root privileges, may produces undefined "
 "behaviour. \n"
@@ -129,6 +131,10 @@ msgstr ""
 msgid "Compiler: GCC %d.%d.%d\n"
 msgstr ""
 
+#, c-format
+msgid "Compile time: %s, %s"
+msgstr ""
+
 #, fuzzy, c-format
 msgid ""
 "    Copyright (C) 2023-  W. Wang (level-128)\n"
@@ -174,16 +180,23 @@ msgstr ""
 
 #, c-format
 msgid ""
-"Open <target>: Unlock <target> and create a mapper. The key, by default, is "
-"read from the terminal.\n"
+"Open <target>: Unlock <target> and create a mapper (decrypted crypt device) "
+"under /dev/mapper/<location>. The key, by default, is read from the "
+"terminal.\n"
 "\n"
 "options:\n"
 "\t--to <location>: REQUIRED; the target location of the mapper. The mapper "
 "will be named as <location>, locate under /dev/mapper/<location>\n"
 "\t--decoy: Opening the device assuming that the decoy partition exists; "
 "otherwise, auto-detect.\n"
-"\t--dry-run: run without operating on the block device.\n"
+"\t--dry-run: run without operating on the block device then print the master "
+"key and device parameters.\n"
 "\t--readonly: Set the mapper device to read-only.\n"
+"\t--allow-discards: Allow TRIM command being sent to the crypt device.\n"
+"\t--no-read-workqueue: Process read requests synchronously instead of using "
+"a internal workqueue.\n"
+"\t--no-write-workqueue: Process write requests synchronously instead of "
+"using a internal workqueue.\n"
 msgstr ""
 
 #, c-format
@@ -211,6 +224,8 @@ msgid ""
 "instead of the default one. It is not recommended, nor necessary, to do so, "
 "unless you have a specific reason. the encryption scheme should obey the "
 "format: \"*cipher*-*chainmode*-*ivmode*\".\n"
+"\t--block-size <int>: designate the encryption sector size. Size must be "
+"512, 1024, 2048 or 4096.\n"
 "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at "
 "the unallocated sector of the FAT32 filesystem.\n"
 msgstr ""
@@ -284,6 +299,12 @@ msgstr ""
 
 #, c-format
 msgid ""
+"Bench: Performing Argon2 benchmark\n"
+"\n"
+msgstr ""
+
+#, c-format
+msgid ""
 "Windham (%s) Copyright (C) 2023-  W. Wang (level-128)\n"
 "\n"
 "usage: \"windham <action> <target>\"\n"
@@ -345,6 +366,9 @@ msgstr ""
 
 #, c-format
 msgid "bad input for argument %s: not an positive integer"
+msgstr ""
+
+msgid "bad input for argument --block-size: not 512, 1024, 2048 or 4096"
 msgstr ""
 
 msgid "<target> not provided. type 'windham Help' to view help"
@@ -425,10 +449,13 @@ msgid ""
 msgstr ""
 
 #, fuzzy, c-format
-msgid "Password for %s:"
+msgid "Password for %s:\n"
 msgstr "Mot de passe :"
 
-msgid "Again:"
+#, fuzzy, c-format
+msgid ""
+"\n"
+"Again:\n"
 msgstr "Confirmez le mot de passe :"
 
 msgid "Passwords do not match."
@@ -472,14 +499,10 @@ msgid ""
 "tampered with by an attacker. As above, you should immediately stop using "
 "it. Redownload the program and verify its signature, and also please destroy "
 "the hard drives encrypted with the tampered program; 3. You come from a "
-"distant future, yet your system time has been altered to the past, and you "
-"are using computational power that surpasses the era of the software. In any "
-"case, this also means that the software can no longer provide adequate "
-"security for the era in which you exist. I am sorry to inform you of the "
-"above."
-msgstr ""
-
-msgid "Incorrect key."
+"distant future, and you are using computational power that surpasses the era "
+"of the software. In any case, this also means that the software can no "
+"longer provide adequate security for the era in which you exist. I am sorry "
+"to inform you of the above."
 msgstr ""
 
 msgid ""
@@ -487,7 +510,7 @@ msgid ""
 msgstr ""
 
 #, c-format
-msgid "The given key is used, or have just revoked, at slot %i"
+msgid "The given key is used at slot %i"
 msgstr ""
 
 msgid ""
@@ -551,8 +574,8 @@ msgstr ""
 
 #, c-format
 msgid ""
-"Device %s is unlocked and suspended. Don't forget to close it using \"Resume"
-"\" when appropriate."
+"Device %s is unlocked and suspended. Don't forget to close it using "
+"\"Resume\" when appropriate."
 msgstr ""
 
 #, c-format
@@ -564,9 +587,11 @@ msgstr ""
 #, c-format
 msgid ""
 "Additional device parameters: \n"
+"UUID: %s\n"
 "Crypto algorithm: %s\n"
 "Start sector %lu\n"
 "End sector %lu\n"
+"Block size %hu\n"
 msgstr ""
 
 #, c-format
@@ -660,6 +685,11 @@ msgid ""
 "the kernel encryption subsystem is available."
 msgstr ""
 
+msgid ""
+"The size of the device is not an integer multiple of the sector size. You "
+"may experience performance degradation."
+msgstr ""
+
 #, c-format
 msgid ""
 "Device %s is too small to deploy decoy partition; Windham requires at least "
@@ -671,10 +701,6 @@ msgid "Device %s is too small; Windham requires at least %i MiB."
 msgstr ""
 
 #, c-format
-msgid "dm_task_create failed when remove mapping for device %s"
-msgstr ""
-
-#, c-format
 msgid "dm_task_run failed when remove mapping for device %s"
 msgstr ""
 
@@ -683,11 +709,11 @@ msgid "dm_task_create failed when mapping device %s"
 msgstr ""
 
 #, c-format
-msgid "dm_task_add_target failed when mapping device %s"
+msgid "dm_task_add_target crypt failed when mapping device %s"
 msgstr ""
 
 #, c-format
-msgid "p_dm_task_run failed when mapping device %s"
+msgid "p_dm_task_run failed when mapping crypt device %s"
 msgstr ""
 
 #, c-format
@@ -706,6 +732,11 @@ msgid "Failed to initialize random generator."
 msgstr ""
 
 msgid "IO error while reading random generator."
+msgstr ""
+
+msgid ""
+"Time quota could not be meet because of insufficient memory, may make the "
+"password less secure than the specified value."
 msgstr ""
 
 msgid "SUPPRESS_ERROR"
