@@ -110,6 +110,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Language")
     add_custom_command(
             OUTPUT ${CMAKE_SOURCE_DIR}/locale/windham.pot
             COMMAND xgettext -k_ -L C --no-location  -o ${CMAKE_SOURCE_DIR}/locale/windham.pot ${CMAKE_SOURCE_DIR}/frontend.c ${CMAKE_SOURCE_DIR}/backend.c ${CMAKE_SOURCE_DIR}/mapper.c
+            ${CMAKE_SOURCE_DIR}/argon_bench.c
             ${CMAKE_SOURCE_DIR}/enclib.c ${CMAKE_SOURCE_DIR}/srclib.c
             COMMENT "Generating windham.pot from source code"
     )
