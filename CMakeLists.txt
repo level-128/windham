@@ -4,8 +4,9 @@ set(x86_64_compiler "gcc")
 set(aarch64_compiler "arm-suse-linux-gnueabi-gcc")
 set(riscv64_compiler "riscv64-suse-linux-gcc")
 
+if (NOT DEFINED target_arch)
 set(target_arch "native") # X86_64 aarch64 riscv64 or native
-
+endif ()
 
 cmake_minimum_required(VERSION 3.24)
 project(windham C)
