@@ -237,7 +237,7 @@ static int write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t
 }
 
 static int write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uint64_t max_mem_size, double target_time) {
-	uint64_t required_mem_size;
+	uint64_t required_mem_size = BASE_MEM_COST;
 	
 	uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4];
 	memcpy(salt, key_slot->hash_salt, HASHLEN);
