@@ -14,14 +14,13 @@
 
 #define _(x) x // not using gnu gettext
 
-#define ENCLIB_DEBUG
-
 #include "test_enclib.c"
 #include "test_backend.c"
 #include "test_mapper.c"
 
 int main(int argc, char * argv[]){
 	print_enable = true;
+	print_verbose = true;
 	
 	if (argc < 2){
 		print_error("Useage: <module> <device>. <module> is one of the 'enclib' 'mapper' 'backend'");
