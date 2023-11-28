@@ -41,7 +41,8 @@ int argon2_ctx(argon2_context *context, argon2_type type) {
     int result = validate_inputs(context);
     uint32_t memory_blocks, segment_length;
     argon2_instance_t instance;
-
+	memset(&instance, 255, sizeof(instance));
+	 
     if (ARGON2_OK != result) {
         return result;
     }
