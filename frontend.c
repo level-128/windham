@@ -35,6 +35,7 @@ enum {
 	NMOBJ_target_all,
 	NMOBJ_target_obliterate,
 	NMOBJ_target_dry_run,
+	NMOBJ_verbose,
 	NMOBJ_target_no_transform,
 	NMOBJ_target_restore,
 	NMOBJ_target_decoy,
@@ -71,6 +72,7 @@ const struct option long_options[] = {
 		{"all",                no_argument,       &options[NMOBJ_target_all],                1},
 		{"obliterate",         no_argument,       &options[NMOBJ_target_obliterate],         1},
 		{"dry-run",            no_argument,       &options[NMOBJ_target_dry_run],            1},
+		{"verbose",            no_argument,       &options[NMOBJ_verbose],            1},
 		{"no-transform",       no_argument,       &options[NMOBJ_target_no_transform],       1},
 		{"restore",            no_argument,       &options[NMOBJ_target_restore],            1},
 		{"decoy",              no_argument,       &options[NMOBJ_target_decoy],              1},
@@ -80,13 +82,15 @@ const struct option long_options[] = {
 		{"no-write-workqueue", no_argument,       &options[NMOBJ_target_no_write_workqueue], 1},
 		{"systemd-dialog",     no_argument,       &options[NMOBJ_is_systemd],                1},
 		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
-		{"no-admin",           no_argument,       &options[NMOBJ_is_noadmin],                1},
+		{"noadmin",           no_argument,       &options[NMOBJ_is_noadmin],                1},
 		{"yes",                no_argument,       &options[NMOBJ_yes],                       1},
 		{"pdebug",                no_argument,       &options[NMOBJ_print_debug],                       1},
 		{0, 0,                                    0,                                         0}
 };
 
-#define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail
+#define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_verbose, \
+NMOBJ_is_systemd, NMOBJ_is_nofail
+
 #define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug
 
 const int8_t check_allowed[] =
@@ -160,6 +164,7 @@ void frontend_print_unlock_args() {
 			       "\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
 			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
 			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
+					 "\t--verbose: print unlock progress per keyslot.\n"
 			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"));
 };
 
@@ -474,6 +479,9 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	}
 	if (options[NMOBJ_yes]) {
 		is_skip_conformation = true;
+	}
+	if (options[NMOBJ_verbose]){
+		print_verbose = true;
 	}
 	
 	print_enable = false;

@@ -69,6 +69,7 @@
        : T_PTR)
 
 bool print_enable;
+bool print_verbose = false;
 
 #define print(...) \
    if (print_enable){                \
@@ -199,5 +200,33 @@ int64_t is_in_list(char * item, char * list[]) {
 void print_list(char * list[]) {
 	for (int i = 0; list[i]; i++) {
 		printf(" \"%s\"", list[i]);
+	}
+}
+
+void print_ptr_poz(int pos, int msg) {
+	if (print_verbose) {
+		if (pos == -1) {
+			printf(_("Unlock Progress for each keyslot:\n"));
+			printf("\nSlot:     ");
+			for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+				printf("%i       ", i);
+			}
+			printf("\nProgress: ");
+			for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+				printf("0       ");
+			}
+		} else {
+			printf("\033[%dG", pos * 8 + 11);
+			
+			if (msg > 0) {
+				printf("%i", msg);
+			} else if (msg == 0) {
+				printf(_("\nUnlock complete. Slot %i unlocked\n"), pos);
+			} else if (msg == -1) {
+				printf("ML");
+			}
+			
+			fflush(stdout);
+		}
 	}
 }

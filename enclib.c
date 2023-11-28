@@ -154,6 +154,8 @@ static int argon2id_hash_calc(const uint8_t pwd[HASHLEN], uint_fast8_t len_exp_i
 	} else if (ret != ARGON2_OK) {
 		exit(ret);
 	}
+	print("argon2id_hash_calc res:", hash[0],hash[1],hash[2],hash[3], "pwd: ",  pwd[0],pwd[1],pwd[2],pwd[3]);
+	print("len_exp_index:", len_exp_index, "mcost:", m_cost, "salt:", salt[0],salt[1],salt[2],salt[3]);
 	return 0;
 }
 
@@ -264,19 +266,19 @@ static int write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uin
 }
 
 int read_key_from_all_slots(Key_slot data$keyslots[KEY_SLOT_COUNT], uint8_t inited_keys[KEY_SLOT_COUNT][HASHLEN], const int slot_seq[KEY_SLOT_COUNT + 1], uint64_t max_mem_size, double target_time) {
-	
 	// initialize salt array
 	uint8_t salts[KEY_SLOT_COUNT][HASHLEN + KEY_SLOT_EXP_MAX * 4];
 	for (int i = 0; slot_seq[i] != -1; i++){
 		memcpy(salts[slot_seq[i]], data$keyslots[slot_seq[i]].hash_salt, HASHLEN);
 	}
 	
-	
 	int is_continue_calc_s[KEY_SLOT_COUNT];
 	memset(is_continue_calc_s, NMOBJ_STEP_CONTINUE, sizeof(int) * KEY_SLOT_COUNT);
 	
 	clock_t start_time = clock();
 	target_time = slot_seq[1] == -1 ? target_time : target_time * KEY_SLOT_COUNT;
+	
+	print_ptr_poz(-1, 0);
 	
 	for (int i = 0; i < KEY_SLOT_EXP_MAX; i++) {
 		for (int j = 0; slot_seq[j] != -1; j++) {
@@ -286,10 +288,13 @@ int read_key_from_all_slots(Key_slot data$keyslots[KEY_SLOT_COUNT], uint8_t init
 			}
 			
 			if (is_continue_calc_s[slot] != NMOBJ_STEP_ERR_NOMEM) {
-				print("read key slot:", slot);
+				print_ptr_poz(slot, i + 1); // print current slot and progress
 				uint64_t _;
 				is_continue_calc_s[slot] = read_key_one_step(&data$keyslots[slot], i, inited_keys[slot], salts[slot], max_mem_size, &_);
-				if (is_continue_calc_s[slot] == NMOBJ_STEP_OK) {
+				if (is_continue_calc_s[slot] == NMOBJ_STEP_ERR_NOMEM) {
+					print_ptr_poz(slot, -1);
+				} else if (is_continue_calc_s[slot] == NMOBJ_STEP_OK) {
+					print_ptr_poz(slot, 0);
 					return slot;
 				}
 			}

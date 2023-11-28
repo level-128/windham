@@ -280,8 +280,6 @@ int create_crypt_mapping(const char * device,
 	         is_no_read_workqueue ? "no_read_workqueue" : "",
 	         is_no_write_workqueue ? "no_write_workqueue" : "");
 	
-	print(params_crypt);
-	
 	if (!(dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
 		print_error(_("dm_task_create failed when mapping device %s"), name);
 	}

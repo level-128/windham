@@ -368,7 +368,7 @@ char * interactive_ask_new_key_test_key = NULL;
 void interactive_ask_new_key(Key * new_key, const char * device) {
 	char option;
 	if (interactive_ask_new_key_test_key == NULL) {
-		print(_("AddKey: choose your key format \n(1) input key from console;\n(2) use a key file\nOption: "));
+		printf(_("AddKey: choose your key format \n(1) input key from console;\n(2) use a key file\nOption: \n"));
 		
 		struct termios oldt, newt;
 		
@@ -381,7 +381,7 @@ void interactive_ask_new_key(Key * new_key, const char * device) {
 		
 		tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 		
-		print("");
+		printf("\n");
 	} else {
 		option = '1';
 	}
@@ -500,7 +500,6 @@ write_header_to_device(&data, device, offset);
 #define PARAMS_FOR_KEY Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time, bool is_decoy
 
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, bool is_decoy, size_t block_size) {
-	printf("create: %s %s %s %i %lu %f %b %lu", device, enc_type, key.key_or_keyfile_location, target_slot, target_memory, target_time, is_decoy, block_size);
 	Data data;
 	uint8_t master_key[HASHLEN];
 	size_t start_sector, end_sector;
@@ -520,14 +519,6 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	if (is_decoy) {
 		create_fat32_on_device(device);
 	}
-}
-
-bool is_suspended(const char * device, bool is_decoy) {
-	if (is_decoy) {
-		return false;
-	}
-	OPERATION_READ_HEADER
-	return is_header_suspended(data);
 }
 
 bool action_open_suspended(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
