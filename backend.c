@@ -294,6 +294,9 @@ void get_slot_list_for_get_master_key(int slot_seq[KEY_SLOT_COUNT + 1], int targ
 }
 
 int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
+	if (key.key_type == EMOBJ_key_file_type_none){ // uses master key
+		return -1;
+	}
 	uint8_t inited_key[HASHLEN];
 	uint8_t inited_keys[KEY_SLOT_COUNT][HASHLEN];
 	init_key(key, inited_key);
@@ -475,15 +478,14 @@ if (is_header_suspended(data)){   \
 print_error(_("The header is suspended. Resume header to perform this operation.")); \
 }
 
-#define OPERATION_BACKEND_UNLOCK    \
-[[maybe_unused]] int unlocked_slot = -1;                 \
-if (key.key_type != EMOBJ_key_file_type_none){\
-unlocked_slot = get_master_key(data, master_key, key, target_unlock_slot, max_unlock_mem, max_unlock_time);\
-}\
+
+#define OPERATION_BACKEND_UNENCRYPT_HEADER    \
+[[maybe_unused]] int unlocked_slot = get_master_key(data, master_key, key, target_unlock_slot, max_unlock_mem, max_unlock_time); \
+                                              \
 if (lock_or_unlock_metadata_using_master_key(&data, master_key) == false) {\
 print_error(key.key_type != EMOBJ_key_file_type_none ? _("This key has been revoked.") : _("Wrong master key."));\
 }                                  \
-operate_all_keyslots_using_keyslot_key_in_metadata(data.keyslots, data.metadata.keyslot_key, data.master_key_mask, true); /* open all key slots */  \
+operate_all_keyslots_using_keyslot_key_in_metadata(data.keyslots, data.metadata.keyslot_key, data.master_key_mask, true); /* open all key slots */ \
 bool revoked_untagged_slot[KEY_SLOT_COUNT];              \
 check_master_key_and_slots_revoke(&data, revoked_untagged_slot);\
 for (int i = 0; i < KEY_SLOT_COUNT; i++){                \
@@ -549,7 +551,7 @@ bool action_open_suspended(const char * device, const char * target_name, bool i
 void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue, bool is_no_write_workqueue) {
 	
 	OPERATION_READ_HEADER
-	OPERATION_BACKEND_UNLOCK
+	OPERATION_BACKEND_UNENCRYPT_HEADER
 	
 	if (!is_dry_run) {
 		uint8_t disk_key[HASHLEN];
@@ -594,7 +596,7 @@ void action_close(const char * device) {
 int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t target_memory, double target_time) {
 	OPERATION_READ_HEADER
 	OPERATION_DECLINE_SUSPEND
-	OPERATION_BACKEND_UNLOCK
+	OPERATION_BACKEND_UNENCRYPT_HEADER
 	
 	Key new_key;
 	interactive_ask_new_key(&new_key, device);
@@ -626,7 +628,7 @@ int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bo
 	}
 	
 	OPERATION_DECLINE_SUSPEND
-	OPERATION_BACKEND_UNLOCK
+	OPERATION_BACKEND_UNENCRYPT_HEADER
 	
 	revoke_given_key_slot(&data, unlocked_slot, true);
 	
@@ -643,7 +645,7 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 	if (is_no_transform) {
 		write_header_to_device(&data, filename, 0);
 	} else {
-		OPERATION_BACKEND_UNLOCK
+		OPERATION_BACKEND_UNENCRYPT_HEADER
 		device = filename;
 		offset = 0;
 		OPERATION_LOCK_AND_WRITE
@@ -666,7 +668,7 @@ void action_suspend(const char * device, PARAMS_FOR_KEY) {
 	}
 	Data data_copy;
 	memcpy(&data_copy, &data, sizeof(data_copy));
-	OPERATION_BACKEND_UNLOCK // get master key only
+	OPERATION_BACKEND_UNENCRYPT_HEADER // get master key and validate
 	do {
 		suspend_encryption(&data_copy, master_key);
 		write_header_to_device(&data_copy, device, offset);
@@ -680,11 +682,11 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
 	}
 	Data data_copy;
 	memcpy(&data_copy, &data, sizeof(data_copy));
-	OPERATION_BACKEND_UNLOCK
-	do {
-		resume_encryption(&data_copy, master_key);
-		write_header_to_device(&data_copy, device, offset);
-	} while (0);
+	// unlock the header but not validate key using metadata. metadata is a mess right now.
+	get_master_key(data, master_key, key, target_unlock_slot, max_unlock_mem, max_unlock_time);
+	
+	resume_encryption(&data_copy, master_key);
+	write_header_to_device(&data_copy, device, offset);
 }
 
 void init() {
