@@ -540,12 +540,12 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		case 7:
 			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
-			action_suspend(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
+			action_suspend(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		case 8:
 			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
-			action_resume(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
+			action_resume(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		default:
 	}

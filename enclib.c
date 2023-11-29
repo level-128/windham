@@ -66,6 +66,8 @@ typedef struct __attribute__((packed)) {
 	char enc_type[32];
 	uint16_t block_size;
 	__attribute__((unused)) uint8_t padding[AES_BLOCKLEN - sizeof(uint16_t)];
+	
+	// remains encrypted after suspend
 	uint8_t keyslot_key[KEY_SLOT_COUNT][HASHLEN];
 	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
 	int8_t key_slot_is_used[KEY_SLOT_COUNT];
@@ -118,6 +120,10 @@ static void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b
 	for (size_t i = 0; i < length; i++) {
 		c[i] = a[i] ^ b[i];
 	}
+}
+
+extern inline bool is_header_suspended(const Data encrypted_header){
+	return memcmp(encrypted_header.head, head, 16) == 0;
 }
 
 static uint64_t write_or_read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index,
@@ -436,18 +442,21 @@ int select_available_key_slot(const Metadata decrypted_metadata, int target_slot
 	return target_slot;
 }
 
-bool check_master_key_and_slots_revoke(Data * decrypted_header, bool revoked_untagged_slot[KEY_SLOT_COUNT]){
-	uint8_t temp[HASHLEN] = {0};
-	for (int i = 0; i < KEY_SLOT_COUNT; i++){
-		revoked_untagged_slot[i] = (memcmp(decrypted_header->keyslots[i].key_mask, decrypted_header->metadata.all_key_mask[i], HASHLEN) != 0 &&
-		                            (memcmp(temp, decrypted_header->metadata.all_key_mask[i],HASHLEN) != 0) &&
-		                            decrypted_header->metadata.key_slot_is_used[i]);
-		if (revoked_untagged_slot[i]){
-			memset(decrypted_header->metadata.all_key_mask[i], 0, HASHLEN);
-			memset(decrypted_header->metadata.keyslot_key[i], 0, HASHLEN);
+void check_master_key_and_slots_revoke(Data * decrypted_header, bool revoked_untagged_slot[KEY_SLOT_COUNT]){
+	if (!is_header_suspended(*decrypted_header)) { // when the header is suspended, the metadata area
+		uint8_t temp[HASHLEN] = {0};
+		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+			revoked_untagged_slot[i] = (memcmp(decrypted_header->keyslots[i].key_mask, decrypted_header->metadata.all_key_mask[i], HASHLEN) != 0 &&
+			                            (memcmp(temp, decrypted_header->metadata.all_key_mask[i], HASHLEN) != 0) &&
+			                            decrypted_header->metadata.key_slot_is_used[i]);
+			if (revoked_untagged_slot[i]) {
+				memset(decrypted_header->metadata.all_key_mask[i], 0, HASHLEN);
+				memset(decrypted_header->metadata.keyslot_key[i], 0, HASHLEN);
+			}
 		}
+	} else {
+		memset(revoked_untagged_slot, 0, sizeof(*revoked_untagged_slot) * KEY_SLOT_COUNT);
 	}
-	return true;
 }
 
 void suspend_encryption(Data * encrypted_header, const uint8_t master_key[HASHLEN]){
@@ -467,15 +476,10 @@ void resume_encryption(Data * encrypted_header, const uint8_t master_key[HASHLEN
 	fill_secure_random_bits(encrypted_header->head, sizeof(encrypted_header->head));
 	uint8_t key[HASHLEN];
 	
+	xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
 	get_metadata_key_or_disk_key_from_master_key(master_key, encrypted_header->master_key_mask, encrypted_header->uuid_and_salt, key);
 	
 	struct AES_ctx ctx;
 	AES_init_ctx_iv(&ctx, key, encrypted_header->master_key_mask);
-	AES_CBC_decrypt_buffer(&ctx, encrypted_header->metadata.disk_key_mask, (intptr_t)encrypted_header->metadata.keyslot_key - (intptr_t)encrypted_header->metadata.disk_key_mask);
-	
-	xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
-}
-
-extern inline bool is_header_suspended(const Data encrypted_header){
-	return memcmp(encrypted_header.head, head, 16) == 0;
+	AES_CBC_encrypt_buffer(&ctx, encrypted_header->metadata.disk_key_mask, (intptr_t)encrypted_header->metadata.keyslot_key - (intptr_t)encrypted_header->metadata.disk_key_mask);
 }
