@@ -19,16 +19,17 @@ Windham 是一款免费且开源的磁盘加密软件，是其自身规范的实
 1. 首先，在 `/dev` 下找到你想加密的设备，可以使用磁盘管理器或命令 `lsblk`。它可能是 `/dev/sdb` 或 `/dev/nvme0n1`；如果你更愿意创建加密分区，可能是 `/dev/sdb2` 或 `/dev/nvme0n2p2`。
 2. 要创建新的 Windham 设备，请使用命令 `windham New *your device*`。例如，在 `/dev/sdb` 上创建 Windham 设备，使用命令 `sudo windham New /dev/sdb` 并输入你的密码。
 3. 要映射你的设备，请使用命令 `windham Open *your device* --to=*name*`。例如，要打开 `/dev/sdb`，使用 `sudo windham Open /dev/sdb --to=enc1` 会在 `/dev/mapper/enc1` 创建一个映射设备。
-4. 在 `/dev/mapper/enc1` 上创建文件系统，就像它是一个空分区一样，随你喜欢。
+4. 在 `/dev/mapper/enc1` 上任意创建文件系统，就像它是一个空分区一样。
 5. 要关闭你的设备，请使用 `windham close *name*`。
 6. （可选，但推荐）使用 `windham Open *your device* --dry-run` 查看你的主密钥；将其备份到安全的地方。主密钥可以访问、控制和修改整个分区。
 
 ## 高级功能和示例：
-- 暂停支持。使用 `windham Suspend` 来暂停加密设备。设备将可以被任何人访问。但是，放心，你的密码和主密钥是安全的，能够访问你的加密设备并不意味着别人可以阅读你的密码或破坏你设置的加密。
+- 挂起支持。使用 `windham Suspend` 来挂起加密设备。设备将可以被任何人访问。但是，放心，你的密码和主密钥是安全的，能够访问你的加密设备并不意味着别人可以阅读你的密码或破坏你设置的加密。
 - 添加多达 6 个密码。你也可以通过 `windham RevokeKey` 撤销你的密码。使用被撤销的密码将触发错误（`此密钥已被撤销。`），而不是在密钥不正确时出现含糊的错误信息。即使你没有相应的密码，也可以通过 `windham RevokeKey --target-slot=*slot*` 撤销密码（这在你忘记密码时非常有用）。
 - 使用 `windham Backup --to=*location*` 在处理分区时备份头。加密头的损坏将使加密设备无法访问。
 
 **示例**：
+
 命令 `New` 创建新的加密设备。在终端输入你的密钥，或使用 `--key --key-file` 之一。
 你可以指定目标内存和时间使用。使用更多的时间或内存来增强对短密码的保护。
 ```
@@ -38,8 +39,8 @@ sudo Windham New /dev/nvme0n2 --key="hello world" --target-slot=2 --target-memor
 sudo windham New /dev/sda --key-file=Documents/key --encrypt-type=twofish-xts-essiv --yes --target-time=2 --block-size=512 --decoy
 ```
 
-命令 `Open` 用于打开设备。在终端提供你的密钥，或者使用 `--key` `--key-file` 或 `--master-key` 选项之一。`--allow-discards` 选项可以在使用 SSD 和 SMR 硬盘时提高性能。但是，需要注意，在加密设备上允许丢弃操作可能导致加
-密设备的信息泄露（比如文件系统类型、已使用的空间等），尤其是如果以后能在设备上轻易找到被丢弃的块。 此外，`--allow-discards` 选项可能不适用于 USB 闪存驱动器，因为操作系统可能无法通过 USB 传递 TRIM 命令。
+命令 `Open` 用于打开设备。在终端提供你的密钥，或者使用 `--key` `--key-file` 或 `--master-key` 选项之一。`--allow-discards` 选项可以在使用 SSD 和 SMR 硬盘时提高性能。**但是，需要注意，在加密设备上允许块丢弃操作可能导致加
+密设备的信息泄露（比如文件系统类型、已使用的空间等），尤其是如果以后能在设备上轻易找到被丢弃的块。** 此外，`--allow-discards` 选项可能不适用于 USB 闪存驱动器，因为操作系统可能无法通过 USB 传递 TRIM 命令。
 ```
 sudo windham Open /dev/sda --to=crypt
 sudo windham Open /dev/sdb --to=enc1 --master-key="9fab fe68 20e5 7b89 0b8e 2c01 b842 b268 136f 3d68 bc0c 0427 068a d687 6bf2 3348"
@@ -67,13 +68,13 @@ sudo windham RevokeKey /dev/nvme0n1p4 --obliterate
 sudo windham RevokeKey /dev/nvme0n1p4 --unlock-slot=2 --key-file=file
 ```
 
-`Backup` header and `Restore`:
+用 `Backup` 备份加密头， `Restore` 来恢复:
 ```
 sudo windham Backup /dev/sda --to=/home/level-128/header.bin 
 sudo windham Restore /dev/sda --to=/home/level-128/header.bin 
 ```
 
-`Suspend` and `Resume`. Open a suspend header will display a warning message.
+`Suspend` （挂起）与 `Resume` （恢复）。打开挂起的加密设备会显示警告。 
 ```
 sudo windham Suspend /dev/sdc --verbose
 sudo windham Resume /dev/sdc
@@ -100,7 +101,7 @@ sudo windham Resume /dev/sdc
 - [常见问题及其解答](/Document/Q&A.md)
 
 ## 贡献
-🥰🥰 欢迎做出贡献 🥰🥰！
+🥰🥰 欢迎来贡献 🥰🥰！
 请确保你已经了解了[行为准则](CODE_OF_CONDUCT.md)。
 有任何问题？请给我发邮件：level-128@gmx.com
 
@@ -113,4 +114,4 @@ Copyright (C) 2023- W. Wang (level-128)
 ### 美国加密出口法规
 Windham 归类于 ECCN 5D002，提供或执行 EAR 第 772 部分定义的“非标准加密”，并受到工业和安全局出口管理法规的管辖。当源代码的加密功能更新或修改时，需要通过电子邮件通知 BIS 和 ENC 加密请求协调员其互联网位置（例如 URL 或互联网地址）。当做出贡献或分叉软件时，可以通过通知 level-128（电子邮件：<level-128@gmx.com>）来完成此操作。
 
-我知道这并不理想……
+我知道这个法规并不理想……
