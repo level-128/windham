@@ -38,11 +38,11 @@ The master key can access, control and modify the entire partition.
 - Suspend support. Use `windham Suspend` to suspend an encrypted device. The device will be accessible by everyone. But, 
 relax, your passwords and master keys are secure, and being able to access your encrypted device doesn't mean that someone 
 else can read your passphrases or tamper the encryption that you've set up.  
-- Add up to 6 passphrases. Also, you can revoke your passphrases by `windham RevokeKey`. Using a revoked passphrases will 
-trigger an error (`This key has been revoked.`), instead of an ambiguous error message when the key is incorrect. You can
+- Add up to 6 passphrases. Also, you can revoke your passphrases by `windham RevokeKey`. Using a revoked passphrase will 
+trigger an error (`This key has been revoked.`), instead of an ambiguous message claiming that the key might be incorrect. You can
 revoke a passphrase even if you don't have the corresponding passphrase by `windham RevokeKey --target-slot=*slot*` (which 
 is pretty useful when you forgot your passphrase).
-- Use `windham Backup --to=*location*` to back up the header when tinkering with the partitions. Corruption of the header
+- Use `windham Backup --to=*location*` to back up the header when tinkering with the partitions. A corrupted header
 will render the crypt device inaccessible.
 
 **Examples**:
