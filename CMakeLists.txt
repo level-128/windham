@@ -1,9 +1,3 @@
-# this makefile works on my opensuse tumbleweed. If you are not running this distro, you might need to change your compiler path.
-
-set(x86_64_compiler "gcc")
-set(aarch64_compiler "arm-suse-linux-gnueabi-gcc")
-set(riscv64_compiler "riscv64-suse-linux-gcc")
-
 if (NOT DEFINED target_arch)
 set(target_arch "native") # X86_64 aarch64 riscv64 or native
 endif ()
@@ -29,15 +23,13 @@ set(BLAKE3_AMD64_NAMES amd64 AMD64 x86_64)
 set(BLAKE3_ARM_NAMES aarch64 AArch64 arm64 ARM64)
 
 set(BLAKE_DIR ${CMAKE_SOURCE_DIR}/library/blake3)
-if(CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_AMD64_NAMES)
-    set(CMAKE_C_COMPILER ${x86_64_compiler})
+
+if((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_AMD64_NAMES AND target_arch STREQUAL "native") OR target_arch STREQUAL "X86_64")
     file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c ${BLAKE_DIR}/blake3_sse2_x86-64_unix.S
             ${BLAKE_DIR}/blake3_sse41_x86-64_unix.S ${BLAKE_DIR}/blake3_avx2_x86-64_unix.S ${BLAKE_DIR}/blake3_avx512_x86-64_unix.S)
-elseif(CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_ARM_NAMES)
-    set(CMAKE_C_COMPILER ${aarch64_compiler})
+elseif((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_ARM_NAMES AND target_arch STREQUAL "native") OR target_arch STREQUAL "aarch64")
     file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c ${BLAKE_DIR}/blake3_neon.c)
 else()
-    set(CMAKE_C_COMPILER ${riscv64_compiler})
     file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c)
 endif ()
 
@@ -80,18 +72,28 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_RANLIB "gcc-ranlib")
 
     if(target_arch STREQUAL "x86_64")
-
+        if (NOT DEFINED x86_64_compiler)
+            message( FATAL_ERROR "no x86_64_compiler given." )
+        endif ()
+        set(CMAKE_C_COMPILER ${x86_64_compiler})
         add_argon2_and_executables_for_arch("haswell")
         add_argon2_and_executables_for_arch("tigerlake")
         add_argon2_and_executables_for_arch("sapphirerapids")
         add_argon2_and_executables_for_arch("znver3")
 
     elseif(target_arch STREQUAL "aarch64")
-
+        if (NOT DEFINED aarch64_compiler)
+            message( FATAL_ERROR "no aarch64_compiler given." )
+        endif ()
+        set(CMAKE_C_COMPILER ${aarch64_compiler})
         add_argon2_and_executables_for_arch("armv8.5-a")
         add_argon2_and_executables_for_arch("armv9-a")
 
     elseif(target_arch STREQUAL "riscv64")
+        if (NOT DEFINED riscv64_compiler)
+            message( FATAL_ERROR "no riscv64_compiler given." )
+        endif ()
+        set(CMAKE_C_COMPILER ${riscv64_compiler})
         add_argon2_and_executables_for_arch("rv64imafdc")
 
     elseif(target_arch STREQUAL "native")
@@ -99,7 +101,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_argon2_and_executables_for_arch("native")
 
     else()
-        message( FATAL_ERROR "unknown arch" )
+        message( FATAL_ERROR "unknown arch. Arch must be one of the X86_64 aarch64 riscv64 or native" )
     endif()
 
 elseif(CMAKE_BUILD_TYPE STREQUAL "Language")
