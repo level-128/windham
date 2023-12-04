@@ -2,7 +2,7 @@ if (NOT DEFINED target_arch)
 set(target_arch "native") # X86_64 aarch64 riscv64 or native
 endif ()
 
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.20)
 project(windham C)
 set(CMAKE_C_STANDARD 23)
 enable_language(ASM)
