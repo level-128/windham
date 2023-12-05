@@ -6,11 +6,10 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <linux/fs.h>
+#include <linux_fs.h>
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
-#include <sys/wait.h>
 
 #include "libdevmapper.h"
 

@@ -59,6 +59,7 @@ endfunction()
 
 
 if(CMAKE_BUILD_TYPE STREQUAL "Test")
+    include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -Wextra -g -O0")
     add_argon2_and_executables_for_arch("x86-64")
 
@@ -72,6 +73,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_RANLIB "gcc-ranlib")
 
     if(target_arch STREQUAL "x86_64")
+        include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
         if (NOT DEFINED x86_64_compiler)
             message( FATAL_ERROR "no x86_64_compiler given." )
         endif ()
@@ -82,6 +84,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_argon2_and_executables_for_arch("znver3")
 
     elseif(target_arch STREQUAL "aarch64")
+        include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
         if (NOT DEFINED aarch64_compiler)
             message( FATAL_ERROR "no aarch64_compiler given." )
         endif ()
@@ -90,6 +93,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_argon2_and_executables_for_arch("armv9-a")
 
     elseif(target_arch STREQUAL "riscv64")
+        include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
         if (NOT DEFINED riscv64_compiler)
             message( FATAL_ERROR "no riscv64_compiler given." )
         endif ()
@@ -97,6 +101,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_argon2_and_executables_for_arch("rv64imafdc")
 
     elseif(target_arch STREQUAL "native")
+        include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_system)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native")
         add_argon2_and_executables_for_arch("native")
 
