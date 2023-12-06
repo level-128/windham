@@ -11,7 +11,7 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include "libdevmapper.h"
+#include <libdevmapper.h>
 
 
 #define SECTOR_SIZE 512
