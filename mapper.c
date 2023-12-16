@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include <libdevmapper.h>
-
+#include <keyutils.h>
 
 #define SECTOR_SIZE 512
 #define MAX_LINE_LENGTH 1024
@@ -26,7 +26,24 @@ typeof(dm_task_run) * p_dm_task_run;
 typeof(dm_task_destroy) * p_dm_task_destroy;
 typeof(dm_task_add_target) * p_dm_task_add_target;
 
+bool is_kernel_keyring_exist;
+typeof(add_key) * p_add_key;
+typeof(keyctl_set_timeout) * p_keyctl_set_timeout;
+typeof(keyctl) * p_keyctl;
+typeof(keyctl_read) * p_keyctl_read;
+typeof(keyctl_unlink) * p_keyctl_unlink;
+
 #pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target dm_task_set_uuid
+#pragma GCC poison add_key keyctl_set_timeout keyctl_read keyctl_unlink keyctl
+
+typedef enum {
+	NMOBJ_KEY_OK = 0,
+	NMOBJ_KEY_ERR_NOKEY = -1,
+	NMOBJ_KEY_ERR_KEYREVOKED = -2,
+	NMOBJ_KEY_ERR_KEYEXPIRED = -3,
+	NMOBJ_KEY_ERR_ACCESS = -4,
+	NMOBJ_KEY_ERR_KERNEL_KEYRING = -5
+} ENUM_mp_key;
 
 #pragma once
 
@@ -39,19 +56,26 @@ void check_container(void) {
 	} else if (getenv("SNAP")) {
 		container = "Snap";
 	}
-	if (container){
+	if (container) {
 		print_warning(_("Running inside a container (%s) is discouraged. Windham needs to interact with the Linux kernel, thus the isolation policy of the container may render the "
-							 "program malfunction."), container);
+		                "program malfunction."), container);
 	}
 }
 
-void mapper_init(){
-	void* handle = dlopen("libdevmapper.so", RTLD_LAZY);
+void generate_UUID_from_bytes(const unsigned char bytes[16], char uuid_str[37]) {
+	sprintf(uuid_str, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+	        bytes[0], bytes[1], bytes[2], bytes[3],
+	        bytes[4], bytes[5], bytes[6], bytes[7],
+	        bytes[8], bytes[9], bytes[10], bytes[11],
+	        bytes[12], bytes[13], bytes[14], bytes[15]);
+}
+
+void mapper_init() {
+	void * handle = dlopen("libdevmapper.so", RTLD_LAZY);
 	if (!handle) {
-		print_error(_("error loading libdevmapper.so. Please install 'libdevmapper' (under debian-based distro) or 'device-mapper' (under fedora/opensuse-based distro)"));
+		print_error(_("error loading libdevmapper.so, on-the-fly encryption cannot be supported. Please install 'libdevmapper' (under debian-based distro) or 'device-mapper' (under "
+		              "fedora/opensuse-based distro)"));
 	} else {
-		check_container();
-		
 		p_dm_task_create = dlsym(handle, "dm_task_create");
 		p_dm_task_set_name = dlsym(handle, "dm_task_set_name");
 		p_dm_task_set_ro = dlsym(handle, "dm_task_set_ro");
@@ -60,11 +84,90 @@ void mapper_init(){
 		p_dm_task_destroy = dlsym(handle, "dm_task_destroy");
 		p_dm_task_add_target = dlsym(handle, "dm_task_add_target");
 	}
+	
+	handle = dlopen("libkeyutils.so", RTLD_LAZY);
+	if (!handle) {
+		print_warning(_("Linux Kernel Keyring subsystem support is missing. Security is deduced, and some features (\"--keep-unlock\") might not be supported."));
+		is_kernel_keyring_exist = false;
+	} else {
+		is_kernel_keyring_exist = true;
+		p_add_key = dlsym(handle, "add_key");
+		p_keyctl_set_timeout = dlsym(handle, "keyctl_set_timeout");
+		p_keyctl = dlsym(handle, "keyctl");
+		p_keyctl_read = dlsym(handle, "keyctl_read");
+		p_keyctl_unlink = dlsym(handle, "keyctl_unlink");
+	}
+}
 
-};
+
+int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], unsigned timeout) {
+	if (!is_kernel_keyring_exist) {
+		return 0;
+	}
+	
+	char name[strlen("windham_") + 36 /* uuid len */ + 1];
+	strcpy(name, "windham_");
+	generate_UUID_from_bytes(uuid, name + strlen("windham_"));
+	
+	key_serial_t key_serial;
+	key_serial = p_add_key("user", name, key, HASHLEN, KEY_SPEC_USER_SESSION_KEYRING);
+	p_keyctl(KEYCTL_SETPERM, key_serial, KEY_POS_ALL, KEY_USR_ALL, KEY_GRP_VIEW, KEY_OTH_VIEW);
+	
+	if (key_serial < 0) {
+		perror("add_key");
+		exit(1);
+	}
+	p_keyctl_set_timeout(key_serial, timeout);
+
+	return 0;
+}
+
+key_serial_t mapper_keyring_get_serial(uint8_t uuid[16]) {
+	key_serial_t key_serial;
+	if (!is_kernel_keyring_exist) {
+		return NMOBJ_KEY_ERR_KERNEL_KEYRING;
+	}
+	char name[strlen("windham_") + 36 /* uuid len */ + 1];
+	strcpy(name, "windham_");
+	generate_UUID_from_bytes(uuid, name + strlen("windham_"));
+
+	key_serial = (key_serial_t) p_keyctl(KEYCTL_SEARCH, KEY_SPEC_USER_SESSION_KEYRING, "user", name, NULL, 0);
+	if (key_serial < 0) {
+		if (errno == ENOKEY) {
+			return NMOBJ_KEY_ERR_NOKEY;
+		} else if (errno == EKEYREVOKED) {
+			p_keyctl_unlink(KEY_SPEC_USER_SESSION_KEYRING, key_serial); // try to clear this, might fail but don't care
+			return NMOBJ_KEY_ERR_KEYREVOKED;
+		} else if (errno == EKEYEXPIRED) {
+			p_keyctl_unlink(KEY_SPEC_USER_SESSION_KEYRING, key_serial);
+			return NMOBJ_KEY_ERR_KEYEXPIRED;
+		}
+		perror("request_key");
+		exit(1);
+	}
+	
+	return key_serial;
+}
+
+ENUM_mp_key mapper_keyring_read_key(uint8_t key[32], uint8_t uuid[16]) {
+	// check permission for keyring.
+	key_serial_t key_serial = mapper_keyring_get_serial(uuid);
+	if (key_serial < 0) {
+		return key_serial;
+	}
+	long ret = p_keyctl(KEYCTL_READ, key_serial, (char *) key, HASHLEN);
+	if (ret == -1) {
+		if (errno == EACCES) {
+			return NMOBJ_KEY_ERR_ACCESS;
+		}
+		perror("keyctl");
+		exit(1); // ERROR
+	}
+	return NMOBJ_KEY_OK;
+}
 
 
-void create_fat32_on_device(const char * device){
+void create_fat32_on_device(const char * device) {
 	
 	pid_t pid = vfork();
 	if (pid == -1) {
@@ -84,27 +187,27 @@ void create_fat32_on_device(const char * device){
 	}
 }
 
-bool detect_fat32_on_device(const char * device){
+bool detect_fat32_on_device(const char * device) {
 	uint8_t content[20];
 	FILE * fp = fopen(device, "rb");
 	if (fp == NULL) {
 		print_error(_("can not open device %s"), device);
 	}
-	if (fread(content, 1, sizeof(content), fp) != sizeof(content)){
+	if (fread(content, 1, sizeof(content), fp) != sizeof(content)) {
 		print_error(_("Failed to detect partition on %s"), device);
 	}
 	fclose(fp);
 	return memcmp(&content[3], "mkfs.fat", 8) == 0;
 }
 
-bool check_is_device_mounted(const char * device){
-	FILE *fp = fopen("/proc/mounts", "r");
+bool check_is_device_mounted(const char * device) {
+	FILE * fp = fopen("/proc/mounts", "r");
 	if (fp == NULL) {
 		print_warning(_("Cannot detect device %s mount status."), device);
 		return false;
 	}
 	
-	char *line = NULL;
+	char * line = NULL;
 	size_t len = 0;
 	char * location;
 	
@@ -172,21 +275,21 @@ char ** get_crypto_list() {
 	return crypto_list;
 }
 
-void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * start_sector, size_t * end_sector, size_t block_size){
+void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * start_sector, size_t * end_sector, size_t block_size) {
 	size_t device_size = get_device_sector_cnt(device);
-	if (device_size % (block_size / 512) != 0){
+	if (device_size % (block_size / 512) != 0) {
 		print_warning(_("The size of the device is not an integer multiple of the sector size. You may experience performance degradation."));
 	}
 	
-	size_t safe_node = (0x78000b + (16<<20)) / 512; // safe sector
-	if (is_decoy){
-		if (device_size < (128<<20) / 512){
+	size_t safe_node = (0x78000b + (16 << 20)) / 512; // safe sector
+	if (is_decoy) {
+		if (device_size < (128 << 20) / 512) {
 			print_error(_("Device %s is too small to deploy decoy partition; Windham requires at least %i MiB."), device, 128);
 		}
 		*end_sector = device_size - 8;
 		*start_sector = (device_size - safe_node) * 4 / 12 + safe_node;
 	} else {
-		if (device_size < (32<<20) / 512){
+		if (device_size < (32 << 20) / 512) {
 			print_error(_("Device %s is too small; Windham requires at least %i MiB."), device, 32);
 		}
 		*start_sector = 8;
@@ -194,20 +297,13 @@ void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * st
 	}
 }
 
-void generate_UUID_from_bytes(const unsigned char bytes[16], char uuid_str[37]) {
-	sprintf(uuid_str, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-	        bytes[0], bytes[1], bytes[2], bytes[3],
-	        bytes[4], bytes[5], bytes[6], bytes[7],
-	        bytes[8], bytes[9], bytes[10], bytes[11],
-	        bytes[12], bytes[13], bytes[14], bytes[15]);
-}
 
 void convert_disk_key_to_hex_format(const uint8_t master_key[32], char key[HASHLEN * 2 + 1]) {
-	const char *hex_chars = "0123456789abcdef";
+	const char * hex_chars = "0123456789abcdef";
 	
 	for (size_t i = 0; i < HASHLEN; ++i) {
 		uint8_t byte = master_key[i];
-		key[i * 2]     = hex_chars[(byte >> 4) & 0xF];
+		key[i * 2] = hex_chars[(byte >> 4) & 0xF];
 		key[i * 2 + 1] = hex_chars[byte & 0xF];
 	}
 	
@@ -220,12 +316,13 @@ void remove_crypt_mapping(const char * name) {
 	dmt = p_dm_task_create(DM_DEVICE_REMOVE);
 	p_dm_task_set_name(dmt, name);
 	if (!p_dm_task_run(dmt)) {
-		print_error(_("dm_task_run failed when remove mapping for device %s"), name);}
+		print_error(_("dm_task_run failed when remove mapping for device %s"), name);
+	}
 	p_dm_task_destroy(dmt);
 }
 
 void fill_zeros_to_integrity_superblok(const char * name) {
-	FILE *file;
+	FILE * file;
 	uint8_t buffer[512] = {0};
 	file = fopen(name, "w");
 	if (file == NULL) {
@@ -245,17 +342,17 @@ void fill_zeros_to_integrity_superblok(const char * name) {
 
 
 int create_crypt_mapping(const char * device,
-								 const char * name,
-								 const char * enc_type,
-								 const char * password,
-								 char uuid_str[37],
-								 size_t start_sector,
-								 size_t end_sector,
-								 size_t block_size,
-								 bool is_read_only,
-								 bool is_allow_discards,
-								 bool is_no_read_workqueue,
-								 bool is_no_write_workqueue) {
+                         const char * name,
+                         const char * enc_type,
+                         const char * password,
+                         char uuid_str[37],
+                         size_t start_sector,
+                         size_t end_sector,
+                         size_t block_size,
+                         bool is_read_only,
+                         bool is_allow_discards,
+                         bool is_no_read_workqueue,
+                         bool is_no_write_workqueue) {
 	struct dm_task * dmt;
 	// allow_discards
 	// fix_padding must be used.
@@ -265,13 +362,13 @@ int create_crypt_mapping(const char * device,
 	char params_crypt[512];
 	char format_crypt[70] = "%s %s 0 %s %zu %i sector_size:%zu %s %s %s";
 	if (is_allow_discards) {
-		param_cnt_crypt ++;
+		param_cnt_crypt++;
 	}
 	if (is_no_read_workqueue) {
-		param_cnt_crypt ++;
+		param_cnt_crypt++;
 	}
 	if (is_no_write_workqueue) {
-		param_cnt_crypt ++;
+		param_cnt_crypt++;
 	}
 	
 	snprintf(params_crypt, sizeof(params_crypt), format_crypt, enc_type, password, device, start_sector, param_cnt_crypt, block_size,
@@ -285,7 +382,7 @@ int create_crypt_mapping(const char * device,
 	if (!p_dm_task_set_name(dmt, name)) {
 		exit(EXIT_FAILURE);
 	}
-	if (!p_dm_task_set_uuid(dmt, uuid_str)){
+	if (!p_dm_task_set_uuid(dmt, uuid_str)) {
 		exit(EXIT_FAILURE);
 	}
 	if (!p_dm_task_add_target(dmt, 0, end_sector - start_sector, "crypt", params_crypt)) {
@@ -294,7 +391,7 @@ int create_crypt_mapping(const char * device,
 	if (is_read_only) {
 		assert(p_dm_task_set_ro(dmt));
 	}
-	if (!p_dm_task_run(dmt)) {;
+	if (!p_dm_task_run(dmt)) { ;
 		print_error(_("p_dm_task_run failed when mapping crypt device %s"), name);
 	}
 	p_dm_task_destroy(dmt);
@@ -303,30 +400,32 @@ int create_crypt_mapping(const char * device,
 }
 
 void create_crypt_mapping_from_disk_key(const char * device,
-													 const char * target_name,
-													 Metadata * metadata,
-													 const uint8_t disk_key[HASHLEN],
-													 uint8_t uuid_and_salt[16],
-													 bool read_only,
-													 bool is_allow_discards,
-													 bool is_no_read_workqueue,
-													 bool is_no_write_workqueue) {
+                                        const char * target_name,
+                                        Metadata * metadata,
+                                        const uint8_t disk_key[HASHLEN],
+                                        uint8_t uuid[16],
+                                        bool read_only,
+                                        bool is_allow_discards,
+                                        bool is_no_read_workqueue,
+                                        bool is_no_write_workqueue) {
+	
 	
 	char password[HASHLEN * 2 + 1];
 	convert_disk_key_to_hex_format(disk_key, password);
 	
 	char uuid_str[37];
-	generate_UUID_from_bytes(uuid_and_salt, uuid_str);
+	generate_UUID_from_bytes(uuid, uuid_str);
 	
 	create_crypt_mapping(device, target_name, metadata->enc_type, password, uuid_str, metadata->start_sector, metadata->end_sector, metadata->block_size, read_only,
 	                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+	
 }
 
 
-void get_header_from_device(Data *data, const char *device, int64_t offset) {
-	FILE *fp;
+void get_header_from_device(Data * data, const char * device, int64_t offset) {
+	FILE * fp;
 	size_t result;
-
+	
 	fp = fopen(device, "rb");
 	if (fp == NULL) {
 		print_error(_("Failed to open %s"), device);
@@ -346,8 +445,8 @@ void get_header_from_device(Data *data, const char *device, int64_t offset) {
 }
 
 
-void write_header_to_device(const Data * data, const char * device, int64_t offset){
-	FILE *fp;
+void write_header_to_device(const Data * data, const char * device, int64_t offset) {
+	FILE * fp;
 	size_t result;
 	
 	fp = fopen(device, "wb"); // ensure that if 'device' is not a block device, empty the file.

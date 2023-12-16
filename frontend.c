@@ -29,6 +29,7 @@ enum {
 	NMOBJ_max_unlock_time,
 	NMOBJ_target_mem, //AddKey only
 	NMOBJ_target_time, //AddKey only
+	NMOBJ_unlock_timeout,
 	NMOBJ_encrypt_type,
 	NMOBJ_block_size,
 	
@@ -66,13 +67,14 @@ const struct option long_options[] = {
 		{"max-unlock-time",    required_argument, &options[NMOBJ_max_unlock_time],           1},
 		{"target-memory",      required_argument, &options[NMOBJ_target_mem],                1},
 		{"target-time",        required_argument, &options[NMOBJ_target_time],               1},
+		{"timeout",            required_argument, &options[NMOBJ_unlock_timeout],            1},
 		{"encrypt-type",       required_argument, &options[NMOBJ_encrypt_type],              1},
 		{"block-size",         required_argument, &options[NMOBJ_block_size],                1},
 		
 		{"all",                no_argument,       &options[NMOBJ_target_all],                1},
 		{"obliterate",         no_argument,       &options[NMOBJ_target_obliterate],         1},
 		{"dry-run",            no_argument,       &options[NMOBJ_target_dry_run],            1},
-		{"verbose",            no_argument,       &options[NMOBJ_verbose],            1},
+		{"verbose",            no_argument,       &options[NMOBJ_verbose],                   1},
 		{"no-transform",       no_argument,       &options[NMOBJ_target_no_transform],       1},
 		{"restore",            no_argument,       &options[NMOBJ_target_restore],            1},
 		{"decoy",              no_argument,       &options[NMOBJ_target_decoy],              1},
@@ -82,9 +84,9 @@ const struct option long_options[] = {
 		{"no-write-workqueue", no_argument,       &options[NMOBJ_target_no_write_workqueue], 1},
 		{"systemd-dialog",     no_argument,       &options[NMOBJ_is_systemd],                1},
 		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
-		{"noadmin",           no_argument,       &options[NMOBJ_is_noadmin],                1},
+		{"noadmin",            no_argument,       &options[NMOBJ_is_noadmin],                1},
 		{"yes",                no_argument,       &options[NMOBJ_yes],                       1},
-		{"pdebug",                no_argument,       &options[NMOBJ_print_debug],                       1},
+		{"pdebug",             no_argument,       &options[NMOBJ_print_debug],               1},
 		{0, 0,                                    0,                                         0}
 };
 
@@ -95,7 +97,8 @@ NMOBJ_is_systemd, NMOBJ_is_nofail
 
 const int8_t check_allowed[] =
 		// Open
-		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_target_readonly, NMOBJ_target_dry_run, NMOBJ_target_allow_discards, NMOBJ_target_no_read_workqueue, NMOBJ_target_no_write_workqueue, CHECK_COMMON, -1,
+		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_unlock_timeout, NMOBJ_target_readonly, NMOBJ_target_dry_run, NMOBJ_target_allow_discards, NMOBJ_target_no_read_workqueue, NMOBJ_target_no_write_workqueue,
+		 CHECK_COMMON, -1,
 				// Close
        CHECK_COMMON, -1,
 				// New
@@ -112,8 +115,8 @@ const int8_t check_allowed[] =
        CHECK_ALLOWED_OPEN, CHECK_COMMON, -1,
 				// Resume
        CHECK_ALLOWED_OPEN, CHECK_COMMON, -1,
-		      // Bench
-		 -1};
+				// Bench
+       -1};
 
 
 int frontend_check_actions(char * input) {
@@ -164,7 +167,7 @@ void frontend_print_unlock_args() {
 			       "\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
 			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
 			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
-					 "\t--verbose: print unlock progress per keyslot.\n"
+			       "\t--verbose: print unlock progress per keyslot.\n"
 			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"));
 };
 
@@ -216,12 +219,13 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\n"
 		         "options:\n"
 		         "\t--to <location>: REQUIRED; the target location of the mapper. The mapper will be named as <location>, locate under /dev/mapper/<location>\n"
+		         "\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-prompt when open.\n"
 		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
 		         "\t--dry-run: run without operating on the block device then print the master key and device parameters.\n"
 		         "\t--readonly: Set the mapper device to read-only.\n"
-					"\t--allow-discards: Allow TRIM command being sent to the crypt device.\n"
-					"\t--no-read-workqueue: Process read requests synchronously instead of using a internal workqueue.\n"
-					"\t--no-write-workqueue: Process write requests synchronously instead of using a internal workqueue.\n"));
+		         "\t--allow-discards: Allow TRIM command being sent to the crypt device.\n"
+		         "\t--no-read-workqueue: Process read requests synchronously instead of using a internal workqueue.\n"
+		         "\t--no-write-workqueue: Process write requests synchronously instead of using a internal workqueue.\n"));
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		
@@ -241,7 +245,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\t--target-time <float>: the suggested total time (sec) for adding the first key. This is not a hard limit.\n"
 		         "\t--encrypt-type <string>: designate an encryption scheme for the new header instead of the default one. It is not recommended, nor necessary, to do so, unless"
 		         " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\".\n"
-					"\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
+		         "\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
 		         "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"));
 		frontend_print_common_args();
 		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the designated encryption scheme contains an unsupported, "
@@ -299,7 +303,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 	} else if (strcmp(actions[10], the_3rd_argv) == 0) {
 		printf(_("Bench: Performing Argon2 benchmark\n"
 		         "\n"));
-	}  else  {
+	} else {
 		print_error("<action> not recognized. type 'windham Help' to view help");
 	}
 	exit(0);
@@ -411,6 +415,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	size_t max_unlock_mem = 0;
 	double target_time = DEFAULT_TARGET_TIME;
 	double max_unlock_time = DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR;
+	unsigned timeout = 0;
 	size_t block_size = DEFAULT_BLOCK_SIZE;
 	
 	
@@ -467,6 +472,12 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			}
 		}
 	}
+	if (options[NMOBJ_unlock_timeout] == 1) {
+		timeout = strtoul(params[NMOBJ_unlock_timeout], &end, 10);
+		if (*end != '\0') {
+			print_error(_("bad input for argument %s: not an positive integer"), "--timeout");
+		}
+	}
 	if (options[NMOBJ_block_size] == 1) {
 		block_size = strtoull(params[NMOBJ_block_size], &end, 10);
 		if (*end != '\0' || (block_size != 512 && block_size != 1024 && block_size != 2048 && block_size != 4096)) {
@@ -480,7 +491,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	if (options[NMOBJ_yes]) {
 		is_skip_conformation = true;
 	}
-	if (options[NMOBJ_verbose]){
+	if (options[NMOBJ_verbose]) {
 		print_verbose = true;
 	}
 	
@@ -496,11 +507,12 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		case 0:
 			check_file(device, !options[NMOBJ_target_readonly], options[NMOBJ_is_nofail]);
 			check_is_device_mounted(device);
-			if (!action_open_suspended(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly], options[NMOBJ_target_allow_discards],
-												options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue])) {
+			if (!action_open_suspended_or_keyring(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly],
+			                                      options[NMOBJ_target_allow_discards],
+			                                      options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue])) {
 				ASK_KEY
-				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run],
-				            options[NMOBJ_target_readonly],options[NMOBJ_target_allow_discards], options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue]);
+				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], timeout, options[NMOBJ_target_dry_run],
+				            options[NMOBJ_target_readonly], options[NMOBJ_target_allow_discards], options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue]);
 			}
 			
 			break;

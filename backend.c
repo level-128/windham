@@ -340,7 +340,7 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 }
 
 
-int add_key(Data * decrypted_self, const uint8_t master_key[32], const Key key, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
+int add_key_to_keyslot(Data * decrypted_self, const uint8_t master_key[32], const Key key, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
 	uint8_t inited_key[HASHLEN];
 	uint8_t keyslot_key[HASHLEN];
 	
@@ -514,7 +514,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	fill_secure_random_bits(master_key, HASHLEN);
 	decide_start_and_end_sector(device, is_decoy, &start_sector, &end_sector, block_size);
 	initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);
-	add_key(&data, master_key, key, target_slot, target_memory, target_time);
+	add_key_to_keyslot(&data, master_key, key, target_slot, target_memory, target_time);
 	
 	OPERATION_LOCK_AND_WRITE
 	
@@ -523,32 +523,56 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	}
 }
 
-bool action_open_suspended(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
-									bool is_no_write_workqueue) {
+bool action_open_suspended_or_keyring(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
+                                      bool is_no_write_workqueue) {
 	OPERATION_READ_HEADER
-	if (!is_header_suspended(data)) {
+
+	
+	if (is_header_suspended(data)) {
+		if (!is_dry_run) {
+			uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
+			get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
+			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+			print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
+		} else {
+			char uuid_str[37];
+			generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
+			printf(_("dry run complete. Device is unlocked and suspended, thus no key slot status could be provided\n"));
+			printf(_("Additional device parameters: \n"
+			         "UUID: %s\n"
+			         "Crypto algorithm: %s\n"
+			         "Start sector %lu\n"
+			         "End sector %lu\n"
+			         "Block size %hu\n"), uuid_str, data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size);
+		}
+		return true;
+	} else {
+		uint8_t disk_key[HASHLEN];
+		switch (mapper_keyring_read_key(disk_key, data.uuid_and_salt)) {
+			case NMOBJ_KEY_OK:
+				printf(_("Found kernel keyring key\n"));
+				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+				return true;
+			case NMOBJ_KEY_ERR_NOKEY:
+				break;
+			case NMOBJ_KEY_ERR_KEYREVOKED:
+			print_warning(_("The stored key in kernel keyring subsystem has removed."));
+				break;
+			case NMOBJ_KEY_ERR_KEYEXPIRED:
+			print_warning(_("The stored key in kernel keyring subsystem has expired."));
+				break;
+			case NMOBJ_KEY_ERR_ACCESS:
+			print_warning(_("You do not have the permission to access the stored key. This is most probably due to SELinux or AppArmor policy."));
+				break;
+			case NMOBJ_KEY_ERR_KERNEL_KEYRING:
+			print_warning(_("Kernel keyring subsystem cannot be loaded. Kernel keyring is not required but strongly recommended."));
+				break;
+		}
 		return false;
 	}
-	if (!is_dry_run) {
-		uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
-		get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
-		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
-		print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
-	} else {
-		char uuid_str[37];
-		generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
-		printf(_("dry run complete. Device is unlocked and suspended, thus no key slot status could be provided\n"));
-		printf(_("Additional device parameters: \n"
-					"UUID: %s\n"
-		         "Crypto algorithm: %s\n"
-		         "Start sector %lu\n"
-		         "End sector %lu\n"
-					"Block size %hu\n"), uuid_str, data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size);
-	}
-	return true;
 }
 
-void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue, bool is_no_write_workqueue) {
+void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, unsigned timeout, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue, bool is_no_write_workqueue) {
 	
 	OPERATION_READ_HEADER
 	OPERATION_BACKEND_UNENCRYPT_HEADER
@@ -556,7 +580,12 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 	if (!is_dry_run) {
 		uint8_t disk_key[HASHLEN];
 		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
+		printf("timeout: %u\n", timeout);
+		if (timeout){
+			mapper_keyring_add_key(disk_key, data.uuid_and_salt, timeout);
+		}
 		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+
 	} else {
 		char uuid_str[37];
 		generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
@@ -600,7 +629,7 @@ int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t
 	
 	Key new_key;
 	interactive_ask_new_key(&new_key, device);
-	int added_slot = add_key(&data, master_key, new_key, target_slot, target_memory, target_time);
+	int added_slot = add_key_to_keyslot(&data, master_key, new_key, target_slot, target_memory, target_time);
 	
 	OPERATION_LOCK_AND_WRITE
 	return added_slot;
@@ -693,4 +722,5 @@ void init() {
 	init_enclib("/dev/urandom");
 	get_system_info();
 	mapper_init();
+	check_container();
 }

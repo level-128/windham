@@ -32,7 +32,7 @@ void test_backend_add_key_and_get_key(){
 	
 	
 	// test addkey
-	int slot = add_key(&header, master_key, key1, 0, 100000, 1);
+	int slot = add_key_to_keyslot(&header, master_key, key1, 0, 100000, 1);
 	
 	// test is correct slot
 	assert(slot == 0);
@@ -46,18 +46,18 @@ void test_backend_add_key_and_get_key(){
 	assert(memcmp(header.metadata.keyslot_key[slot], keyslot_key1, HASHLEN) == 0);
 
 	// addkey2
-	slot = add_key(&header, master_key, key2, 2, 100000, 1);
+	slot = add_key_to_keyslot(&header, master_key, key2, 2, 100000, 1);
 	assert(memcmp(header.metadata.all_key_mask[slot], header.keyslots[slot].key_mask, HASHLEN) == 0);
 	assert(slot == 2);
 	
 	// addkey3
-	slot = add_key(&header, master_key, key3, 2, 100000, 1);
+	slot = add_key_to_keyslot(&header, master_key, key3, 2, 100000, 1);
 	assert(slot != 2); // slot should not be the same, since slot 2 has been occupied by key2.
 	
 	
 	// error should pop up when add existing key
 	debug_print_error_suppress = 1;
-	add_key(&header, master_key, key3, -1, 100000, 1);
+	add_key_to_keyslot(&header, master_key, key3, -1, 100000, 1);
 	assert(debug_print_error_suppress == 0);
 	
 	// lock all keyslots. Keyslots should be locked before metadata
@@ -109,7 +109,7 @@ void test_create_open_chain(char * device_){
 	
 	action_suspend(device_, key1, master_key, -1, 0, 3, false);
 	
-	assert(action_open_suspended(device_, "my_crypt_device", false, false, false, false, false, false) == true);
+	assert(action_open_suspended_or_keyring(device_, "my_crypt_device", false, false, false, false, false, false) == true);
 	action_close("my_crypt_device");
 	action_resume(device_, key1, master_key, -1, 0, 3, false);
 	
