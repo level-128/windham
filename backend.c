@@ -532,7 +532,7 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 		if (!is_dry_run) {
 			uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
 			get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
-			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 			print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
 		} else {
 			char uuid_str[37];
@@ -547,22 +547,19 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 		}
 		return true;
 	} else {
-		uint8_t disk_key[HASHLEN];
-		switch (mapper_keyring_read_key(disk_key, data.uuid_and_salt)) {
+		switch (mapper_keyring_get_serial(data.uuid_and_salt)) {
 			case NMOBJ_KEY_OK:
 				printf(_("Found kernel keyring key\n"));
-				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, NULL, data.uuid_and_salt, true, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 				return true;
 			case NMOBJ_KEY_ERR_NOKEY:
+				printf(_("Unlocking %s to /dev/mapper/%s...\n"), device, target_name);
 				break;
 			case NMOBJ_KEY_ERR_KEYREVOKED:
 			print_warning(_("The stored key in kernel keyring subsystem has removed."));
 				break;
 			case NMOBJ_KEY_ERR_KEYEXPIRED:
 			print_warning(_("The stored key in kernel keyring subsystem has expired."));
-				break;
-			case NMOBJ_KEY_ERR_ACCESS:
-			print_warning(_("You do not have the permission to access the stored key. This is most probably due to SELinux or AppArmor policy."));
 				break;
 			case NMOBJ_KEY_ERR_KERNEL_KEYRING:
 			print_warning(_("Kernel keyring subsystem cannot be loaded. Kernel keyring is not required but strongly recommended."));
@@ -584,7 +581,7 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 		if (timeout){
 			mapper_keyring_add_key(disk_key, data.uuid_and_salt, timeout);
 		}
-		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 
 	} else {
 		char uuid_str[37];

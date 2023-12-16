@@ -30,7 +30,7 @@ bool is_kernel_keyring_exist;
 typeof(add_key) * p_add_key;
 typeof(keyctl_set_timeout) * p_keyctl_set_timeout;
 typeof(keyctl) * p_keyctl;
-typeof(keyctl_read) * p_keyctl_read;
+typeof(request_key) * p_request_key;
 typeof(keyctl_unlink) * p_keyctl_unlink;
 
 #pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target dm_task_set_uuid
@@ -41,8 +41,7 @@ typedef enum {
 	NMOBJ_KEY_ERR_NOKEY = -1,
 	NMOBJ_KEY_ERR_KEYREVOKED = -2,
 	NMOBJ_KEY_ERR_KEYEXPIRED = -3,
-	NMOBJ_KEY_ERR_ACCESS = -4,
-	NMOBJ_KEY_ERR_KERNEL_KEYRING = -5
+	NMOBJ_KEY_ERR_KERNEL_KEYRING = -4
 } ENUM_mp_key;
 
 #pragma once
@@ -92,9 +91,9 @@ void mapper_init() {
 	} else {
 		is_kernel_keyring_exist = true;
 		p_add_key = dlsym(handle, "add_key");
+		p_request_key = dlsym(handle, "request_key");
 		p_keyctl_set_timeout = dlsym(handle, "keyctl_set_timeout");
 		p_keyctl = dlsym(handle, "keyctl");
-		p_keyctl_read = dlsym(handle, "keyctl_read");
 		p_keyctl_unlink = dlsym(handle, "keyctl_unlink");
 	}
 }
@@ -105,13 +104,13 @@ int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], unsigne
 		return 0;
 	}
 	
-	char name[strlen("windham_") + 36 /* uuid len */ + 1];
-	strcpy(name, "windham_");
-	generate_UUID_from_bytes(uuid, name + strlen("windham_"));
+	char name[strlen("windham:") + 36 /* uuid len */ + 1];
+	strcpy(name, "windham:");
+	generate_UUID_from_bytes(uuid, name + strlen("windham:"));
 	
 	key_serial_t key_serial;
-	key_serial = p_add_key("user", name, key, HASHLEN, KEY_SPEC_USER_SESSION_KEYRING);
-	p_keyctl(KEYCTL_SETPERM, key_serial, KEY_POS_ALL, KEY_USR_ALL, KEY_GRP_VIEW, KEY_OTH_VIEW);
+	key_serial = p_add_key("logon", name, key, HASHLEN, KEY_SPEC_USER_KEYRING);
+//	p_keyctl(KEYCTL_SETPERM, key_serial, KEY_POS_ALL, KEY_USR_ALL, KEY_GRP_VIEW, KEY_OTH_VIEW);
 	
 	if (key_serial < 0) {
 		perror("add_key");
@@ -122,49 +121,52 @@ int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], unsigne
 	return 0;
 }
 
-key_serial_t mapper_keyring_get_serial(uint8_t uuid[16]) {
+ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
 	key_serial_t key_serial;
 	if (!is_kernel_keyring_exist) {
 		return NMOBJ_KEY_ERR_KERNEL_KEYRING;
 	}
-	char name[strlen("windham_") + 36 /* uuid len */ + 1];
-	strcpy(name, "windham_");
-	generate_UUID_from_bytes(uuid, name + strlen("windham_"));
+	char name[strlen("windham:") + 36 /* uuid len */ + 1];
+	strcpy(name, "windham:");
+	generate_UUID_from_bytes(uuid, name + strlen("windham:"));
 
-	key_serial = (key_serial_t) p_keyctl(KEYCTL_SEARCH, KEY_SPEC_USER_SESSION_KEYRING, "user", name, NULL, 0);
+	key_serial = (key_serial_t) p_keyctl(KEYCTL_SEARCH, KEY_SPEC_USER_KEYRING, "logon", name, NULL, 0);
 	if (key_serial < 0) {
 		if (errno == ENOKEY) {
 			return NMOBJ_KEY_ERR_NOKEY;
 		} else if (errno == EKEYREVOKED) {
-			p_keyctl_unlink(KEY_SPEC_USER_SESSION_KEYRING, key_serial); // try to clear this, might fail but don't care
+			p_keyctl_unlink(KEY_SPEC_USER_KEYRING, key_serial); // try to clear this, might fail but don't care
 			return NMOBJ_KEY_ERR_KEYREVOKED;
 		} else if (errno == EKEYEXPIRED) {
-			p_keyctl_unlink(KEY_SPEC_USER_SESSION_KEYRING, key_serial);
+			p_keyctl_unlink(KEY_SPEC_USER_KEYRING, key_serial);
 			return NMOBJ_KEY_ERR_KEYEXPIRED;
 		}
 		perror("request_key");
 		exit(1);
 	}
-	
-	return key_serial;
-}
-
-ENUM_mp_key mapper_keyring_read_key(uint8_t key[32], uint8_t uuid[16]) {
-	// check permission for keyring.
-	key_serial_t key_serial = mapper_keyring_get_serial(uuid);
-	if (key_serial < 0) {
-		return key_serial;
-	}
-	long ret = p_keyctl(KEYCTL_READ, key_serial, (char *) key, HASHLEN);
-	if (ret == -1) {
-		if (errno == EACCES) {
-			return NMOBJ_KEY_ERR_ACCESS;
-		}
-		perror("keyctl");
-		exit(1); // ERROR
-	}
+//	if (p_keyctl(KEYCTL_LINK, KEY_SPEC_PROCESS_KEYRING, key_serial) <= 0){
+//		perror("KEYCTL_LINK");
+//		exit(1);
+//	};
 	return NMOBJ_KEY_OK;
 }
+
+//ENUM_mp_key mapper_keyring_read_key(uint8_t key[32], uint8_t uuid[16]) {
+//	// check permission for keyring.
+//	key_serial_t key_serial = mapper_keyring_get_serial(uuid);
+//	if (key_serial < 0) {
+//		return key_serial;
+//	}
+//	long ret = p_keyctl(KEYCTL_READ, key_serial, (char *) key, HASHLEN);
+//	if (ret == -1) {
+//		if (errno == EACCES) {
+//			return NMOBJ_KEY_ERR_ACCESS;
+//		}
+//		perror("keyctl");
+//		exit(1); // ERROR
+//	}
+//	return NMOBJ_KEY_OK;
+//}
 
 
 void create_fat32_on_device(const char * device) {
@@ -359,7 +361,7 @@ int create_crypt_mapping(const char * device,
 	
 	// make crypt params
 	int param_cnt_crypt = 1;
-	char params_crypt[512];
+	char params_crypt[540];
 	char format_crypt[70] = "%s %s 0 %s %zu %i sector_size:%zu %s %s %s";
 	if (is_allow_discards) {
 		param_cnt_crypt++;
@@ -375,6 +377,8 @@ int create_crypt_mapping(const char * device,
 	         is_allow_discards ? "allow_discards" : "",
 	         is_no_read_workqueue ? "no_read_workqueue" : "",
 	         is_no_write_workqueue ? "no_write_workqueue" : "");
+	
+	printf("%s\n", params_crypt);
 	
 	if (!(dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
 		print_error(_("dm_task_create failed when mapping device %s"), name);
@@ -404,21 +408,33 @@ void create_crypt_mapping_from_disk_key(const char * device,
                                         Metadata * metadata,
                                         const uint8_t disk_key[HASHLEN],
                                         uint8_t uuid[16],
+													 bool is_use_keyring,
                                         bool read_only,
                                         bool is_allow_discards,
                                         bool is_no_read_workqueue,
                                         bool is_no_write_workqueue) {
 	
-	
-	char password[HASHLEN * 2 + 1];
-	convert_disk_key_to_hex_format(disk_key, password);
-	
-	char uuid_str[37];
-	generate_UUID_from_bytes(uuid, uuid_str);
-	
-	create_crypt_mapping(device, target_name, metadata->enc_type, password, uuid_str, metadata->start_sector, metadata->end_sector, metadata->block_size, read_only,
-	                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
-	
+	if (is_use_keyring){
+		assert(disk_key == NULL);
+		char password[strlen(":32:logon:windham:") + 36 /* uuid len */ + 1];
+		strcpy(password, ":32:logon:windham:");
+		generate_UUID_from_bytes(uuid, password + strlen(":32:logon:windham:"));
+		
+		size_t start_sector, end_sector;
+		decide_start_and_end_sector(device, false, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE);
+		create_crypt_mapping(device, target_name, DEFAULT_DISK_ENC_MODE, password, password + strlen(":32:logon:windham:"), start_sector, end_sector, DEFAULT_BLOCK_SIZE, read_only,
+		                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+		
+	} else {
+		char password[HASHLEN * 2 + 1];
+		convert_disk_key_to_hex_format(disk_key, password);
+		
+		char uuid_str[37];
+		generate_UUID_from_bytes(uuid, uuid_str);
+		
+		create_crypt_mapping(device, target_name, metadata->enc_type, password, uuid_str, metadata->start_sector, metadata->end_sector, metadata->block_size, read_only,
+		                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+	}
 }
 
 
