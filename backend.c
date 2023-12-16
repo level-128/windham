@@ -115,7 +115,7 @@ void get_system_info() {
 
 void check_file(const char * filename, bool is_write, bool is_nofail) {
 	if (access(filename, F_OK) != 0) {
-		if (is_nofail){
+		if (is_nofail) {
 			exit(0);
 		}
 		print_error(_("File %s does not exist"), filename);
@@ -204,7 +204,9 @@ char * get_key_input_from_the_console(const char * device, bool is_new_key) {
 	if (strcmp(key, check_key) != 0) {
 		print_error(_("Passwords do not match."));
 	} else if (strlen(key) < MIN_KEY_CHAR && is_new_key) {
-		print_error(_("the key provided is too short (%zu characters), which is not recommended. To bypass this restriction, use argument --key instead."), strlen(key));
+		print_error(_("the provided password is too short (%zu characters), which is not recommended. To bypass this restriction, use argument --key instead."), strlen(key));
+	} else if (strcmp(key, "level-128") == 0) {
+		print_error(_("not a chance! 😡"));
 	}
 	free(check_key);
 	return key;
@@ -226,7 +228,7 @@ char * get_key_input_from_the_console_systemd(const char * device) {
 		assert(dup2(pipefd[1], STDOUT_FILENO) == -1);
 		
 		
-		const char * const args[]={device, (char *) NULL};
+		const char * const args[] = {device, (char *) NULL};
 		execvp("systemd-ask-password", (char * const *) args);
 		
 		print_error_no_exit("\"systemd-ask-password\" is not available. Param \"--systemd-dialog\" only supports system with systemd as init.");
@@ -238,7 +240,7 @@ char * get_key_input_from_the_console_systemd(const char * device) {
 	
 	ssize_t num_read = read(pipefd[0], buf, sizeof(buf) - 1);
 	assert(num_read != -1);
-
+	
 	buf[num_read] = '\0';
 	return buf;
 }
@@ -294,7 +296,7 @@ void get_slot_list_for_get_master_key(int slot_seq[KEY_SLOT_COUNT + 1], int targ
 }
 
 int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
-	if (key.key_type == EMOBJ_key_file_type_none){ // uses master key
+	if (key.key_type == EMOBJ_key_file_type_none) { // uses master key
 		return -1;
 	}
 	uint8_t inited_key[HASHLEN];
@@ -317,25 +319,25 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, int ta
 		xor_with_len(HASHLEN, inited_keys[unlocked_slot], self.keyslots[unlocked_slot].key_mask, master_key);
 	} else if (unlocked_slot == NMOBJ_STEP_ERR_NOMEM) {
 		print_error(_("Cannot unlock the target probably due to incorrect key.\n"
-						  "\tIf you are certain that the key is indeed correct, because the memory limit has reached, try increasing the maximum memory limit "
+		              "\tIf you are certain that the key is indeed correct, because the memory limit has reached, try increasing the maximum memory limit "
 		              "using --max-unlock-memory. If the operation cannot be completed due to insufficient system "
 		              "memory, consider exporting the master key on a more computationally powerful device and then use the "
 		              "master key to unlock the target."));
-	} else if (unlocked_slot == NMOBJ_STEP_ERR_TIMEOUT){
+	} else if (unlocked_slot == NMOBJ_STEP_ERR_TIMEOUT) {
 		print_error(_("Cannot unlock the target probably due to incorrect key.\n"
 		              "\tIf you are certain that the key is indeed correct, because the time limit has reached, try increasing the maximum time limit "
 		              "using --max-unlock-time."));
-	} else if (unlocked_slot == NMOBJ_STEP_ERR_END){
+	} else if (unlocked_slot == NMOBJ_STEP_ERR_END) {
 		print_error(_("Please read carefully: You should not be seeing this error message. The occurrence of this error message means that the parameters for the key "
-						  "iteration function have grown to the maximum value by design. Unless your computer has tens of TBs of RAM and you have spent a considerable "
-						  "amount of time computing (if you really did so, then this would imply that the key you just provided is incorrect, which would be a false alarm), "
-						  "the appearance of this error message is abnormal. This may imply that: 1. There is a fatal flaw in the program, one that could directly compromise "
-						  "both its own security and that of the encrypted device. You should immediately stop using this program and report it to the developers; 2. The "
-						  "program has been tampered with by an attacker. As above, you should immediately stop using it. Redownload the program and verify its signature, "
-						  "and also please destroy the hard drives encrypted with the tampered program; 3. You come from a distant future, and you are using computational "
-						  "power that surpasses the era of the software. In any case, this also means that the software "
-						  "can no longer provide adequate security for the era in which you exist. I am sorry to inform you of the above."));
-}
+		              "iteration function have grown to the maximum value by design. Unless your computer has tens of TBs of RAM and you have spent a considerable "
+		              "amount of time computing (if you really did so, then this would imply that the key you just provided is incorrect, which would be a false alarm), "
+		              "the appearance of this error message is abnormal. This may imply that: 1. There is a fatal flaw in the program, one that could directly compromise "
+		              "both its own security and that of the encrypted device. You should immediately stop using this program and report it to the developers; 2. The "
+		              "program has been tampered with by an attacker. As above, you should immediately stop using it. Redownload the program and verify its signature, "
+		              "and also please destroy the hard drives encrypted with the tampered program; 3. You come from a distant future, and you are using computational "
+		              "power that surpasses the era of the software. In any case, this also means that the software "
+		              "can no longer provide adequate security for the era in which you exist. I am sorry to inform you of the above."));
+	}
 	return unlocked_slot;
 }
 
@@ -454,8 +456,8 @@ void action_new_check_crypt_support_status(const char * str) {
 	if (is_in_list(chainmode_name, crypto_list) == -1) {
 		ask_for_conformation(_("The cipher %s you've requested might not be supported by your current system. Although you can create a header that employs this encryption scheme, "
 		                       "your system might not be capable of unlocking it. This means you won't be able to access the encrypted device you've just created with this specific "
-									  "method on this system. You would need to locate a compatible system, recompile your kernel, or find the appropriate kernel module to access the "
-									  "device. Do you wish to proceed?"), chainmode_name);
+		                       "method on this system. You would need to locate a compatible system, recompile your kernel, or find the appropriate kernel module to access the "
+		                       "device. Do you wish to proceed?"), chainmode_name);
 	}
 	
 	for (int i = 0; crypto_list[i]; i++) {
@@ -526,13 +528,14 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 bool action_open_suspended_or_keyring(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
                                       bool is_no_write_workqueue) {
 	OPERATION_READ_HEADER
-
+	
 	
 	if (is_header_suspended(data)) {
 		if (!is_dry_run) {
 			uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
 			get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
-			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue,
+			                                   is_no_write_workqueue);
 			print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
 		} else {
 			char uuid_str[37];
@@ -569,7 +572,8 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 	
 }
 
-void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, unsigned timeout, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue, bool is_no_write_workqueue) {
+void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, unsigned timeout, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
+                 bool is_no_write_workqueue) {
 	
 	OPERATION_READ_HEADER
 	OPERATION_BACKEND_UNENCRYPT_HEADER
@@ -577,12 +581,16 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 	if (!is_dry_run) {
 		uint8_t disk_key[HASHLEN];
 		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
-		if (timeout){
-			printf(_("Registering the key into keyring with lifetime: %u sec.\n"), timeout);
-			mapper_keyring_add_key(disk_key, data.uuid_and_salt, timeout);
+		if (timeout) {
+			if (is_decoy) {
+				print_warning(_("key from the Decoy partition cannot be registered in Kernel Keyring service."));
+			} else {
+				printf(_("Registering the key into keyring with lifetime: %u sec.\n"), timeout);
+				mapper_keyring_add_key(disk_key, data.uuid_and_salt, data.metadata, timeout);
+			}
 		}
 		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
-
+		
 	} else {
 		char uuid_str[37];
 		generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
@@ -599,7 +607,7 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 		uint8_t temp[HASHLEN] = {0};
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			if (data.metadata.key_slot_is_used[i]) {
-				if (memcmp(data.metadata.keyslot_key[i], temp, HASHLEN) == 0){
+				if (memcmp(data.metadata.keyslot_key[i], temp, HASHLEN) == 0) {
 					printf(_("Slot %i has been revoked.\n"), i);
 				} else {
 					printf(_("Slot %i occupied with password; identifier: "), i);
@@ -715,7 +723,7 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
 	write_header_to_device(&data_copy, device, offset);
 }
 
-void init(bool enable_kernel_keyring) {
+void init() {
 	init_enclib("/dev/urandom");
 	get_system_info();
 	mapper_init();
