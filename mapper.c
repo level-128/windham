@@ -103,9 +103,21 @@ void kernel_keyring_init(bool enable_kernel_keyring){
 }
 
 
-int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], unsigned timeout) {
+int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], Metadata metadata, unsigned timeout) {
+	
 	if (!is_kernel_keyring_exist) {
 		return 0;
+	}
+	char not_equal[100] = "{";
+	if (metadata.block_size == DEFAULT_BLOCK_SIZE){
+		strcat(not_equal, "block size, ");
+	}
+	if (strcmp(metadata.enc_type, DEFAULT_DISK_ENC_MODE) != 0){
+		strcat(not_equal, "encryption mode, ");
+	}
+	strcat(not_equal, "}");
+	if (strcmp(not_equal, "{}") != 0){
+		print_warning(_("Cannot store the key into Linux Keyring service, reason: %s is not equal to the default value. Use command \"windham help\" to see a list of default values."), not_equal);
 	}
 	
 	char name[strlen("windham:") + 36 /* uuid len */ + 1];
@@ -262,7 +274,7 @@ char ** get_crypto_list() {
 void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * start_sector, size_t * end_sector, size_t block_size) {
 	size_t device_size = get_device_sector_cnt(device);
 	if (device_size % (block_size / 512) != 0) {
-		print_warning(_("The size of the device is not an integer multiple of the sector size. You may experience performance degradation."));
+		print_warning(_("The size of the crypt device is not the integer multiple of the sector size. You may experience degraded performance."));
 	}
 	
 	size_t safe_node = (0x78000b + (16 << 20)) / 512; // safe sector
