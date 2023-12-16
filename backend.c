@@ -577,8 +577,8 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 	if (!is_dry_run) {
 		uint8_t disk_key[HASHLEN];
 		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
-		printf("timeout: %u\n", timeout);
 		if (timeout){
+			printf(_("Registering the key into keyring with lifetime: %u sec.\n"), timeout);
 			mapper_keyring_add_key(disk_key, data.uuid_and_salt, timeout);
 		}
 		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
