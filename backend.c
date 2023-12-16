@@ -546,27 +546,27 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 			         "Block size %hu\n"), uuid_str, data.metadata.enc_type, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size);
 		}
 		return true;
-	} else {
-		switch (mapper_keyring_get_serial(data.uuid_and_salt)) {
-			case NMOBJ_KEY_OK:
-				printf(_("Found kernel keyring key\n"));
-				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, NULL, data.uuid_and_salt, true, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
-				return true;
-			case NMOBJ_KEY_ERR_NOKEY:
-				printf(_("Unlocking %s to /dev/mapper/%s...\n"), device, target_name);
-				break;
-			case NMOBJ_KEY_ERR_KEYREVOKED:
-			print_warning(_("The stored key in kernel keyring subsystem has removed."));
-				break;
-			case NMOBJ_KEY_ERR_KEYEXPIRED:
-			print_warning(_("The stored key in kernel keyring subsystem has expired."));
-				break;
-			case NMOBJ_KEY_ERR_KERNEL_KEYRING:
-			print_warning(_("Kernel keyring subsystem cannot be loaded. Kernel keyring is not required but strongly recommended."));
-				break;
-		}
-		return false;
 	}
+	switch (mapper_keyring_get_serial(data.uuid_and_salt)) {
+		case NMOBJ_KEY_OK:
+			printf(_("Found kernel keyring key\n"));
+			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, NULL, data.uuid_and_salt, true, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+			return true;
+		case NMOBJ_KEY_ERR_NOKEY:
+			printf(_("Unlocking %s to /dev/mapper/%s...\n"), device, target_name);
+			break;
+		case NMOBJ_KEY_ERR_KEYREVOKED:
+		print_warning(_("The stored key in kernel keyring subsystem has removed."));
+			break;
+		case NMOBJ_KEY_ERR_KEYEXPIRED:
+		print_warning(_("The stored key in kernel keyring subsystem has expired."));
+			break;
+		case NMOBJ_KEY_ERR_KERNEL_KEYRING:
+		print_warning(_("Kernel keyring subsystem cannot be loaded. Kernel keyring is not required but strongly recommended."));
+			break;
+	}
+	return false;
+	
 }
 
 void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, unsigned timeout, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue, bool is_no_write_workqueue) {
@@ -715,7 +715,7 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
 	write_header_to_device(&data_copy, device, offset);
 }
 
-void init() {
+void init(bool enable_kernel_keyring) {
 	init_enclib("/dev/urandom");
 	get_system_info();
 	mapper_init();

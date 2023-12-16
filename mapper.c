@@ -30,7 +30,6 @@ bool is_kernel_keyring_exist;
 typeof(add_key) * p_add_key;
 typeof(keyctl_set_timeout) * p_keyctl_set_timeout;
 typeof(keyctl) * p_keyctl;
-typeof(request_key) * p_request_key;
 typeof(keyctl_unlink) * p_keyctl_unlink;
 
 #pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target dm_task_set_uuid
@@ -83,18 +82,23 @@ void mapper_init() {
 		p_dm_task_destroy = dlsym(handle, "dm_task_destroy");
 		p_dm_task_add_target = dlsym(handle, "dm_task_add_target");
 	}
-	
-	handle = dlopen("libkeyutils.so", RTLD_LAZY);
-	if (!handle) {
-		print_warning(_("Linux Kernel Keyring subsystem support is missing. Security is deduced, and some features (\"--keep-unlock\") might not be supported."));
-		is_kernel_keyring_exist = false;
+}
+
+void kernel_keyring_init(bool enable_kernel_keyring){
+	if (enable_kernel_keyring) {
+		void * handle = dlopen("libkeyutils.so", RTLD_LAZY);
+		if (!handle) {
+			print_warning(_("Linux Kernel Keyring subsystem support is missing. Security is deduced, and some features (\"--timeout\") might not be supported."));
+			is_kernel_keyring_exist = false;
+		} else {
+			is_kernel_keyring_exist = true;
+			p_add_key = dlsym(handle, "add_key");
+			p_keyctl_set_timeout = dlsym(handle, "keyctl_set_timeout");
+			p_keyctl = dlsym(handle, "keyctl");
+			p_keyctl_unlink = dlsym(handle, "keyctl_unlink");
+		}
 	} else {
-		is_kernel_keyring_exist = true;
-		p_add_key = dlsym(handle, "add_key");
-		p_request_key = dlsym(handle, "request_key");
-		p_keyctl_set_timeout = dlsym(handle, "keyctl_set_timeout");
-		p_keyctl = dlsym(handle, "keyctl");
-		p_keyctl_unlink = dlsym(handle, "keyctl_unlink");
+		is_kernel_keyring_exist = false;
 	}
 }
 
@@ -110,7 +114,6 @@ int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], unsigne
 	
 	key_serial_t key_serial;
 	key_serial = p_add_key("logon", name, key, HASHLEN, KEY_SPEC_USER_KEYRING);
-//	p_keyctl(KEYCTL_SETPERM, key_serial, KEY_POS_ALL, KEY_USR_ALL, KEY_GRP_VIEW, KEY_OTH_VIEW);
 	
 	if (key_serial < 0) {
 		perror("add_key");
@@ -144,29 +147,8 @@ ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
 		perror("request_key");
 		exit(1);
 	}
-//	if (p_keyctl(KEYCTL_LINK, KEY_SPEC_PROCESS_KEYRING, key_serial) <= 0){
-//		perror("KEYCTL_LINK");
-//		exit(1);
-//	};
 	return NMOBJ_KEY_OK;
 }
-
-//ENUM_mp_key mapper_keyring_read_key(uint8_t key[32], uint8_t uuid[16]) {
-//	// check permission for keyring.
-//	key_serial_t key_serial = mapper_keyring_get_serial(uuid);
-//	if (key_serial < 0) {
-//		return key_serial;
-//	}
-//	long ret = p_keyctl(KEYCTL_READ, key_serial, (char *) key, HASHLEN);
-//	if (ret == -1) {
-//		if (errno == EACCES) {
-//			return NMOBJ_KEY_ERR_ACCESS;
-//		}
-//		perror("keyctl");
-//		exit(1); // ERROR
-//	}
-//	return NMOBJ_KEY_OK;
-//}
 
 
 void create_fat32_on_device(const char * device) {
@@ -396,7 +378,8 @@ int create_crypt_mapping(const char * device,
 		assert(p_dm_task_set_ro(dmt));
 	}
 	if (!p_dm_task_run(dmt)) { ;
-		print_error(_("p_dm_task_run failed when mapping crypt device %s"), name);
+		print_error(_("p_dm_task_run failed when mapping crypt device %s. If this error occurs when trying to use kernel key for unlocking the crypt device, make sure your SELinux or AppArmour policies"
+						  "are properly set."), name);
 	}
 	p_dm_task_destroy(dmt);
 	

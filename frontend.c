@@ -45,6 +45,7 @@ enum {
 	NMOBJ_target_no_read_workqueue,
 	NMOBJ_target_no_write_workqueue,
 	NMOBJ_is_systemd,
+	NMOBJ_is_nokeyring,
 	NMOBJ_is_nofail,
 	NMOBJ_is_noadmin,
 	NMOBJ_yes,
@@ -83,6 +84,7 @@ const struct option long_options[] = {
 		{"no-read-workqueue",  no_argument,       &options[NMOBJ_target_no_read_workqueue],  1},
 		{"no-write-workqueue", no_argument,       &options[NMOBJ_target_no_write_workqueue], 1},
 		{"systemd-dialog",     no_argument,       &options[NMOBJ_is_systemd],                1},
+		{"nokeyring",          no_argument,       &options[NMOBJ_is_nokeyring],              1},
 		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
 		{"noadmin",            no_argument,       &options[NMOBJ_is_noadmin],                1},
 		{"yes",                no_argument,       &options[NMOBJ_yes],                       1},
@@ -98,7 +100,7 @@ NMOBJ_is_systemd, NMOBJ_is_nofail
 const int8_t check_allowed[] =
 		// Open
 		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_unlock_timeout, NMOBJ_target_readonly, NMOBJ_target_dry_run, NMOBJ_target_allow_discards, NMOBJ_target_no_read_workqueue, NMOBJ_target_no_write_workqueue,
-		 CHECK_COMMON, -1,
+		 NMOBJ_is_nokeyring, CHECK_COMMON, -1,
 				// Close
        CHECK_COMMON, -1,
 				// New
@@ -219,9 +221,10 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\n"
 		         "options:\n"
 		         "\t--to <location>: REQUIRED; the target location of the mapper. The mapper will be named as <location>, locate under /dev/mapper/<location>\n"
-		         "\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-prompt when open.\n"
+		         "\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-prompt when open. Keys are stored in the Linux Kernel Key Retention service (keyring service).\n"
 		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
 		         "\t--dry-run: run without operating on the block device then print the master key and device parameters.\n"
+		         "\t--nokeyring: do not attempt to use keys in the Linux Kernel Key Retention service (keyring service).\n"
 		         "\t--readonly: Set the mapper device to read-only.\n"
 		         "\t--allow-discards: Allow TRIM command being sent to the crypt device.\n"
 		         "\t--no-read-workqueue: Process read requests synchronously instead of using a internal workqueue.\n"
@@ -507,6 +510,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		case 0:
 			check_file(device, !options[NMOBJ_target_readonly], options[NMOBJ_is_nofail]);
 			check_is_device_mounted(device);
+			kernel_keyring_init(!options[NMOBJ_is_nokeyring]);
 			if (!action_open_suspended_or_keyring(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly],
 			                                      options[NMOBJ_target_allow_discards],
 			                                      options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue])) {
