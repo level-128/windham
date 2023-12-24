@@ -205,44 +205,30 @@ char * get_key_input_from_the_console(const char * device, bool is_new_key) {
 		print_error(_("Passwords do not match."));
 	} else if (strlen(key) < MIN_KEY_CHAR && is_new_key) {
 		print_error(_("the provided password is too short (%zu characters), which is not recommended. To bypass this restriction, use argument --key instead."), strlen(key));
-	} else if (strcmp(key, "level-128") == 0) {
-		print_error(_("not a chance! 😡"));
 	}
 	free(check_key);
 	return key;
 }
 
 char * get_key_input_from_the_console_systemd(const char * device) {
-	int pipefd[2];
-	pid_t pid;
-	char * buf = malloc(2049); // systemd-password allows 2048 bytes of password
+	int exec_ret_val;
+	char *dup_stdout = NULL;
+	char * exec_dir[] = {"/bin", "/usr/bin", "/sbin", "/usr/sbin", NULL};
+	size_t dup_stdout_len;
+	char password_prompt[strlen("password for ") + strlen(device) + strlen(":") + 1];
+	sprintf(password_prompt, "password for %s:", device);
 	
-	assert(pipe(pipefd) != -1);
-	
-	pid = vfork();
-	assert(pid != -1);
-	
-	if (pid == 0) {
-		close(pipefd[0]);
-		
-		assert(dup2(pipefd[1], STDOUT_FILENO) == -1);
-		
-		
-		const char * const args[] = {device, (char *) NULL};
-		execvp("systemd-ask-password", (char * const *) args);
-		
-		print_error_no_exit("\"systemd-ask-password\" is not available. Param \"--systemd-dialog\" only supports system with systemd as init.");
-		kill(getppid(), SIGQUIT);
-		exit(1);
+	if (exec_name("systemd-ask-password", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, password_prompt, NULL) == false){
+		if (errno == ENOENT){
+			print_error(_("\"systemd-ask-password\" is not available. Param \"--systemd-dialog\" only supports system with systemd as init."));
+		} else {
+			print_error(_("failed to call \"systemd-ask-password\"."));
+		}
+	} else if (exec_ret_val != 0){
+		print_error(_("Cannot get password from systemd service"));
 	}
-	
-	close(pipefd[1]);
-	
-	ssize_t num_read = read(pipefd[0], buf, sizeof(buf) - 1);
-	assert(num_read != -1);
-	
-	buf[num_read] = '\0';
-	return buf;
+	dup_stdout[dup_stdout_len - 1] = '\x00';
+	return dup_stdout;
 }
 
 uint8_t * read_key_file(const Key key, size_t * length) {
@@ -511,6 +497,11 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	action_new_check_crypt_support_status(enc_type);
 	check_is_device_mounted(device);
 	
+	if (key.key_type == EMOBJ_key_file_type_input) {
+		if (strcmp(key.key_or_keyfile_location, "level-128") == 0) {
+			print_error(_("\xF0\x9F\x91\xBE not a chance!"));
+		}
+	}
 	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 	
 	fill_secure_random_bits(master_key, HASHLEN);
@@ -526,7 +517,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 }
 
 bool action_open_suspended_or_keyring(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
-                                      bool is_no_write_workqueue) {
+                                      bool is_no_write_workqueue, bool is_no_map_partition) {
 	OPERATION_READ_HEADER
 	
 	
@@ -535,7 +526,7 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 			uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
 			get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
 			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue,
-			                                   is_no_write_workqueue);
+			                                   is_no_write_workqueue, is_no_map_partition);
 			print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
 		} else {
 			char uuid_str[37];
@@ -553,7 +544,8 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 	switch (mapper_keyring_get_serial(data.uuid_and_salt)) {
 		case NMOBJ_KEY_OK:
 			printf(_("Found kernel keyring key\n"));
-			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, NULL, data.uuid_and_salt, true, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, NULL, data.uuid_and_salt, true, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue,
+														  is_no_map_partition);
 			return true;
 		case NMOBJ_KEY_ERR_NOKEY:
 			printf(_("Unlocking %s to /dev/mapper/%s...\n"), device, target_name);
@@ -573,7 +565,7 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 }
 
 void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, unsigned timeout, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
-                 bool is_no_write_workqueue) {
+                 bool is_no_write_workqueue, bool is_no_map_partition) {
 	
 	OPERATION_READ_HEADER
 	OPERATION_BACKEND_UNENCRYPT_HEADER
@@ -589,7 +581,8 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
 				mapper_keyring_add_key(disk_key, data.uuid_and_salt, data.metadata, timeout);
 			}
 		}
-		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+		create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, false, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue,
+		                                   is_no_map_partition);
 		
 	} else {
 		char uuid_str[37];

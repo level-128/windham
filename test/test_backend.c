@@ -96,14 +96,14 @@ void test_create_open_chain(char * device_){
 	print_enable = true;
 	
 	action_create(device_, "aes-xts-plain64", key1, 3, 0, 1.5, false, DEFAULT_BLOCK_SIZE);
-	action_open(device_, "my_crypt_device", key1, master_key, 3, 0, 3, false, false, false, true, false, false);
+	action_open(device_, "my_crypt_device", key1, master_key, 3, 0, 3, false, 0, false, false, true, false, false);
 	
 	action_close("my_crypt_device");
 	
 	
 	interactive_ask_new_key_test_key = "hello world2";
 	action_addkey(device_, key1, master_key, 3, 0, 3, 3, 0, 1, false);
-	action_open(device_, "my_crypt_device", key2, master_key, -1, 0, 3, false, false, false, false, true, false);
+	action_open(device_, "my_crypt_device", key2, master_key, -1, 0, 3, false, 0, false, false, false, true, false);
 	action_close("my_crypt_device");
 	action_revokekey(device_, key2, master_key, -1, 0, 3, false, false, false);
 	

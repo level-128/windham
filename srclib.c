@@ -1,8 +1,13 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <stdbool.h>
 #include <assert.h>
+#include <spawn.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <string.h>
 
 #ifndef _
 #define _(x) x
@@ -229,4 +234,132 @@ void print_ptr_poz(int pos, int msg) {
 			fflush(stdout);
 		}
 	}
+}
+
+
+extern char **environ;
+
+bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *dup_stdout_len, int *exec_ret_val, bool is_wait_child, ...) {
+	pid_t pid;
+	posix_spawn_file_actions_t action;
+	posix_spawnattr_t attr;
+	int pipefd[2];
+	bool ret;
+	char *path = NULL;
+	
+	// Check if the executable exists
+	for (int i = 0; ; i++){
+		if (exec_dir[i] == NULL){
+			errno = ENOENT;
+			return false;
+		}
+		asprintf(&path, "%s/%s", exec_dir[i], exec_name);
+		if (access(path, X_OK) != 0) {
+			free(path);
+			if (errno == ENOENT){
+				continue;
+			} else {
+				return false;
+			}
+		} else {
+			break;
+		}
+	}
+	
+	// Setup stdout redirection if required
+	posix_spawn_file_actions_init(&action);
+	posix_spawnattr_init(&attr);
+	
+	if (dup_stdout && dup_stdout_len) {
+		if (pipe(pipefd) != 0) {
+			perror("pipe");
+			free(path);
+			return false;
+		}
+		posix_spawn_file_actions_addclose(&action, pipefd[0]);
+		posix_spawn_file_actions_adddup2(&action, pipefd[1], STDOUT_FILENO);
+		posix_spawn_file_actions_addclose(&action, pipefd[1]);
+	}
+	if (!is_wait_child) {
+		posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
+		sigset_t signal_mask;
+		sigemptyset(&signal_mask);
+		sigaddset(&signal_mask, SIGCHLD);
+		posix_spawnattr_setsigdefault(&attr, &signal_mask);
+	}
+	
+	// Prepare arguments for exec
+	va_list args;
+	va_start(args, is_wait_child);
+	char **argv = malloc(sizeof(char *) * 256); // arbitrary large number
+	int argc = 0;
+	argv[argc++] = exec_name;
+	char *arg;
+	while ((arg = va_arg(args, char *)) != NULL) {
+		argv[argc++] = arg;
+	}
+	argv[argc] = NULL;
+	
+	// Spawn the process
+	if (posix_spawn(&pid, path, dup_stdout ? &action : NULL, &attr, argv, environ) != 0) {
+		perror("posix_spawn");
+		ret = false;
+	} else if (is_wait_child) {
+		if (waitpid(pid, exec_ret_val, 0) == -1) {
+			perror("waitpid");
+			ret = false;
+		} else {
+			ret = true;
+		}
+	} else {
+		ret = true;
+	}
+	
+	// Read from pipe if required
+	if (dup_stdout && dup_stdout_len) {
+		close(pipefd[1]);
+		
+		size_t buffer_size = 1024;
+		*dup_stdout = malloc(buffer_size);
+		if (*dup_stdout == NULL) {
+			perror("malloc");
+			close(pipefd[0]);
+			return false;
+		}
+		
+		ssize_t bytes_read;
+		*dup_stdout_len = 0;
+		while ((bytes_read = read(pipefd[0], *dup_stdout + *dup_stdout_len, buffer_size - *dup_stdout_len)) > 0) {
+			*dup_stdout_len += bytes_read;
+			if (*dup_stdout_len == buffer_size) {
+				buffer_size += 1024;
+				char *new_buffer = realloc(*dup_stdout, buffer_size);
+				if (new_buffer == NULL) {
+					perror("realloc");
+					free(*dup_stdout);
+					close(pipefd[0]);
+					return false;
+				}
+				*dup_stdout = new_buffer;
+			}
+		}
+		
+		if (bytes_read == -1) {
+			perror("read");
+			free(*dup_stdout);
+			close(pipefd[0]);
+			return false;
+		}
+		close(pipefd[0]);
+	}
+	
+	va_end(args);
+	free(argv);
+	free(path);
+	if (dup_stdout && dup_stdout_len) {
+		posix_spawn_file_actions_destroy(&action);
+	}
+	posix_spawnattr_destroy(&attr);
+	
+	return ret;
 }

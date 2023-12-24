@@ -164,23 +164,17 @@ ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
 
 
 void create_fat32_on_device(const char * device) {
-	
-	pid_t pid = vfork();
-	if (pid == -1) {
-		print_error(_("Failed to create FAT32 on %s vfork failed"), device);
-	}
-	
-	if (pid == 0) {
-		int nullfd = open("/dev/null", O_WRONLY);
-		dup2(nullfd, STDOUT_FILENO);
-		close(nullfd);
-		
-		execl("/usr/sbin/mkfs.vfat", "mkfs.vfat", device, "-I", NULL);
-		execl("/sbin/mkfs.vfat", "mkfs.vfat", device, "-I", NULL);
-		print_error_no_exit(_("Failed to create FAT32 on %s, Make sure that mkfs has installed"), device);
-		kill(getppid(), SIGQUIT);
-		exit(1);
-	}
+	int exec_ret_val;
+	char * exec_dir[] = {"/sbin", "/usr/sbin", NULL};
+	if (exec_name("mkfs.vfat", exec_dir, NULL, NULL, &exec_ret_val, true, device, "-I", NULL) == false){
+		if (errno == ENOENT){
+			print_error_no_exit(_("Failed to create FAT32 on %s, Make sure that mkfs has installed"), device);
+		} else {
+			print_error_no_exit(_("Failed to create FAT32 on %s."), device);
+		}
+	} else if (exec_ret_val != 0){
+		print_error_no_exit(_("Failed to create FAT32 on %s."), device);
+	};
 }
 
 bool detect_fat32_on_device(const char * device) {
@@ -308,6 +302,16 @@ void convert_disk_key_to_hex_format(const uint8_t master_key[32], char key[HASHL
 
 
 void remove_crypt_mapping(const char * name) {
+	char target_loc[strlen(name) + strlen("/dev/mapper/") + 1];
+	sprintf(target_loc, "/dev/mapper/%s", name);
+	
+	char * execdir[] = {"/sbin", "/usr/sbin", NULL};
+	char * dup_stdout = NULL;
+	size_t dup_stdout_len = 0;
+	int exec_ret_val;
+	exec_name("kpartx", execdir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, "-d", target_loc, "-v", NULL);
+	
+	
 	struct dm_task * dmt;
 	dmt = p_dm_task_create(DM_DEVICE_REMOVE);
 	p_dm_task_set_name(dmt, name);
@@ -315,9 +319,10 @@ void remove_crypt_mapping(const char * name) {
 		print_error(_("dm_task_run failed when remove mapping for device %s"), name);
 	}
 	p_dm_task_destroy(dmt);
+	
 }
 
-void fill_zeros_to_integrity_superblok(const char * name) {
+__attribute__((unused)) void fill_zeros_to_integrity_superblok(const char * name) {
 	FILE * file;
 	uint8_t buffer[512] = {0};
 	file = fopen(name, "w");
@@ -391,7 +396,7 @@ int create_crypt_mapping(const char * device,
 	}
 	if (!p_dm_task_run(dmt)) { ;
 		print_error(_("p_dm_task_run failed when mapping crypt device %s. If this error occurs when trying to use kernel key for unlocking the crypt device, make sure your SELinux or AppArmour policies"
-						  "are properly set."), name);
+						  "are properly set. To stop using kernel keyrings, use \"--nokeyring\""), name);
 	}
 	p_dm_task_destroy(dmt);
 	
@@ -407,7 +412,8 @@ void create_crypt_mapping_from_disk_key(const char * device,
                                         bool read_only,
                                         bool is_allow_discards,
                                         bool is_no_read_workqueue,
-                                        bool is_no_write_workqueue) {
+                                        bool is_no_write_workqueue,
+													 bool is_no_map_partition) {
 	
 	if (is_use_keyring){
 		assert(disk_key == NULL);
@@ -429,6 +435,18 @@ void create_crypt_mapping_from_disk_key(const char * device,
 		
 		create_crypt_mapping(device, target_name, metadata->enc_type, password, uuid_str, metadata->start_sector, metadata->end_sector, metadata->block_size, read_only,
 		                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+	}
+	if (!is_no_map_partition) {
+		char target_loc[strlen(target_name) + strlen("/dev/mapper/") + 1];
+		sprintf(target_loc, "/dev/mapper/%s", target_name);
+		
+		char * execdir[] = {"/sbin", "/usr/sbin", NULL};
+		int exec_ret_val;
+		if (exec_name("kpartx", execdir, NULL, 0, &exec_ret_val, false, "-a", target_loc, "-p", "-partition", NULL) == false) {
+			if (errno == ENOENT) {
+				print_warning(_("Cannot detect and map partition table under %s."), target_loc);
+			}
+		}
 	}
 }
 
