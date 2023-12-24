@@ -11,7 +11,7 @@
 
 #define _(STRING) gettext(STRING)
 
-#define VERSION "0.231128.0.1"
+#define VERSION "0.231128.1.1"
 #define DEFAULT_EXEC_DIR "/etc/windham"
 
 #include "enclib.c"
@@ -48,13 +48,16 @@ enum {
 	NMOBJ_is_nokeyring,
 	NMOBJ_is_nofail,
 	NMOBJ_is_noadmin,
+	NMOBJ_is_no_map_partition,
 	NMOBJ_yes,
 	NMOBJ_print_debug,
+	
+	NMOBJ_help,
 	
 	NMOBJ_target_SIZE,
 };
 
-const char * const actions[] = {"Help", "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume", "Bench"};
+const char * const actions[] = {"Help", "--help", "-h", "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume", "Bench"};
 int options[NMOBJ_target_SIZE] = {0};
 
 const struct option long_options[] = {
@@ -87,7 +90,9 @@ const struct option long_options[] = {
 		{"nokeyring",          no_argument,       &options[NMOBJ_is_nokeyring],              1},
 		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
 		{"noadmin",            no_argument,       &options[NMOBJ_is_noadmin],                1},
+		{"no-map-partition",   no_argument,       &options[NMOBJ_is_no_map_partition],       1},
 		{"yes",                no_argument,       &options[NMOBJ_yes],                       1},
+		{"help",               no_argument,       &options[NMOBJ_help],                      1},
 		{"pdebug",             no_argument,       &options[NMOBJ_print_debug],               1},
 		{0, 0,                                    0,                                         0}
 };
@@ -95,16 +100,16 @@ const struct option long_options[] = {
 #define CHECK_ALLOWED_OPEN NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_unlock_slot, NMOBJ_max_unlock_mem, NMOBJ_max_unlock_time, NMOBJ_target_decoy, NMOBJ_verbose, \
 NMOBJ_is_systemd, NMOBJ_is_nofail
 
-#define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug
+#define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help
 
 const int8_t check_allowed[] =
 		// Open
 		{CHECK_ALLOWED_OPEN, NMOBJ_to, NMOBJ_unlock_timeout, NMOBJ_target_readonly, NMOBJ_target_dry_run, NMOBJ_target_allow_discards, NMOBJ_target_no_read_workqueue, NMOBJ_target_no_write_workqueue,
-		 NMOBJ_is_nokeyring, CHECK_COMMON, -1,
+		 NMOBJ_is_nokeyring, NMOBJ_is_no_map_partition, CHECK_COMMON, -1,
 				// Close
        CHECK_COMMON, -1,
 				// New
-       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, NMOBJ_block_size, CHECK_COMMON, -1,
+       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, NMOBJ_block_size, NMOBJ_is_systemd, CHECK_COMMON, -1,
 				// AddKey
        CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, CHECK_COMMON, -1,
 				// RevokeKey
@@ -124,14 +129,13 @@ const int8_t check_allowed[] =
 int frontend_check_actions(char * input) {
 	for (int i = 0; (size_t) i < sizeof(actions) / sizeof(char *); i++) {
 		if (strcmp(actions[i], input) == 0) {
-			return i - 1; // help will return -1
+			return i >= 3 ? i - 3 : -1; // help will return -1
 		}
 	}
 	if (memcmp(input, "--", 2) == 0) {
 		print_error(_("Arguments should locate after <action> and <target>."));
 	}
 	print_error(_("<action> not recognized. type 'windham Help' to view help"));
-	return -1;
 }
 
 void frontend_check_invalid_param(int action_num) {
@@ -154,7 +158,7 @@ void frontend_check_invalid_param(int action_num) {
 				}
 			}
 			if (check_allowed[j] == -1) {
-				print_error(_("argument: %s is not valid under action: %s"), (char *) long_options[i].name, (char *) actions[action_num + 1]);
+				print_error(_("argument: %s is not valid under action: %s"), (char *) long_options[i].name, (char *) actions[action_num + 3]);
 			}
 		}
 	}
@@ -170,17 +174,20 @@ void frontend_print_unlock_args() {
 			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
 			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
 			       "\t--verbose: print unlock progress per keyslot.\n"
-			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"));
+			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"
+					 "\t--nofail: exit normally without error message when the device does not exist.\n"));
 };
 
 void frontend_print_common_args() {
 	printf(_(
 			       "\nCommon options:\n"
 			       "\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n"
-			       "\t--yes: do not ask for explicit conformation to potential destructive operations.\n"));
+			       "\t--yes: do not ask for explicit conformation to potential destructive operations.\n"
+			       "\t--help: print this message.\n"));
 };
 
 noreturn void frontend_help(const char * the_3rd_argv) {
+	int action_count = 3;
 	if (!the_3rd_argv) {
 		printf(_("usage: \"windham <action> <target>\"\n"
 		         "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'RevokeKey' 'Backup' 'Restore' 'Suspend' and 'Resume'\n\n"
@@ -200,7 +207,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("Compile time: %s, %s"), __DATE__, __TIME__);
 #endif
 	} else if (strcmp("--license", the_3rd_argv) == 0) {
-		printf(_("    Copyright (C) 2023-  W. Wang (level-128)\n"
+		printf(_("    Copyright (C) 2023-2024  W. Wang (level-128)\n"
 		         "\n"
 		         "    This program is free software: you can redistribute it and/or modify\n"
 		         "    it under the terms of the GNU General Public License (version 3) as\n"
@@ -213,30 +220,29 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\n"
 		         "    You should have received a copy of the GNU General Public License\n"
 		         "    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"));
-		printf(_("\n\tThere is also an \"Additional permissions\" applied from Article (7) when using, propagating and conveying the unmodified covered work. This \"additional "
-		         "permissions\" is legal binding, which grants additional permissions to the licensee. See license.md for details."));
 		
-	} else if (strcmp(actions[1], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("Open <target>: Unlock <target> and create a mapper (decrypted crypt device) under /dev/mapper/<location>. The key, by default, is read from the terminal.\n"
 		         "\n"
 		         "options:\n"
 		         "\t--to <location>: REQUIRED; the target location of the mapper. The mapper will be named as <location>, locate under /dev/mapper/<location>\n"
 		         "\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-prompt when open. Keys are stored in the Linux Kernel Key Retention service (keyring service).\n"
-		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
+		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, detect automatically.\n"
 		         "\t--dry-run: run without operating on the block device then print the master key and device parameters.\n"
 		         "\t--nokeyring: do not attempt to use keys in the Linux Kernel Key Retention service (keyring service).\n"
-		         "\t--readonly: Set the mapper device to read-only.\n"
-		         "\t--allow-discards: Allow TRIM command being sent to the crypt device.\n"
+		         "\t--readonly: Create read only mapper device.\n"
+		         "\t--allow-discards: Allow TRIM commands being sent to the crypt device.\n"
 		         "\t--no-read-workqueue: Process read requests synchronously instead of using a internal workqueue.\n"
-		         "\t--no-write-workqueue: Process write requests synchronously instead of using a internal workqueue.\n"));
+		         "\t--no-write-workqueue: Process write requests synchronously instead of using a internal workqueue.\n"
+		         "\t--no-map-partition: do not map the partition table that reside inside the crypt device after unlock.\n"));
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		
-	} else if (strcmp(actions[2], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("Close <target> close the encrypt block device.\n"));
 		frontend_print_common_args();
 		
-	} else if (strcmp(actions[3], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("New <target>: create a windham header on the device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DEVICES, BECAUSE THEY "
 		         "COULD BE UNLOCKED USING THE SAME MASTER KEY. \n"
 		         "\n"
@@ -254,7 +260,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the designated encryption scheme contains an unsupported, "
 		         "but valid, mode, which will trigger a warning, the partition cannot be opened using your system.\n"));
 		
-	} else if (strcmp(actions[4], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("AddKey <target>: Add a new key to the existing windham header. The new key will be asked after a successful unlock from the given key.\n"
 		         "\n"
 		         "options:\n"
@@ -264,7 +270,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		
-	} else if (strcmp(actions[5], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("RevokeKey <target>: remove a existing key from the header.\n"
 		         "\n"
 		         "options:\n"
@@ -275,7 +281,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		
-	} else if (strcmp(actions[6], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("Backup <target>: Backup the header into a separate file.\n"
 		         "\n"
 		         "options:\n"
@@ -285,25 +291,25 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		
-	} else if (strcmp(actions[7], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("Restore <target>: Restore the header from a file to the device.\n"
 		         "\n"
 		         "options:\n"
 		         "\t--to <location>: REQUIRED; the location of the file.\n"));
 		
-	} else if (strcmp(actions[8], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("Suspend <target>: Make device identifiable and accessible without password. When Suspending, only 'Close' and 'RevokeKey' (With param '--all', '--obliterate' and "
 		         "'--target-slot') could be used.\n"
 		         "\n"));
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		
-	} else if (strcmp(actions[9], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("Resume <target>: unsuspend the device.\n"
 		         "\n"));
 		frontend_print_unlock_args();
 		frontend_print_common_args();
-	} else if (strcmp(actions[10], the_3rd_argv) == 0) {
+	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
 		printf(_("Bench: Performing Argon2 benchmark\n"
 		         "\n"));
 	} else {
@@ -395,8 +401,9 @@ void frontend_create_key(char * params[], Key * key, char * device, bool is_syst
 	} else {
 		if (is_systemd) {
 			key->key_or_keyfile_location = get_key_input_from_the_console_systemd(device);
+		} else {
+			key->key_or_keyfile_location = get_key_input_from_the_console(device, false);
 		}
-		key->key_or_keyfile_location = get_key_input_from_the_console(device, false);
 		key->key_type = EMOBJ_key_file_type_input;
 	}
 }
@@ -424,9 +431,6 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	
 	frontend_check_invalid_param(action_num);
 	frontend_check_invalid_combo(action_num);
-	if (memcmp(device, "--", 2) == 0) {
-		print_error(_("arguments should locate after <device>. "));
-	}
 	
 	char * end;
 	if (options[NMOBJ_target_slot] == 1) {
@@ -513,10 +517,11 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			kernel_keyring_init(!options[NMOBJ_is_nokeyring]);
 			if (!action_open_suspended_or_keyring(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly],
 			                                      options[NMOBJ_target_allow_discards],
-			                                      options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue])) {
+			                                      options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue], options[NMOBJ_is_no_map_partition])) {
 				ASK_KEY
 				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], timeout, options[NMOBJ_target_dry_run],
-				            options[NMOBJ_target_readonly], options[NMOBJ_target_allow_discards], options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue]);
+				            options[NMOBJ_target_readonly], options[NMOBJ_target_allow_discards], options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue],
+								options[NMOBJ_is_no_map_partition]);
 			}
 			
 			break;
@@ -573,6 +578,8 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 int main(int argc, char * argv[argc]) {
 	char currentPath[PATH_MAX];
 	char * absolutePath = realpath(argv[0], currentPath);
+	char * params[NMOBJ_target_SIZE] = {NULL}; // the number of required arguments.
+	
 	
 	if (absolutePath) {
 		char * lastSlash = strrchr(absolutePath, '/');
@@ -588,27 +595,29 @@ int main(int argc, char * argv[argc]) {
 		textdomain("windham");
 	}
 	
-	char * params[NMOBJ_target_SIZE] = {NULL}; // the number of required arguments.
-	
 	if (argc == 1) {
 		frontend_no_input();
 	}
 	
 	int action_num = frontend_check_actions(argv[1]);
+	if (action_num == -1) {
+		frontend_help(argc > 2 ? argv[2] : NULL);
+	}
 	
 	if (argc == 2) {
-		if (action_num == -1) {
-			frontend_help(NULL);
-		} else if (action_num != 9) { // benchmark
-			print_error(_("<target> not provided. type 'windham Help' to view help"));
-		} else { // run benchmark
+		if (action_num == 9) { // benchmark
 			benchmark();
+		} else { // run benchmark
+			print_error(_("<target> not provided. type 'windham Help' to view help"));
 		}
 	}
 	
 	if (argc >= 3) {
-		if (action_num == -1) {
-			frontend_help(argv[2]);
+		if (memcmp(argv[2], "-", 1) == 0) {
+			if (strcmp(argv[2], "--help") == 0 || strcmp(argv[2], "-h") == 0){
+				frontend_help(argv[1]);
+			}
+			print_error(_("arguments should locate after <device>. "));
 		}
 		
 		int opt;
@@ -623,7 +632,12 @@ int main(int argc, char * argv[argc]) {
 				print_error(_("Unknown option or missing parameter for %s"), argv[optind - 1]);
 			}
 		}
+		if (options[NMOBJ_help]){
+			frontend_help(argv[1]);
+		}
 		frontend_check_validity_and_execute(action_num, argv[2], params);
 		exit(EXIT_SUCCESS);
 	}
 }
+
+
