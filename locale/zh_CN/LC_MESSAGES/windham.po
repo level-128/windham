@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-25 08:18-0500\n"
+"POT-Creation-Date: 2023-12-17 03:44-0500\n"
 "PO-Revision-Date: 2023-10-16 02:24-0400\n"
 "Last-Translator: level-128\n"
 "Language-Team: Chinese (simplified)\n"
@@ -39,6 +39,7 @@ msgid ""
 "\t--max-unlock-memory <int>: total maximum available memory (KiB) available "
 "for decryption. \n"
 "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
+"\t--verbose: print unlock progress per keyslot.\n"
 "\t--systemd-dialog: use systemd password input dialog; useful when "
 "integrating with systemd.\n"
 msgstr ""
@@ -51,6 +52,7 @@ msgid ""
 "behaviour. \n"
 "\t--yes: do not ask for explicit conformation to potential destructive "
 "operations.\n"
+"\t--help: print this message.\n"
 msgstr ""
 
 #, c-format
@@ -140,12 +142,17 @@ msgid ""
 "options:\n"
 "\t--to <location>: REQUIRED; the target location of the mapper. The mapper "
 "will be named as <location>, locate under /dev/mapper/<location>\n"
+"\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-"
+"prompt when open. Keys are stored in the Linux Kernel Key Retention service "
+"(keyring service).\n"
 "\t--decoy: Opening the device assuming that the decoy partition exists; "
 "otherwise, auto-detect.\n"
 "\t--dry-run: run without operating on the block device then print the master "
 "key and device parameters.\n"
-"\t--readonly: Set the mapper device to read-only.\n"
-"\t--allow-discards: Allow TRIM command being sent to the crypt device.\n"
+"\t--nokeyring: do not attempt to use keys in the Linux Kernel Key Retention "
+"service (keyring service).\n"
+"\t--readonly: Create read only mapper device.\n"
+"\t--allow-discards: Allow TRIM commands being sent to the crypt device.\n"
 "\t--no-read-workqueue: Process read requests synchronously instead of using "
 "a internal workqueue.\n"
 "\t--no-write-workqueue: Process write requests synchronously instead of "
@@ -295,9 +302,6 @@ msgid ""
 "accepted."
 msgstr ""
 
-msgid "arguments should locate after <device>. "
-msgstr ""
-
 #, c-format
 msgid "bad input for argument %s: not an integer"
 msgstr ""
@@ -315,6 +319,9 @@ msgid "bad input for argument --block-size: not 512, 1024, 2048 or 4096"
 msgstr ""
 
 msgid "<target> not provided. type 'windham Help' to view help"
+msgstr ""
+
+msgid "arguments should locate after <device>. "
 msgstr ""
 
 #, c-format
@@ -401,8 +408,11 @@ msgstr ""
 
 #, c-format
 msgid ""
-"the key provided is too short (%zu characters), which is not recommended. To "
-"bypass this restriction, use argument --key instead."
+"the provided password is too short (%zu characters), which is not "
+"recommended. To bypass this restriction, use argument --key instead."
+msgstr ""
+
+msgid "not a chance! 😡"
 msgstr ""
 
 msgid ""
@@ -448,11 +458,12 @@ msgstr ""
 msgid "The given key is used at slot %i"
 msgstr ""
 
+#, c-format
 msgid ""
 "AddKey: choose your key format \n"
 "(1) input key from console;\n"
 "(2) use a key file\n"
-"Option: "
+"Option: \n"
 msgstr ""
 
 msgid ""
@@ -528,6 +539,33 @@ msgid ""
 msgstr ""
 
 #, c-format
+msgid "Found kernel keyring key\n"
+msgstr ""
+
+#, c-format
+msgid "Unlocking %s to /dev/mapper/%s...\n"
+msgstr ""
+
+msgid "The stored key in kernel keyring subsystem has removed."
+msgstr ""
+
+msgid "The stored key in kernel keyring subsystem has expired."
+msgstr ""
+
+msgid ""
+"Kernel keyring subsystem cannot be loaded. Kernel keyring is not required "
+"but strongly recommended."
+msgstr ""
+
+msgid ""
+"key from the Decoy partition cannot be registered in Kernel Keyring service."
+msgstr ""
+
+#, c-format
+msgid "Registering the key into keyring with lifetime: %u sec.\n"
+msgstr ""
+
+#, c-format
 msgid "dry run complete. Slot %i opened with master key:\n"
 msgstr ""
 
@@ -579,8 +617,21 @@ msgid ""
 msgstr ""
 
 msgid ""
-"error loading libdevmapper.so. Please install 'libdevmapper' (under debian-"
-"based distro) or 'device-mapper' (under fedora/opensuse-based distro)"
+"error loading libdevmapper.so, on-the-fly encryption cannot be supported. "
+"Please install 'libdevmapper' (under debian-based distro) or 'device-"
+"mapper' (under fedora/opensuse-based distro)"
+msgstr ""
+
+msgid ""
+"Linux Kernel Keyring subsystem support is missing. Security is deduced, and "
+"some features (\"--timeout\") might not be supported."
+msgstr ""
+
+#, c-format
+msgid ""
+"Cannot store the key into Linux Keyring service, reason: %s is not equal to "
+"the default value. Use command \"windham help\" to see a list of default "
+"values."
 msgstr ""
 
 #, c-format
@@ -617,8 +668,8 @@ msgid ""
 msgstr ""
 
 msgid ""
-"The size of the device is not an integer multiple of the sector size. You "
-"may experience performance degradation."
+"The size of the crypt device is not the integer multiple of the sector size. "
+"You may experience degraded performance."
 msgstr ""
 
 #, c-format
@@ -644,7 +695,11 @@ msgid "dm_task_add_target crypt failed when mapping device %s"
 msgstr ""
 
 #, c-format
-msgid "p_dm_task_run failed when mapping crypt device %s"
+msgid ""
+"p_dm_task_run failed when mapping crypt device %s. If this error occurs when "
+"trying to use kernel key for unlocking the crypt device, make sure your "
+"SELinux or AppArmour policiesare properly set. To stop using kernel "
+"keyrings, use \"--nokeyring\""
 msgstr ""
 
 #, c-format
@@ -657,6 +712,20 @@ msgstr ""
 
 #, c-format
 msgid "Failed to write %s"
+msgstr ""
+
+#, c-format
+msgid "Start Argon2B3id benchmark:\n"
+msgstr ""
+
+msgid "'windham Bench' only supports x86-64 (AMD64) architecture."
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Result: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f "
+"seconds, %2.2f Cycles per byte, %2.2f Mcycles. Result: \n"
 msgstr ""
 
 msgid "Failed to initialize random generator."
@@ -677,4 +746,14 @@ msgid "ERROR"
 msgstr ""
 
 msgid "WARNING"
+msgstr ""
+
+#, c-format
+msgid "Unlock Progress for each keyslot:\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Unlock complete. Slot %i unlocked\n"
 msgstr ""
