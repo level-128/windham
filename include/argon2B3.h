@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limits.h>
+#include <string.h>
 
 #if defined(__cplusplus)
 extern "C" {
