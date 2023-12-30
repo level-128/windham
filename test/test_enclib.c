@@ -5,7 +5,7 @@
 #include <memory.h>
 #include <malloc.h>
 #include "assert.h"
-#include "../enclib.c"
+#include "../library_intrnlsrc/enclib.c"
 
 
 void test_set_get_master_key() {

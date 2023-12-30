@@ -8,15 +8,14 @@
 #include <libintl.h>
 #include <locale.h>
 
-
 #define _(STRING) gettext(STRING)
 
-#define VERSION "0.231128.1.1"
 #define DEFAULT_EXEC_DIR "/etc/windham"
 
-#include "enclib.c"
+#include "library_intrnlsrc/enclib.c"
 #include "backend.c"
-#include "argon_bench.c"
+#include "library_intrnlsrc/argon_bench.c"
+#include "library_intrnlsrc/dynenc.c"
 
 enum {
 	NMOBJ_to,
@@ -204,8 +203,13 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("Default encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
 #ifdef __GNUC__
 		printf(_("Compiler: GCC %d.%d.%d\n"), __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
-		printf(_("Compile time: %s, %s"), __DATE__, __TIME__);
+#elifdef __clang__
+		printf(_("Compiler: Clang %d.%d.%d\n"), __clang_major__, __clang_minor__, __clang_patchlevel__);
+#else
+      printf(_("Unknown compiler\n"));
 #endif
+		printf(_("Compile time: %s, %s\n"), __DATE__, __TIME__);
+
 	} else if (strcmp("--license", the_3rd_argv) == 0) {
 		printf(_("    Copyright (C) 2023-2024  W. Wang (level-128)\n"
 		         "\n"
@@ -428,6 +432,9 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	unsigned timeout = 0;
 	size_t block_size = DEFAULT_BLOCK_SIZE;
 	
+	print_verbose = false;
+	print_enable = false;
+	
 	
 	frontend_check_invalid_param(action_num);
 	frontend_check_invalid_combo(action_num);
@@ -495,14 +502,9 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	if (!options[NMOBJ_is_noadmin]) {
 		is_running_as_root();
 	}
-	if (options[NMOBJ_yes]) {
-		is_skip_conformation = true;
-	}
-	if (options[NMOBJ_verbose]) {
-		print_verbose = true;
-	}
+	is_skip_conformation = options[NMOBJ_yes];
+	print_verbose = options[NMOBJ_verbose];
 	
-	print_enable = false;
 	init();
 	Key key;
 	key.key_or_keyfile_location = NULL;
@@ -514,10 +516,9 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		case 0:
 			check_file(device, !options[NMOBJ_target_readonly], options[NMOBJ_is_nofail]);
 			check_is_device_mounted(device);
-			kernel_keyring_init(!options[NMOBJ_is_nokeyring]);
 			if (!action_open_suspended_or_keyring(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly],
 			                                      options[NMOBJ_target_allow_discards],
-			                                      options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue], options[NMOBJ_is_no_map_partition])) {
+			                                      options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue], options[NMOBJ_is_no_map_partition], options[NMOBJ_is_nokeyring])) {
 				ASK_KEY
 				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], timeout, options[NMOBJ_target_dry_run],
 				            options[NMOBJ_target_readonly], options[NMOBJ_target_allow_discards], options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue],

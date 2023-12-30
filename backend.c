@@ -10,7 +10,8 @@
 #define MIN_KEY_CHAR 7
 
 #include "sha256.h"
-#include "mapper.c"
+#include "library_intrnlsrc/mapper.c"
+#include "library_intrnlsrc/kerkey.c"
 
 struct SystemInfo {
 	unsigned long free_ram;
@@ -31,51 +32,14 @@ enum {
 	EMOBJ_key_file_type_none,
 };
 
-bool is_skip_conformation = false;
-
+// supported crypt
 char * crypt_list[] = {"aes", "twofish", "serpent", NULL};
 char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
 char * iv_list[] = {"plain64", "plain64be", "essiv", "eboiv", NULL};
 
-// Why no #Pragma Once? Because this file should be only include once.
-
 void is_running_as_root() {
 	if (getuid() != 0) {
 		print_error(_("The program requires root permission. try adding 'sudo', or using argument '--no-admin' if the target is accessible without root permission")) {}
-	}
-}
-
-void ask_for_conformation(const char * format, ...) {
-	if (is_skip_conformation) {
-		return;
-	}
-	const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	char random_str[4];
-	char complete_str[10];
-	char user_input[20];
-	
-	srand(time(NULL)); // NOLINT(*-msc51-cpp)
-	
-	for (int i = 0; i < 3; ++i) {
-		int index = rand() % 64; // NOLINT(*-msc50-cpp)
-		random_str[i] = base64_chars[index];
-	}
-	random_str[3] = '\0';
-	
-	printf("\033[1;33m%s\n", _("CONFORMATION REQUIRED: "));
-	va_list args;
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-	sprintf(complete_str, "YES %s", random_str);
-	printf(_("\nType \"%s\" to confirm."), complete_str);
-	printf(" \033[0m\n");
-	
-	
-	fgets(user_input, sizeof(user_input), stdin);
-	user_input[strcspn(user_input, "\n")] = 0;
-	if (strcmp(user_input, complete_str) != 0) {
-		print_error(_("User has canceled the operation."));
 	}
 }
 
@@ -212,19 +176,19 @@ char * get_key_input_from_the_console(const char * device, bool is_new_key) {
 
 char * get_key_input_from_the_console_systemd(const char * device) {
 	int exec_ret_val;
-	char *dup_stdout = NULL;
+	char * dup_stdout = NULL;
 	char * exec_dir[] = {"/bin", "/usr/bin", "/sbin", "/usr/sbin", NULL};
 	size_t dup_stdout_len;
 	char password_prompt[strlen("password for ") + strlen(device) + strlen(":") + 1];
 	sprintf(password_prompt, "password for %s:", device);
 	
-	if (exec_name("systemd-ask-password", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, password_prompt, NULL) == false){
-		if (errno == ENOENT){
+	if (exec_name("systemd-ask-password", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, password_prompt, NULL) == false) {
+		if (errno == ENOENT) {
 			print_error(_("\"systemd-ask-password\" is not available. Param \"--systemd-dialog\" only supports system with systemd as init."));
 		} else {
 			print_error(_("failed to call \"systemd-ask-password\"."));
 		}
-	} else if (exec_ret_val != 0){
+	} else if (exec_ret_val != 0) {
 		print_error(_("Cannot get password from systemd service"));
 	}
 	dup_stdout[dup_stdout_len - 1] = '\x00';
@@ -452,6 +416,53 @@ void action_new_check_crypt_support_status(const char * str) {
 	free(crypto_list);
 }
 
+
+void get_header_from_device(Data * data, const char * device, int64_t offset) {
+	FILE * fp;
+	size_t result;
+	
+	fp = fopen(device, "rb");
+	if (fp == NULL) {
+		print_error(_("Failed to open %s"), device);
+	}
+	
+	if (offset < 0) {
+		fseek(fp, offset, SEEK_END);
+	} else {
+		fseek(fp, 0, SEEK_SET);
+	}
+	
+	result = fread(data, 1, sizeof(Data), fp);
+	if (result != sizeof(Data)) {
+		print_error(_("Failed to read %s"), device);
+	}
+	fclose(fp);
+}
+
+
+void write_header_to_device(const Data * data, const char * device, int64_t offset) {
+	FILE * fp;
+	size_t result;
+	
+	fp = fopen(device, "wb"); // ensure that if 'device' is not a block device, empty the file.
+	if (fp == NULL) {
+		print_error(_("Failed to open %s"), device);
+	}
+	
+	if (offset < 0) {
+		fseek(fp, offset, SEEK_END);
+	} else {
+		fseek(fp, offset, SEEK_SET);
+	}
+	
+	result = fwrite(data, 1, sizeof(Data), fp);
+	if (result != sizeof(Data)) {
+		print_error(_("Failed to write %s"), device);
+	}
+	
+	fclose(fp);
+}
+
 #define OPERATION_READ_HEADER \
 Data data;          \
 if (is_decoy == true){ \
@@ -494,6 +505,9 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	uint8_t master_key[HASHLEN];
 	size_t start_sector, end_sector;
 	int64_t offset = is_decoy ? -(int64_t) sizeof(Data) : 0;
+	
+	decide_start_and_end_sector(device, &start_sector, &end_sector, block_size, 0, is_decoy, false);
+	
 	action_new_check_crypt_support_status(enc_type);
 	check_is_device_mounted(device);
 	
@@ -502,12 +516,11 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 			print_error(_("\xF0\x9F\x91\xBE not a chance!"));
 		}
 	}
-	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
-	
 	fill_secure_random_bits(master_key, HASHLEN);
-	decide_start_and_end_sector(device, is_decoy, &start_sector, &end_sector, block_size);
 	initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);
 	add_key_to_keyslot(&data, master_key, key, target_slot, target_memory, target_time);
+	
+	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 	
 	OPERATION_LOCK_AND_WRITE
 	
@@ -516,10 +529,13 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	}
 }
 
+void action_create_convert(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, size_t block_size, size_t sector_size){
+
+}
+
 bool action_open_suspended_or_keyring(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
-                                      bool is_no_write_workqueue, bool is_no_map_partition) {
+                                      bool is_no_write_workqueue, bool is_no_map_partition, bool is_nokeyring) {
 	OPERATION_READ_HEADER
-	
 	
 	if (is_header_suspended(data)) {
 		if (!is_dry_run) {
@@ -541,27 +557,29 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 		}
 		return true;
 	}
-	switch (mapper_keyring_get_serial(data.uuid_and_salt)) {
-		case NMOBJ_KEY_OK:
-			printf(_("Found kernel keyring key\n"));
-			create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, NULL, data.uuid_and_salt, true, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue,
-														  is_no_map_partition);
-			return true;
-		case NMOBJ_KEY_ERR_NOKEY:
-			printf(_("Unlocking %s to /dev/mapper/%s...\n"), device, target_name);
-			break;
-		case NMOBJ_KEY_ERR_KEYREVOKED:
-		print_warning(_("The stored key in kernel keyring subsystem has removed."));
-			break;
-		case NMOBJ_KEY_ERR_KEYEXPIRED:
-		print_warning(_("The stored key in kernel keyring subsystem has expired."));
-			break;
-		case NMOBJ_KEY_ERR_KERNEL_KEYRING:
-		print_warning(_("Kernel keyring subsystem cannot be loaded. Kernel keyring is not required but strongly recommended."));
-			break;
+	if (is_nokeyring) {
+		is_kernel_keyring_exist = false;
+	} else {
+		kernel_keyring_init();
+		switch (mapper_keyring_get_serial(data.uuid_and_salt)) {
+			case NMOBJ_KEY_OK:
+				printf(_("Found kernel keyring key\n"));
+				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, NULL, data.uuid_and_salt, true, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue,
+				                                   is_no_map_partition);
+				return true;
+			case NMOBJ_KEY_ERR_NOKEY:
+			case NMOBJ_KEY_ERR_KERNEL_KEYRING:
+				break;
+			case NMOBJ_KEY_ERR_KEYREVOKED:
+			print_warning(_("The stored key in kernel keyring subsystem has removed."));
+				break;
+			case NMOBJ_KEY_ERR_KEYEXPIRED:
+			print_warning(_("The stored key in kernel keyring subsystem has expired."));
+				break;
+		}
 	}
+	printf(_("Unlocking %s to /dev/mapper/%s...\n"), device, target_name);
 	return false;
-	
 }
 
 void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, unsigned timeout, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,

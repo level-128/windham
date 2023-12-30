@@ -66,8 +66,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Test")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprefetch-loop-arrays")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto -fwhole-program")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprefetch-loop-arrays -fno-fat-lto-objects")
     set(CMAKE_AR "gcc-ar")
     set(CMAKE_NM "gcc-nm")
     set(CMAKE_RANLIB "gcc-ranlib")
@@ -119,7 +119,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Language")
             OUTPUT ${CMAKE_SOURCE_DIR}/locale/windham.pot
             COMMAND xgettext --from-code=UTF-8 -k_ -L C --no-location  -o ${CMAKE_SOURCE_DIR}/locale/windham.pot ${CMAKE_SOURCE_DIR}/frontend.c ${CMAKE_SOURCE_DIR}/backend.c ${CMAKE_SOURCE_DIR}/mapper.c
             ${CMAKE_SOURCE_DIR}/argon_bench.c
-            ${CMAKE_SOURCE_DIR}/enclib.c ${CMAKE_SOURCE_DIR}/srclib.c
+            ${CMAKE_SOURCE_DIR}/enclib.c ${CMAKE_SOURCE_DIR}/library_intrnlsrc/srclib.c
             COMMENT "Generating windham.pot from source code"
     )
 
