@@ -1,8 +1,11 @@
 /*
- * Argon2B3 reference source code package - reference C implementations
+ * Argon2 reference source code package - reference C implementations
  *
  * Copyright 2015
  * Daniel Dinu, Dmitry Khovratovich, Jean-Philippe Aumasson, and Samuel Neves
+ *
+ * Copyright 2023
+ * Weizheng Wang (modified for windham & Argon2B3)
  *
  * You may use this work under the terms of a Creative Commons CC0 1.0
  * License/Waiver or the Apache Public License 2.0, at your option. The terms of
@@ -16,22 +19,11 @@
  */
 
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
-
-#ifdef _WIN32
-#include <intrin.h>
-#endif
 
 #include "argon2B3.h"
 
-#ifdef _WIN32
-static uint64_t rdtsc(void) {
-	return __rdtsc();
-	}
-#else
 #if defined(__amd64__) || defined(__x86_64__)
 static uint64_t rdtsc(void) {
 	uint64_t rax, rdx;
@@ -41,11 +33,8 @@ static uint64_t rdtsc(void) {
 #else
 static uint64_t rdtsc(void){return 0;};
 #endif
-#endif
 
-
-
-_Noreturn void benchmark() {
+noreturn void benchmark() {
 #if defined(__amd64__) || defined(__x86_64__)
 	printf(_("Start Argon2B3id benchmark:\n"));
 #else

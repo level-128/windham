@@ -2,21 +2,21 @@
 // Created by level-128 on 8/28/23.
 //
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <linux_fs.h>
-#include <errno.h>
-#include <signal.h>
-#include <unistd.h>
 
 #include <libdevmapper.h>
-#include <keyutils.h>
+
+#include "srclib.c"
 
 #define SECTOR_SIZE 512
 #define MAX_LINE_LENGTH 1024
 #define TARGET_PREFIX "name         : "
+
+// data
+#ifndef INCL_MAPPER
+#define INCL_MAPPER
 
 typeof(dm_task_create) * p_dm_task_create;
 typeof(dm_task_set_name) * p_dm_task_set_name;
@@ -26,24 +26,7 @@ typeof(dm_task_run) * p_dm_task_run;
 typeof(dm_task_destroy) * p_dm_task_destroy;
 typeof(dm_task_add_target) * p_dm_task_add_target;
 
-bool is_kernel_keyring_exist;
-typeof(add_key) * p_add_key;
-typeof(keyctl_set_timeout) * p_keyctl_set_timeout;
-typeof(keyctl) * p_keyctl;
-typeof(keyctl_unlink) * p_keyctl_unlink;
-
 #pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target dm_task_set_uuid
-#pragma GCC poison add_key keyctl_set_timeout keyctl_read keyctl_unlink keyctl
-
-typedef enum {
-	NMOBJ_KEY_OK = 0,
-	NMOBJ_KEY_ERR_NOKEY = -1,
-	NMOBJ_KEY_ERR_KEYREVOKED = -2,
-	NMOBJ_KEY_ERR_KEYEXPIRED = -3,
-	NMOBJ_KEY_ERR_KERNEL_KEYRING = -4
-} ENUM_mp_key;
-
-#pragma once
 
 void check_container(void) {
 	char * container = NULL;
@@ -58,14 +41,6 @@ void check_container(void) {
 		print_warning(_("Running inside a container (%s) is discouraged. Windham needs to interact with the Linux kernel, thus the isolation policy of the container may render the "
 		                "program malfunction."), container);
 	}
-}
-
-void generate_UUID_from_bytes(const unsigned char bytes[16], char uuid_str[37]) {
-	sprintf(uuid_str, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-	        bytes[0], bytes[1], bytes[2], bytes[3],
-	        bytes[4], bytes[5], bytes[6], bytes[7],
-	        bytes[8], bytes[9], bytes[10], bytes[11],
-	        bytes[12], bytes[13], bytes[14], bytes[15]);
 }
 
 void mapper_init() {
@@ -84,85 +59,6 @@ void mapper_init() {
 	}
 }
 
-void kernel_keyring_init(bool enable_kernel_keyring){
-	if (enable_kernel_keyring) {
-		void * handle = dlopen("libkeyutils.so", RTLD_LAZY);
-		if (!handle) {
-			print_warning(_("Linux Kernel Keyring subsystem support is missing. Security is deduced, and some features (\"--timeout\") might not be supported."));
-			is_kernel_keyring_exist = false;
-		} else {
-			is_kernel_keyring_exist = true;
-			p_add_key = dlsym(handle, "add_key");
-			p_keyctl_set_timeout = dlsym(handle, "keyctl_set_timeout");
-			p_keyctl = dlsym(handle, "keyctl");
-			p_keyctl_unlink = dlsym(handle, "keyctl_unlink");
-		}
-	} else {
-		is_kernel_keyring_exist = false;
-	}
-}
-
-
-int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], Metadata metadata, unsigned timeout) {
-	
-	if (!is_kernel_keyring_exist) {
-		return 0;
-	}
-	char not_equal[100] = "{";
-	if (metadata.block_size == DEFAULT_BLOCK_SIZE){
-		strcat(not_equal, "block size, ");
-	}
-	if (strcmp(metadata.enc_type, DEFAULT_DISK_ENC_MODE) != 0){
-		strcat(not_equal, "encryption mode, ");
-	}
-	strcat(not_equal, "}");
-	if (strcmp(not_equal, "{}") != 0){
-		print_warning(_("Cannot store the key into Linux Keyring service, reason: %s is not equal to the default value. Use command \"windham help\" to see a list of default values."), not_equal);
-	}
-	
-	char name[strlen("windham:") + 36 /* uuid len */ + 1];
-	strcpy(name, "windham:");
-	generate_UUID_from_bytes(uuid, name + strlen("windham:"));
-	
-	key_serial_t key_serial;
-	key_serial = p_add_key("logon", name, key, HASHLEN, KEY_SPEC_USER_KEYRING);
-	
-	if (key_serial < 0) {
-		perror("add_key");
-		exit(1);
-	}
-	p_keyctl_set_timeout(key_serial, timeout);
-
-	return 0;
-}
-
-ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
-	key_serial_t key_serial;
-	if (!is_kernel_keyring_exist) {
-		return NMOBJ_KEY_ERR_KERNEL_KEYRING;
-	}
-	char name[strlen("windham:") + 36 /* uuid len */ + 1];
-	strcpy(name, "windham:");
-	generate_UUID_from_bytes(uuid, name + strlen("windham:"));
-
-	key_serial = (key_serial_t) p_keyctl(KEYCTL_SEARCH, KEY_SPEC_USER_KEYRING, "logon", name, NULL, 0);
-	if (key_serial < 0) {
-		if (errno == ENOKEY) {
-			return NMOBJ_KEY_ERR_NOKEY;
-		} else if (errno == EKEYREVOKED) {
-			p_keyctl_unlink(KEY_SPEC_USER_KEYRING, key_serial); // try to clear this, might fail but don't care
-			return NMOBJ_KEY_ERR_KEYREVOKED;
-		} else if (errno == EKEYEXPIRED) {
-			p_keyctl_unlink(KEY_SPEC_USER_KEYRING, key_serial);
-			return NMOBJ_KEY_ERR_KEYEXPIRED;
-		}
-		perror("request_key");
-		exit(1);
-	}
-	return NMOBJ_KEY_OK;
-}
-
-
 void create_fat32_on_device(const char * device) {
 	int exec_ret_val;
 	char * exec_dir[] = {"/sbin", "/usr/sbin", NULL};
@@ -177,7 +73,7 @@ void create_fat32_on_device(const char * device) {
 	};
 }
 
-bool detect_fat32_on_device(const char * device) {
+bool detect_fat32_on_device(const char * device) { // TODO deprecated
 	uint8_t content[20];
 	FILE * fp = fopen(device, "rb");
 	if (fp == NULL) {
@@ -189,6 +85,8 @@ bool detect_fat32_on_device(const char * device) {
 	fclose(fp);
 	return memcmp(&content[3], "mkfs.fat", 8) == 0;
 }
+
+// TODO use a single function to read the device status: Decoy, Suspended, Converting or normal.
 
 bool check_is_device_mounted(const char * device) {
 	FILE * fp = fopen("/proc/mounts", "r");
@@ -265,26 +163,40 @@ char ** get_crypto_list() {
 	return crypto_list;
 }
 
-void decide_start_and_end_sector(const char * device, bool is_decoy, size_t * start_sector, size_t * end_sector, size_t block_size) {
-	size_t device_size = get_device_sector_cnt(device);
-	if (device_size % (block_size / 512) != 0) {
-		print_warning(_("The size of the crypt device is not the integer multiple of the sector size. You may experience degraded performance."));
-	}
+size_t decide_start_and_end_sector(const char * device, size_t * start_sector, size_t * end_sector, size_t block_size, size_t sector_size, bool is_decoy, bool is_dyn_enc) {
+	size_t device_sector_cnt = get_device_sector_cnt(device);
 	
 	size_t safe_node = (0x78000b + (16 << 20)) / 512; // safe sector
 	if (is_decoy) {
-		if (device_size < (128 << 20) / 512) {
+		if (device_sector_cnt % (block_size / 512) != 0) {
+			print_error(_("Impossible to create a decoy scheme since the size of the crypt device is not the integer multiple of the sector size."));
+		}
+		if (device_sector_cnt < (128 << 20) / 512) {
 			print_error(_("Device %s is too small to deploy decoy partition; Windham requires at least %i MiB."), device, 128);
 		}
-		*end_sector = device_size - 8;
-		*start_sector = (device_size - safe_node) * 4 / 12 + safe_node;
+		*end_sector = device_sector_cnt - 8;
+		*start_sector = (device_sector_cnt - safe_node) * 4 / 12 + safe_node;
+	} else if (is_dyn_enc){
+		if (device_sector_cnt % (block_size / 512) != 0) {
+			print_error(_("Impossible to convert the given device since the size of the crypt device is not the integer multiple of the sector size."));
+		}
+		const size_t min_size_bytes = (8 << 10) /* min size for device */ + sector_size * 2 /* sector before and after the unenc data region */ + 4096 /* hash */ + 4096 /* header at the end */;
+		if (device_sector_cnt < (min_size_bytes) / 512) {
+			print_error(_("Device %s is too small; Windham requires at least %lu KiB to dynamically convert the partition under sector size %lu."), device, min_size_bytes, sector_size);
+		}
+		*end_sector = device_sector_cnt;
+		*start_sector = sector_size / 512;
 	} else {
-		if (device_size < (32 << 20) / 512) {
-			print_error(_("Device %s is too small; Windham requires at least %i MiB."), device, 32);
+		if (device_sector_cnt % (block_size / 512) != 0) {
+			ask_for_conformation(_("The size of the crypt device is not the integer multiple of the sector size. You may experience degraded performance."));
+		}
+		if (device_sector_cnt < (8 << 10) / 512) {
+			print_error(_("Device %s is too small; Windham requires at least %i KiB."), device, 8);
 		}
 		*start_sector = 8;
-		*end_sector = device_size - device_size % (block_size / 512);
+		*end_sector = device_sector_cnt - device_sector_cnt % (block_size / 512);
 	}
+	return device_sector_cnt;
 }
 
 
@@ -405,15 +317,15 @@ int create_crypt_mapping(const char * device,
 
 void create_crypt_mapping_from_disk_key(const char * device,
                                         const char * target_name,
-                                        Metadata * metadata,
+                                        EncMetadata * metadata,
                                         const uint8_t disk_key[HASHLEN],
                                         uint8_t uuid[16],
-													 bool is_use_keyring,
+                                        bool is_use_keyring,
                                         bool read_only,
                                         bool is_allow_discards,
                                         bool is_no_read_workqueue,
                                         bool is_no_write_workqueue,
-													 bool is_no_map_partition) {
+                                        bool is_no_map_partition) {
 	
 	if (is_use_keyring){
 		assert(disk_key == NULL);
@@ -422,7 +334,7 @@ void create_crypt_mapping_from_disk_key(const char * device,
 		generate_UUID_from_bytes(uuid, password + strlen(":32:logon:windham:"));
 		
 		size_t start_sector, end_sector;
-		decide_start_and_end_sector(device, false, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE);
+		decide_start_and_end_sector(device, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0, false, false);
 		create_crypt_mapping(device, target_name, DEFAULT_DISK_ENC_MODE, password, password + strlen(":32:logon:windham:"), start_sector, end_sector, DEFAULT_BLOCK_SIZE, read_only,
 		                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 		
@@ -450,49 +362,4 @@ void create_crypt_mapping_from_disk_key(const char * device,
 	}
 }
 
-
-void get_header_from_device(Data * data, const char * device, int64_t offset) {
-	FILE * fp;
-	size_t result;
-	
-	fp = fopen(device, "rb");
-	if (fp == NULL) {
-		print_error(_("Failed to open %s"), device);
-	}
-	
-	if (offset < 0) {
-		fseek(fp, offset, SEEK_END);
-	} else {
-		fseek(fp, 0, SEEK_SET);
-	}
-	
-	result = fread(data, 1, sizeof(Data), fp);
-	if (result != sizeof(Data)) {
-		print_error(_("Failed to read %s"), device);
-	}
-	fclose(fp);
-}
-
-
-void write_header_to_device(const Data * data, const char * device, int64_t offset) {
-	FILE * fp;
-	size_t result;
-	
-	fp = fopen(device, "wb"); // ensure that if 'device' is not a block device, empty the file.
-	if (fp == NULL) {
-		print_error(_("Failed to open %s"), device);
-	}
-	
-	if (offset < 0) {
-		fseek(fp, offset, SEEK_END);
-	} else {
-		fseek(fp, offset, SEEK_SET);
-	}
-	
-	result = fwrite(data, 1, sizeof(Data), fp);
-	if (result != sizeof(Data)) {
-		print_error(_("Failed to write %s"), device);
-	}
-	
-	fclose(fp);
-}
+#endif

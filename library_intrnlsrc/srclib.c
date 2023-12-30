@@ -1,15 +1,13 @@
+#include "windham_const.h"
+
 #include <inttypes.h>
-#include <stdio.h>
 #include <stdarg.h>
 #include <assert.h>
 #include <spawn.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <sys/wait.h>
-#include <errno.h>
 #include <string.h>
 
-#ifndef _
+#ifndef _ // no GNU gettext
 #define _(x) x
 #endif
 
@@ -74,7 +72,7 @@
        : T_PTR)
 
 bool print_enable;
-bool print_verbose = false;
+bool print_verbose;
 
 #define print(...) \
    if (print_enable){                \
@@ -84,8 +82,7 @@ bool print_verbose = false;
    p__print__(tmp_var);} while(0)
 
 
-
-int debug_print_error_suppress = 0;
+int debug_print_error_suppress;
 
 #define print_error(...) \
     if (debug_print_error_suppress){ \
@@ -109,6 +106,52 @@ int debug_print_error_suppress = 0;
     printf(__VA_ARGS__);           \
     printf("\033[0m\n")
 
+#include <stddef.h>
+#include <unistd.h>
+
+#define BOOL_ADDER(a) bool a
+#define COMMA_SEPARATOR ,
+
+#define ARGFLG_1(a) BOOL_ADDER(a)
+#define ARGFLG_2(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_1(__VA_ARGS__)
+#define ARGFLG_3(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_2(__VA_ARGS__)
+#define ARGFLG_4(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_3(__VA_ARGS__)
+#define ARGFLG_5(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_4(__VA_ARGS__)
+#define ARGFLG_6(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_5(__VA_ARGS__)
+#define ARGFLG_7(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_6(__VA_ARGS__)
+#define ARGFLG_8(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_7(__VA_ARGS__)
+#define ARGFLG_9(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_8(__VA_ARGS__)
+#define ARGFLG_10(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_9(__VA_ARGS__)
+#define ARGFLG_11(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_10(__VA_ARGS__)
+#define ARGFLG_12(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_11(__VA_ARGS__)
+#define ARGFLG_13(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_12(__VA_ARGS__)
+#define ARGFLG_14(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_13(__VA_ARGS__)
+#define ARGFLG_15(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_14(__VA_ARGS__)
+#define ARGFLG_16(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_15(__VA_ARGS__)
+#define ARGFLG_17(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_16(__VA_ARGS__)
+#define ARGFLG_18(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_17(__VA_ARGS__)
+#define ARGFLG_19(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_18(__VA_ARGS__)
+#define ARGFLG_20(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_19(__VA_ARGS__)
+
+#define ARGFLG_N(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,N,...) __attribute__((unused)) BOOL_DEL _, ARGFLG_##N
+
+#define ARGFLG(...) ARGFLG_N(__VA_ARGS__,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)(__VA_ARGS__)
+
+
+static void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b[length], uint8_t c[length]);
+
+bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *dup_stdout_len, int *exec_ret_val, bool is_wait_child, ...);
+
+void print_hex_array(size_t length, const uint8_t arr[length]);
+
+int64_t is_in_list(char * item, char * list[]);
+
+void print_ptr_poz(int pos, int msg, int max_poz);
+
+// data
+#ifndef INCL_SRCLIB
+#define INCL_SRCLIB
+
 typedef enum {
 	T_INT,
 	T_DOUBLE,
@@ -117,10 +160,14 @@ typedef enum {
 	T_BOOL,
 } TYPE_T;
 
-#pragma once
+__attribute__((unused)) typedef union {
+	nullptr_t tmp_var[0];
+} BOOL_DEL;
 
 TYPE_T argtype[10];
 void * arg_ptr[10];
+
+__attribute__((unused)) BOOL_DEL ARGFLG_delim;
 
 void p__expands_args(int argcount, ...) {
 	va_list p__tmp_va__;
@@ -185,57 +232,44 @@ void p__print__(int argcount) {
 	}
 }
 
-void print_hex_array(size_t length, const uint8_t arr[length]) {
-	for (size_t i = 0; i < length; ++i) {
-		printf("%02x ", arr[i]);
-	}
-	printf("\n");
-}
+bool is_skip_conformation;
 
-int64_t is_in_list(char * item, char * list[]) {
-	int64_t i = 0;
-	for (; list[i]; i++) {
-		if (strcmp(item, list[i]) == 0) {
-			return i;
-		}
+void ask_for_conformation(const char * format, ...) {
+	if (is_skip_conformation) {
+		return;
 	}
-	return -1;
-}
-
-void print_list(char * list[]) {
-	for (int i = 0; list[i]; i++) {
-		printf(" \"%s\"", list[i]);
+	const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	char random_str[4];
+	char complete_str[10];
+	char user_input[20];
+	
+	srand(time(NULL)); // NOLINT(*-msc51-cpp)
+	
+	for (int i = 0; i < 3; ++i) {
+		int index = rand() % 64; // NOLINT(*-msc50-cpp)
+		random_str[i] = base64_chars[index];
 	}
-}
-
-void print_ptr_poz(int pos, int msg) {
-	if (print_verbose) {
-		if (pos == -1) {
-			printf(_("Unlock Progress for each keyslot:\n"));
-			printf("\nSlot:     ");
-			for (int i = 0; i < KEY_SLOT_COUNT; i++) {
-				printf("%i       ", i);
-			}
-			printf("\nProgress: ");
-			for (int i = 0; i < KEY_SLOT_COUNT; i++) {
-				printf("0       ");
-			}
-		} else {
-			printf("\033[%dG", pos * 8 + 11);
-			
-			if (msg > 0) {
-				printf("%i", msg);
-			} else if (msg == 0) {
-				printf(_("\nUnlock complete. Slot %i unlocked\n"), pos);
-			} else if (msg == -1) {
-				printf("ML");
-			}
-			
-			fflush(stdout);
-		}
+	random_str[3] = '\0';
+	
+	printf("\033[1;33m%s\n", _("CONFORMATION REQUIRED: "));
+	va_list args;
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
+	sprintf(complete_str, "YES %s", random_str);
+	printf(_("\nType \"%s\" to confirm."), complete_str);
+	printf(" \033[0m\n");
+	
+	
+	fgets(user_input, sizeof(user_input), stdin);
+	user_input[strcspn(user_input, "\n")] = 0;
+	if (strcmp(user_input, complete_str) != 0) {
+		print_error(_("User has canceled the operation."));
 	}
 }
 
+// -----------------------------------------------
+// independent subroutines:
 
 extern char **environ;
 
@@ -363,3 +397,69 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 	
 	return ret;
 }
+
+void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b[length], uint8_t c[length]) {
+	for (size_t i = 0; i < length; i++) {
+		c[i] = a[i] ^ b[i];
+	}
+}
+
+void print_hex_array(size_t length, const uint8_t arr[length]) {
+	for (size_t i = 0; i < length; ++i) {
+		printf("%02x ", arr[i]);
+	}
+	printf("\n");
+}
+
+int64_t is_in_list(char * item, char * list[]) {
+	int64_t i = 0;
+	for (; list[i]; i++) {
+		if (strcmp(item, list[i]) == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+__attribute__((unused)) void print_list(char * list[]) {
+	for (int i = 0; list[i]; i++) {
+		printf(" \"%s\"", list[i]);
+	}
+}
+
+void print_ptr_poz(int pos, int msg, int max_poz) {
+	if (print_verbose) {
+		if (pos == -1) {
+			printf(_("Unlock Progress for each keyslot:\n"));
+			printf("\nSlot:     ");
+			for (int i = 0; i < max_poz; i++) {
+				printf("%i       ", i);
+			}
+			printf("\nProgress: ");
+			for (int i = 0; i < max_poz; i++) {
+				printf("0       ");
+			}
+		} else {
+			printf("\033[%dG", pos * 8 + 11);
+			
+			if (msg > 0) {
+				printf("%i", msg);
+			} else if (msg == 0) {
+				printf(_("\nUnlock complete. Slot %i unlocked\n"), pos);
+			} else if (msg == -1) {
+				printf("ML");
+			}
+			fflush(stdout);
+		}
+	}
+}
+
+void generate_UUID_from_bytes(const unsigned char bytes[16], char uuid_str[37]) {
+	sprintf(uuid_str, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+	        bytes[0], bytes[1], bytes[2], bytes[3],
+	        bytes[4], bytes[5], bytes[6], bytes[7],
+	        bytes[8], bytes[9], bytes[10], bytes[11],
+	        bytes[12], bytes[13], bytes[14], bytes[15]);
+}
+
+#endif // #ifndef INCL_SRCLIB
