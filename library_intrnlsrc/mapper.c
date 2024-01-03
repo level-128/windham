@@ -25,6 +25,7 @@ typeof(dm_task_set_uuid) * p_dm_task_set_uuid;
 typeof(dm_task_run) * p_dm_task_run;
 typeof(dm_task_destroy) * p_dm_task_destroy;
 typeof(dm_task_add_target) * p_dm_task_add_target;
+typeof(dm_task_update_nodes) * p_dm_task_update_nodes;
 
 #pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target dm_task_set_uuid
 
@@ -56,6 +57,7 @@ void mapper_init() {
 		p_dm_task_run = dlsym(handle, "dm_task_run");
 		p_dm_task_destroy = dlsym(handle, "dm_task_destroy");
 		p_dm_task_add_target = dlsym(handle, "dm_task_add_target");
+		p_dm_task_update_nodes = dlsym(handle, "dm_task_update_nodes");
 	}
 }
 
@@ -73,20 +75,35 @@ void create_fat32_on_device(const char * device) {
 	};
 }
 
-bool detect_fat32_on_device(const char * device) { // TODO deprecated
-	uint8_t content[20];
-	FILE * fp = fopen(device, "rb");
-	if (fp == NULL) {
+typedef enum{
+	NMOBJ_MAPPER_DEVSTAT_DECOY,
+	NMOBJ_MAPPER_DEVSTAT_SUSP,
+	NMOBJ_MAPPER_DEVSTAT_CONV,
+	NMOBJ_MAPPER_DEVSTAT_NORM
+} ENUM_MAPPER_DEVSTAT;
+
+ENUM_MAPPER_DEVSTAT detect_device_status(const char * device){
+	uint8_t content_head[16], content_end_head[16];
+	int fp = open(device, O_RDONLY);
+	if (fp == 0) {
 		print_error(_("can not open device %s"), device);
 	}
-	if (fread(content, 1, sizeof(content), fp) != sizeof(content)) {
-		print_error(_("Failed to detect partition on %s"), device);
+	read(fp, content_head, sizeof(content_head));
+	
+	lseek(fp, -4096, SEEK_END);
+	read(fp, content_end_head, sizeof(content_end_head));
+	
+	close(fp);
+	if (memcmp(content_end_head, head_converting, sizeof(head_converting)) == 0){
+		return NMOBJ_MAPPER_DEVSTAT_CONV;
+	} else if (memcmp(&content_head[3], "mkfs.fat", 8) == 0){
+		return NMOBJ_MAPPER_DEVSTAT_DECOY;
+	} else if (memcmp(content_head, head, sizeof(head)) == 0){
+		return NMOBJ_MAPPER_DEVSTAT_SUSP;
+	} else {
+		return NMOBJ_MAPPER_DEVSTAT_NORM;
 	}
-	fclose(fp);
-	return memcmp(&content[3], "mkfs.fat", 8) == 0;
 }
-
-// TODO use a single function to read the device status: Decoy, Suspended, Converting or normal.
 
 bool check_is_device_mounted(const char * device) {
 	FILE * fp = fopen("/proc/mounts", "r");
@@ -112,7 +129,7 @@ bool check_is_device_mounted(const char * device) {
 	return false;
 }
 
-size_t get_device_sector_cnt(const char * device) {
+size_t get_device_block_cnt(const char * device) {
 	int fd = open(device, O_RDONLY);
 	if (fd == -1) {
 		perror("open");
@@ -163,8 +180,8 @@ char ** get_crypto_list() {
 	return crypto_list;
 }
 
-size_t decide_start_and_end_sector(const char * device, size_t * start_sector, size_t * end_sector, size_t block_size, size_t sector_size, bool is_decoy, bool is_dyn_enc) {
-	size_t device_sector_cnt = get_device_sector_cnt(device);
+size_t decide_start_and_end_block(const char * device, size_t * start_sector, size_t * end_sector, size_t block_size, size_t section_size, bool is_decoy, bool is_dyn_enc) {
+	size_t device_sector_cnt = get_device_block_cnt(device);
 	
 	size_t safe_node = (0x78000b + (16 << 20)) / 512; // safe sector
 	if (is_decoy) {
@@ -180,12 +197,12 @@ size_t decide_start_and_end_sector(const char * device, size_t * start_sector, s
 		if (device_sector_cnt % (block_size / 512) != 0) {
 			print_error(_("Impossible to convert the given device since the size of the crypt device is not the integer multiple of the sector size."));
 		}
-		const size_t min_size_bytes = (8 << 10) /* min size for device */ + sector_size * 2 /* sector before and after the unenc data region */ + 4096 /* hash */ + 4096 /* header at the end */;
+		const size_t min_size_bytes = (8 << 10) /* min size for device */ + section_size * 2 /* sector before and after the unenc data region */ + 4096 /* hash */ + 4096 /* header at the end */;
 		if (device_sector_cnt < (min_size_bytes) / 512) {
-			print_error(_("Device %s is too small; Windham requires at least %lu KiB to dynamically convert the partition under sector size %lu."), device, min_size_bytes, sector_size);
+			print_error(_("Device %s is too small; Windham requires at least %lu KiB to dynamically convert the partition under sector size %lu."), device, min_size_bytes, section_size);
 		}
 		*end_sector = device_sector_cnt;
-		*start_sector = sector_size / 512;
+		*start_sector = section_size / 512;
 	} else {
 		if (device_sector_cnt % (block_size / 512) != 0) {
 			ask_for_conformation(_("The size of the crypt device is not the integer multiple of the sector size. You may experience degraded performance."));
@@ -231,7 +248,7 @@ void remove_crypt_mapping(const char * name) {
 		print_error(_("dm_task_run failed when remove mapping for device %s"), name);
 	}
 	p_dm_task_destroy(dmt);
-	
+	free(dup_stdout);
 }
 
 __attribute__((unused)) void fill_zeros_to_integrity_superblok(const char * name) {
@@ -289,8 +306,6 @@ int create_crypt_mapping(const char * device,
 	         is_no_read_workqueue ? "no_read_workqueue" : "",
 	         is_no_write_workqueue ? "no_write_workqueue" : "");
 	
-	printf("%s\n", params_crypt);
-	
 	if (!(dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
 		print_error(_("dm_task_create failed when mapping device %s"), name);
 	}
@@ -311,6 +326,8 @@ int create_crypt_mapping(const char * device,
 						  "are properly set. To stop using kernel keyrings, use \"--nokeyring\""), name);
 	}
 	p_dm_task_destroy(dmt);
+	
+	p_dm_task_update_nodes();
 	
 	return 0;
 }
@@ -334,7 +351,7 @@ void create_crypt_mapping_from_disk_key(const char * device,
 		generate_UUID_from_bytes(uuid, password + strlen(":32:logon:windham:"));
 		
 		size_t start_sector, end_sector;
-		decide_start_and_end_sector(device, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0, false, false);
+		decide_start_and_end_block(device, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0, false, false);
 		create_crypt_mapping(device, target_name, DEFAULT_DISK_ENC_MODE, password, password + strlen(":32:logon:windham:"), start_sector, end_sector, DEFAULT_BLOCK_SIZE, read_only,
 		                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 		
