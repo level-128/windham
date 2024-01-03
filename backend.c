@@ -3,15 +3,14 @@
 //
 
 #include <sys/stat.h>
-#include <inttypes.h>
 #include <termios.h>
-#include <libintl.h>
 
 #define MIN_KEY_CHAR 7
 
 #include "sha256.h"
 #include "library_intrnlsrc/mapper.c"
 #include "library_intrnlsrc/kerkey.c"
+#include "library_intrnlsrc/dynenc.c"
 
 struct SystemInfo {
 	unsigned long free_ram;
@@ -463,18 +462,35 @@ void write_header_to_device(const Data * data, const char * device, int64_t offs
 	fclose(fp);
 }
 
-#define OPERATION_READ_HEADER \
-Data data;          \
-if (is_decoy == true){ \
-    print_warning(_("Unlocking %s assuming decoy partition exits"), device);   \
-}                    \
-is_decoy = detect_fat32_on_device(device); \
-int64_t offset = is_decoy ? -(int64_t)sizeof(Data) : 0;                            \
-get_header_from_device(&data, device, offset); \
-
-#define OPERATION_DECLINE_SUSPEND \
-if (is_header_suspended(data)){   \
-print_error(_("The header is suspended. Resume header to perform this operation.")); \
+ENUM_MAPPER_DEVSTAT frontend_read_header(const char * device, Data * unini_data, size_t * unini_offset, bool * is_decoy) {
+	ENUM_MAPPER_DEVSTAT ret = detect_device_status(device);
+	switch (ret) {
+		case NMOBJ_MAPPER_DEVSTAT_DECOY:
+			*unini_offset = -4096;
+			*is_decoy = true;
+			break;
+		case NMOBJ_MAPPER_DEVSTAT_SUSP:
+			*unini_offset = 0;
+			if (*is_decoy == true) {
+				print_error(_("Unable to set \"--decoy\" for suspended device."));
+			}
+			break;
+		case NMOBJ_MAPPER_DEVSTAT_CONV:
+			*unini_offset = -4096;
+			if (*is_decoy == true) {
+				print_error(_("Unable to set \"--decoy\" for device during conversion."));
+			}
+			break;
+		case NMOBJ_MAPPER_DEVSTAT_NORM:
+			if (*is_decoy) {
+				print_warning(_("Unlocking %s assuming decoy partition exits"), device);
+				*unini_offset = -4096;
+			} else {
+				*unini_offset = 0;
+			}
+	}
+	get_header_from_device(unini_data, device, *unini_offset);
+	return ret;
 }
 
 
@@ -498,27 +514,27 @@ operate_all_keyslots_using_keyslot_key_in_metadata(data.keyslots, data.metadata.
 lock_or_unlock_metadata_using_master_key(&data, master_key);\
 write_header_to_device(&data, device, offset);
 
+#define OPERATION_CREATE_DEVICE \
+Data data; uint8_t master_key[HASHLEN];\
+action_new_check_crypt_support_status(enc_type);\
+check_is_device_mounted(device);\
+if (key.key_type == EMOBJ_key_file_type_input) {\
+if (strcmp(key.key_or_keyfile_location, "level-128") == 0) {\
+print_error(_("\xF0\x9F\x91\xBE not a chance!"));\
+}}\
+fill_secure_random_bits(master_key, HASHLEN);\
+initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);\
+add_key_to_keyslot(&data, master_key, key, target_slot, target_memory, target_time);
+
 #define PARAMS_FOR_KEY Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time, bool is_decoy
 
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, bool is_decoy, size_t block_size) {
-	Data data;
-	uint8_t master_key[HASHLEN];
 	size_t start_sector, end_sector;
-	int64_t offset = is_decoy ? -(int64_t) sizeof(Data) : 0;
+	int64_t offset = is_decoy ? -4096 : 0;
 	
-	decide_start_and_end_sector(device, &start_sector, &end_sector, block_size, 0, is_decoy, false);
+	decide_start_and_end_block(device, &start_sector, &end_sector, block_size, 0, is_decoy, false);
 	
-	action_new_check_crypt_support_status(enc_type);
-	check_is_device_mounted(device);
-	
-	if (key.key_type == EMOBJ_key_file_type_input) {
-		if (strcmp(key.key_or_keyfile_location, "level-128") == 0) {
-			print_error(_("\xF0\x9F\x91\xBE not a chance!"));
-		}
-	}
-	fill_secure_random_bits(master_key, HASHLEN);
-	initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);
-	add_key_to_keyslot(&data, master_key, key, target_slot, target_memory, target_time);
+	OPERATION_CREATE_DEVICE
 	
 	ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 	
@@ -529,13 +545,40 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	}
 }
 
-void action_create_convert(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, size_t block_size, size_t sector_size){
-
+void action_create_convert(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, size_t block_size, size_t section_size) {
+	const char * tmp_enc_map_name = ".tmp_windham";
+	
+	size_t start_sector, end_sector;
+	size_t block_count = decide_start_and_end_block(device, &start_sector, &end_sector, block_size, section_size, false, true);
+	printf("start sector: %zu, end sector: %zu\n", start_sector, end_sector);
+	
+	Dynenc_param dynenc_param;
+	dynesc_calc_param(&dynenc_param, block_count, section_size);
+	
+	shrink_disk(dynenc_param, device);
+	
+	OPERATION_CREATE_DEVICE
+	
+	uint8_t disk_key[HASHLEN];
+	get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
+	create_crypt_mapping_from_disk_key(device, tmp_enc_map_name, &data.metadata, disk_key, data.uuid_and_salt, false, false, false, true, true, true);
+	
+	int64_t offset = -4096;
+	OPERATION_LOCK_AND_WRITE
+	
+	create_disk_hash(dynenc_param, device);
+	
+	copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham");
+	
+	write_header_to_device(&data, device, 0);
+	
 }
 
 bool action_open_suspended_or_keyring(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
                                       bool is_no_write_workqueue, bool is_no_map_partition, bool is_nokeyring) {
-	OPERATION_READ_HEADER
+	Data data;
+	size_t offset;
+	frontend_read_header(device, &data, &offset, &is_decoy);
 	
 	if (is_header_suspended(data)) {
 		if (!is_dry_run) {
@@ -584,8 +627,10 @@ bool action_open_suspended_or_keyring(const char * device, const char * target_n
 
 void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, unsigned timeout, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
                  bool is_no_write_workqueue, bool is_no_map_partition) {
+	Data data;
+	size_t offset;
+	frontend_read_header(device, &data, &offset, &is_decoy);
 	
-	OPERATION_READ_HEADER
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 	
 	if (!is_dry_run) {
@@ -639,8 +684,13 @@ void action_close(const char * device) {
 }
 
 int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t target_memory, double target_time) {
-	OPERATION_READ_HEADER
-	OPERATION_DECLINE_SUSPEND
+	Data data;
+	size_t offset;
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header(device, &data, &offset, &is_decoy);
+	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
+		print_error(_("The header is suspended. Resume header to perform this operation."));
+	}
+	
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 	
 	Key new_key;
@@ -652,7 +702,10 @@ int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t
 }
 
 int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bool is_obliterate) {
-	OPERATION_READ_HEADER
+	Data data;
+	size_t offset;
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header(device, &data, &offset, &is_decoy);
+	
 	if (is_revoke_all) {
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			revoke_given_key_slot(&data, i, false);
@@ -672,7 +725,10 @@ int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bo
 		return target_unlock_slot;
 	}
 	
-	OPERATION_DECLINE_SUSPEND
+	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
+		print_error(_("The header is suspended. Resume header to perform this operation."));
+	}
+	
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 	
 	revoke_given_key_slot(&data, unlocked_slot, true);
@@ -685,8 +741,14 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 	if (access(filename, F_OK) != -1) {
 		print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename) {}
 	}
-	OPERATION_READ_HEADER
-	OPERATION_DECLINE_SUSPEND
+	
+	Data data;
+	size_t offset;
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header(device, &data, &offset, &is_decoy);
+	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
+		print_error(_("The header is suspended. Resume header to perform this operation."));
+	}
+	
 	if (is_no_transform) {
 		write_header_to_device(&data, filename, 0);
 	} else {
@@ -698,16 +760,24 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 }
 
 void action_restore(const char * device, const char * filename, bool is_decoy) {
-	ask_for_conformation(_("Restoring header to device: %s, All content will be lost. Continue?"), device);
-	swap(device, filename);
-	OPERATION_READ_HEADER
-	swap(device, filename);
-	is_decoy = is_decoy || detect_fat32_on_device(device);
-	write_header_to_device(&data, device, is_decoy ? -(int64_t) sizeof(Data) : 0);
+	if (is_decoy) {
+		ask_for_conformation(_("Restoring header to device \"%s\" as decoy partition, All content will be lost. Continue?"), device);
+	} else {
+		ask_for_conformation(_("Restoring header to device \"%s\", All content will be lost. Continue?"), device);
+	}
+	
+	Data data;
+	size_t offset;
+	frontend_read_header(filename, &data, &offset, &is_decoy);
+	
+	write_header_to_device(&data, device, is_decoy ? -4096 : 0);
 }
 
 void action_suspend(const char * device, PARAMS_FOR_KEY) {
-	OPERATION_READ_HEADER
+	Data data;
+	size_t offset;
+	frontend_read_header(device, &data, &offset, &is_decoy);
+	
 	if (is_header_suspended(data)) {
 		print_error(_("The device %s is already suspended."), device);
 	}
@@ -721,7 +791,10 @@ void action_suspend(const char * device, PARAMS_FOR_KEY) {
 }
 
 void action_resume(const char * device, PARAMS_FOR_KEY) {
-	OPERATION_READ_HEADER
+	Data data;
+	size_t offset;
+	frontend_read_header(device, &data, &offset, &is_decoy);
+	
 	if (!is_header_suspended(data)) {
 		print_error(_("The device %s is already encrypted."), device);
 	}
