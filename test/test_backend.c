@@ -93,23 +93,23 @@ void test_create_open_chain(char * device_){
 	uint8_t master_key[HASHLEN];
 	
 	is_skip_conformation = true;
-	print_enable = true;
+	print_enable = false;
 	
 	action_create(device_, "aes-xts-plain64", key1, 3, 0, 1.5, false, DEFAULT_BLOCK_SIZE);
-	action_open(device_, "my_crypt_device", key1, master_key, 3, 0, 3, false, 0, false, false, true, false, false);
+	action_open(device_, "my_crypt_device", key1, master_key, 3, 0, 3, false, 0, false, false, true, false, false, true);
 	
 	action_close("my_crypt_device");
 	
 	
 	interactive_ask_new_key_test_key = "hello world2";
-	action_addkey(device_, key1, master_key, 3, 0, 3, 3, 0, 1, false);
-	action_open(device_, "my_crypt_device", key2, master_key, -1, 0, 3, false, 0, false, false, false, true, false);
+	action_addkey(device_, key1, master_key, 3, 0, 3, false, 3, 0, 1);
+	action_open(device_, "my_crypt_device", key2, master_key, -1, 0, 3, false, 0, false, false, false, true, false, true);
 	action_close("my_crypt_device");
-	action_revokekey(device_, key2, master_key, -1, 0, 3, false, false, false);
+	action_revokekey(device_, key2, master_key, -1, 0, 5, false, false, false);
 	
 	action_suspend(device_, key1, master_key, -1, 0, 3, false);
 	
-	assert(action_open_suspended_or_keyring(device_, "my_crypt_device", false, false, false, false, false, false) == true);
+	assert(action_open_suspended_or_keyring(device_, "my_crypt_device", false, false, false, false, false, false, true, true) == true);
 	action_close("my_crypt_device");
 	action_resume(device_, key1, master_key, -1, 0, 3, false);
 	

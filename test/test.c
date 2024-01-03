@@ -17,6 +17,7 @@
 #include "test_enclib.c"
 #include "test_backend.c"
 #include "test_mapper.c"
+#include "test_dynenc.c"
 
 int main(int argc, char * argv[]){
 	print_enable = true;
@@ -35,6 +36,9 @@ int main(int argc, char * argv[]){
 	} else if (strcmp(argv[1], "backend") == 0){
 		check_file(argv[2], true, false);
 		test_backend(argv[2]);
+	} else if (strcmp(argv[1], "dynenc") == 0){
+		check_file(argv[2], true, false);
+		test_dynenc(argv[2]);
 	} else {
 		print_error("wrong param, <module> is one of the 'enclib' 'mapper' 'backend'");
 	}

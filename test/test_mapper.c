@@ -8,7 +8,7 @@ void test_map_device(char * device_) {
 	const char * password = "cc6267b0ec9e80cbb77da3320f12c5441d3fe8b086528c4b55cb8fd6c3710363";
 	
 	size_t start_sector, end_sector;
-	decide_start_and_end_sector(device_, false, &start_sector, &end_sector, 4096);
+	decide_start_and_end_block(device_, &start_sector, &end_sector, 4096, 0, false, false);
 	
 	print("device start and end sector:", start_sector, end_sector, "size :", end_sector - start_sector);
 	
@@ -26,11 +26,6 @@ void test_create_password() {
 	print(key);
 }
 
-void test_fat32(char * device_) {
-	print(detect_fat32_on_device(device_));
-	
-}
-
 void test_is_device_mounted(char * device_) {
 	check_is_device_mounted(device_);
 }
@@ -39,6 +34,5 @@ int test_mapper(char * device_) {
 	print("test mapper");
 	test_is_device_mounted(device_);
 	test_map_device(device_);
-	test_fat32(device_);
 	return 0;
 }
