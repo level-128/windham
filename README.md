@@ -14,10 +14,7 @@ Windham is free and open-source software for disk encryption, an implementation 
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
 or later.) under release (if available).
-- Compile by your own. the device-mapper subsystem is required. Install `libdevmapper` on Debian-based 
-distro; or `device-mapper` on Fedora-based / SUSE distro. It should be already available in most distros.
-Also, `cmake`, `gettext-devel`(Fedora/SUSE) / `libgettextpo-dev`(Debian-based) and `gcc` are required.
-Compiling windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sudo make install`).
+- Compile by your own. See [Compile Instructions](###Compile instructions: ) below.
 
 
 ## Basic usage:
@@ -127,6 +124,24 @@ deleted the decoy partition, auto-detection will not work. In this case, use arg
 ### Note for using Decoy Partition
 There is no protection to ensure the modification of the decoy partition will not overwrite the encrypted partition. In 
 a case that a large amount of file needs to be deleted, reformatting the filesystem is a better idea.
+
+---
+
+### Compile instructions:
+
+`cmake` and `gcc` are required to build Windham.
+
+Additional required libraries:
+
+| Description                        | Debian-based                | Fedora-based / SUSE                   | Arch-based      |
+|------------------------------------|-----------------------------|---------------------------------------|-----------------|
+| device mapper                      | `libdevmapper-dev`          | `device-mapper-devel`                 | `device-mapper` |
+| Kernel key retention service       | `libkeyutils-dev`           | `keyutils-devel`                      | `keyutils`      | 
+| EXT filesystem development package | `libext2fs-dev`             | `libext2fs-devel`                     | `e2fsprogs`     |
+| Kernel Header                      | `linux-headers-$(uname -r)` | `kernel-devel`                        | `linux-headers` | 
+| GNU Gettext                        | `libgettextpo-dev`          | `gettext-runtime` and `gettext-tools` | `gettext`       |
+
+Compiling windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sudo make install`).
 
 ---
 
