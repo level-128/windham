@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <blake3.h>
+#include <linux/fs.h>
+#include <ext2fs/ext2fs.h> // libext2fs-devel
 
 #include "enclib.c"
 
@@ -74,7 +76,7 @@ void create_disk_hash(Dynenc_param param, const char * device) {
 	blake3_hasher blake_header;
 	blake3_hasher_init(&blake_header);
 	
-	uint8_t *buffer = malloc(param.section_size);
+	uint8_t * buffer = malloc(param.section_size);
 	
 	for (size_t i = param.unenc_data_start, j = param.unenc_hash_start;
 	     i < param.unenc_data_size;
@@ -107,21 +109,21 @@ void create_disk_hash(Dynenc_param param, const char * device) {
 	close(fd);
 }
 
-size_t check_disk_hash(Dynenc_param param, const char * device, size_t block_count){
+size_t check_disk_hash(Dynenc_param param, const char * device, size_t block_count) {
 	uint8_t * unenc_mmap = map_disk(device, block_count, false);
 	blake3_hasher blake_header;
 	blake3_hasher_init(&blake_header);
 	size_t sector_start = 0;
 	size_t sector_stop = param.unenc_data_size / param.section_size;
 	uint8_t hash_val[4];
-	while (true){
-		if (sector_start == sector_stop){
+	while (true) {
+		if (sector_start == sector_stop) {
 			unmap_disk(unenc_mmap, block_count);
 			return sector_start * param.section_size + param.unenc_data_start;
 		}
 		size_t cur_sector = (sector_start + sector_stop) / 2;
 		hash_one_sector(&blake_header, param, &unenc_mmap[cur_sector * param.section_size + param.unenc_data_start], hash_val);
-		if (memcmp(hash_val, &unenc_mmap[cur_sector * 4 + param.unenc_hash_start], 4) != 0){
+		if (memcmp(hash_val, &unenc_mmap[cur_sector * 4 + param.unenc_hash_start], 4) != 0) {
 			sector_stop = cur_sector;
 		} else {
 			sector_start = cur_sector + 1;
@@ -131,22 +133,23 @@ size_t check_disk_hash(Dynenc_param param, const char * device, size_t block_cou
 
 void copy_disk(Dynenc_param param, const char * device, const char * enc_device) {
 	int count = 0;
-	START:{}
+	START:
+	{}
 	int fd = open(device, O_RDONLY);
 	int fd_enc = open(enc_device, O_RDWR);
 	
 	if (fd == -1 || fd_enc == -1) {
-		if (count++ < 10){
+		if (count++ < 10) {
 			sleep(1);
 			goto START;
 		}
 		perror("Error opening file");
-		if (fd != -1) close(fd);
-		if (fd_enc != -1) close(fd_enc);
+		if (fd != -1) { close(fd); }
+		if (fd_enc != -1) { close(fd_enc); }
 		exit(EXIT_FAILURE);
 	}
 	
-	uint8_t *buffer = malloc(param.section_size);
+	uint8_t * buffer = malloc(param.section_size);
 	if (buffer == NULL) {
 		perror("Error allocating buffer");
 		close(fd);
@@ -185,16 +188,15 @@ void copy_disk(Dynenc_param param, const char * device, const char * enc_device)
 }
 
 
-
-__attribute__((unused)) void write_test(char *device) {
-	size_t device_block_cnt = get_device_block_cnt(device); // 假设这个函数返回设备的块数
-	int fd = open(device, O_WRONLY); // 打开设备文件以进行写操作
+__attribute__((unused)) void write_test(char * device) {
+	size_t device_block_cnt = get_device_block_cnt(device);
+	int fd = open(device, O_WRONLY);
 	if (fd == -1) {
 		perror("Error opening device");
 		return;
 	}
 	
-	uint8_t *buffer = (uint8_t *)malloc(512); // 分配一个块大小的缓冲区
+	uint8_t * buffer = (uint8_t *) malloc(512);
 	if (!buffer) {
 		perror("Failed to allocate memory");
 		close(fd);
@@ -203,9 +205,9 @@ __attribute__((unused)) void write_test(char *device) {
 	
 	for (size_t i = 0; i < device_block_cnt; ++i) {
 		for (size_t j = 0; j < 512; ++j) {
-			buffer[j] = (uint8_t)(j % 256);
+			buffer[j] = (uint8_t) (j % 256);
 		}
-		ssize_t written = write(fd, buffer, 512); // 写入一个块
+		ssize_t written = write(fd, buffer, 512);
 		if (written != 512) {
 			perror("Error writing to device");
 			break;
@@ -218,34 +220,43 @@ __attribute__((unused)) void write_test(char *device) {
 }
 
 
-void shrink_disk(Dynenc_param param, const char * device){
+void shrink_disk(Dynenc_param param, const char * device) {
 	char * exec_dir[] = {"/sbin", "/usr/sbin", NULL};
 	char * dup_stdout = NULL;
 	size_t dup_stdout_len = 0;
 	int exec_ret_val;
 	char param_block_size[20];
-	snprintf(param_block_size, 20, "%lus", param.unenc_data_size / 512);//blkid -o value -s TYPE /dev/loop1
 	
-	if (exec_name("blkid", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, "-o", "value", "-s", "TYPE", device, NULL) == false){
+	if (exec_name("blkid", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, "-o", "value", "-s", "TYPE", device, NULL) == false) {
 		print_warning(_("Failed to identify the partition type, cannot run blkid."));
-	} else if (exec_ret_val != 0){
+	} else if (exec_ret_val != 0) {
 		print_warning(_("Failed to identify the partition type"));
-	} else if (strcmp(dup_stdout, "ext4\n") == 0){
+	} else if (strcmp(dup_stdout, "ext4\n") == 0) {
 		free(dup_stdout);
-		if (exec_name("resize2fs", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, device, param_block_size, NULL) == false){
-			if (errno == ENOENT){
-				print_warning(_("Failed to resize the partition, make sure that \"resize2fs\" has installed"));
-			} else {
-				print_warning(_("Failed to resize the partition"));
-			}
-		} else if (exec_ret_val != 0){
-			print_warning(_("Failed to resize %s:\n%s"), device, dup_stdout);
+		
+		int fd, ret;
+		size_t block_size, new_size_in_blocks;
+		fd = open("/dev/sdX", O_RDONLY);
+		assert(fd > 0);
+		
+		ret = ioctl(fd, FIGETBSZ, &block_size);
+		if (ret < 0) {
+			print_warning(_("Cannot perform ioctl system call - get block size"));
+			close(fd);
 		} else {
-			free(dup_stdout);
-			return;
+			printf(_("detected EXT4 filesystem with blocksize %lu"), block_size);
+			
+			new_size_in_blocks = param.unenc_data_size / block_size;
+			
+			ret = ioctl(fd, EXT4_IOC_RESIZE_FS, &new_size_in_blocks);
+			if (ret < 0) {
+				perror("ioctl - resize fs");
+				close(fd);
+				return;
+			}
 		}
-		free(dup_stdout);
+		
 	}
-	ask_for_conformation("Windham cannot shrink the given partition: %s. The partition need to be shrank to %lu sectors before proceed. You need to perform the shrinking manually before "
-								"continue.", device, param.unenc_data_size / 512);
+	ask_for_conformation("Windham cannot shrink the given partition: %s due to unsupported . The partition need to be shrank to %lu sectors before proceed. You need to perform the shrinking manually before "
+	                     "continue.", device, param.unenc_data_size / 512);
 }
