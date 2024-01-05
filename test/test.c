@@ -20,7 +20,7 @@
 #include "test_dynenc.c"
 
 int main(int argc, char * argv[]){
-	print_enable = true;
+	print_enable = false;
 	print_verbose = true;
 	
 	if (argc < 2){

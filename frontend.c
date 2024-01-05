@@ -31,6 +31,7 @@ enum {
 	NMOBJ_unlock_timeout,
 	NMOBJ_encrypt_type,
 	NMOBJ_block_size,
+	NMOBJ_section_size,
 	
 	NMOBJ_target_all,
 	NMOBJ_target_obliterate,
@@ -44,6 +45,7 @@ enum {
 	NMOBJ_target_no_read_workqueue,
 	NMOBJ_target_no_write_workqueue,
 	NMOBJ_is_systemd,
+	NMOBJ_is_dynamic_convert,
 	NMOBJ_is_nokeyring,
 	NMOBJ_is_nofail,
 	NMOBJ_is_noadmin,
@@ -73,6 +75,7 @@ const struct option long_options[] = {
 		{"timeout",            required_argument, &options[NMOBJ_unlock_timeout],            1},
 		{"encrypt-type",       required_argument, &options[NMOBJ_encrypt_type],              1},
 		{"block-size",         required_argument, &options[NMOBJ_block_size],                1},
+		{"section-size",         required_argument, &options[NMOBJ_section_size],                1}, // TODO
 		
 		{"all",                no_argument,       &options[NMOBJ_target_all],                1},
 		{"obliterate",         no_argument,       &options[NMOBJ_target_obliterate],         1},
@@ -86,6 +89,7 @@ const struct option long_options[] = {
 		{"no-read-workqueue",  no_argument,       &options[NMOBJ_target_no_read_workqueue],  1},
 		{"no-write-workqueue", no_argument,       &options[NMOBJ_target_no_write_workqueue], 1},
 		{"systemd-dialog",     no_argument,       &options[NMOBJ_is_systemd],                1},
+		{"dynamic-convert",     no_argument,       &options[NMOBJ_is_dynamic_convert],                1},
 		{"nokeyring",          no_argument,       &options[NMOBJ_is_nokeyring],              1},
 		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
 		{"noadmin",            no_argument,       &options[NMOBJ_is_noadmin],                1},
@@ -108,7 +112,8 @@ const int8_t check_allowed[] =
 				// Close
        CHECK_COMMON, -1,
 				// New
-       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, NMOBJ_block_size, NMOBJ_is_systemd, CHECK_COMMON, -1,
+       NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, NMOBJ_block_size, NMOBJ_is_systemd,
+		 NMOBJ_is_dynamic_convert, NMOBJ_section_size, CHECK_COMMON, -1,
 				// AddKey
        CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, CHECK_COMMON, -1,
 				// RevokeKey
@@ -347,11 +352,15 @@ void frontend_check_invalid_combo(int action_num) {
 	
 	if (options[NMOBJ_target_obliterate] == 1 && options[NMOBJ_key] + options[NMOBJ_key_file] + options[NMOBJ_master_key] + options[NMOBJ_target_slot] + options[NMOBJ_target_mem] +
 	                                             options[NMOBJ_target_time] != 0) {
-		print_error(_("argument --obliterate can only be use alone."));
+		print_error(_("argument --obliterate can only be used alone."));
 	}
 	
 	if (options[NMOBJ_target_obliterate] + options[NMOBJ_target_all] + options[NMOBJ_target_slot] > 1) {
 		print_error(_("argument --all, --obliterate or --target-slot are mutually exclusive."));
+	}
+	
+	if (!options[NMOBJ_is_dynamic_convert] && options[NMOBJ_section_size]) {
+		print_error(_("argument --section-size can only be used when enabling dynamic conversion"));
 	}
 }
 
@@ -431,6 +440,7 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	double max_unlock_time = DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR;
 	unsigned timeout = 0;
 	size_t block_size = DEFAULT_BLOCK_SIZE;
+	size_t section_size = DEFAULT_SECTION_SIZE;
 	
 	print_verbose = false;
 	print_enable = false;
@@ -498,6 +508,16 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 			print_error(_("bad input for argument --block-size: not 512, 1024, 2048 or 4096"));
 		}
 	}
+	if (options[NMOBJ_section_size] == 1) {
+		section_size = strtoull(params[NMOBJ_section_size], &end, 10);
+		if (*end != '\0') {
+			print_error(_("bad input for argument %s: not an positive integer"), "--section-size");
+		} else if (section_size < block_size){
+			print_error(_("section size (%lu) is smaller than the block size (%lu)"), section_size, block_size);
+		} else if (__builtin_popcount(section_size) != 1){
+			print_warning(_("section size is not 2^n."));
+		}
+	}
 	
 	if (!options[NMOBJ_is_noadmin]) {
 		is_running_as_root();
@@ -532,7 +552,11 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		case 2:
 			check_file(device, true, options[NMOBJ_is_nofail]);
 			ASK_KEY
-			action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy], block_size);
+			if (options[NMOBJ_is_dynamic_convert]){
+				action_create_convert(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, block_size, section_size);
+			} else {
+				action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy], block_size);
+			}
 			break;
 		case 3:
 			check_file(device, true, options[NMOBJ_is_nofail]);

@@ -10,7 +10,7 @@ void test_dynenc_(char * device_){
 
 //	action_close(".tmp_windham");
 
-	action_create_convert(device_, DEFAULT_DISK_ENC_MODE, key1, -1, 0, 1, 4096, 4096);
+	action_create_convert(device_, DEFAULT_DISK_ENC_MODE, key1, -1, 0, 1, 4096, 4096 * 1024);
 	
 }
 

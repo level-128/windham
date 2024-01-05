@@ -550,7 +550,7 @@ void action_create_convert(const char * device, const char * enc_type, const Key
 	
 	size_t start_sector, end_sector;
 	size_t block_count = decide_start_and_end_block(device, &start_sector, &end_sector, block_size, section_size, false, true);
-	printf("start sector: %zu, end sector: %zu\n", start_sector, end_sector);
+	
 	
 	Dynenc_param dynenc_param;
 	dynesc_calc_param(&dynenc_param, block_count, section_size);
@@ -563,6 +563,7 @@ void action_create_convert(const char * device, const char * enc_type, const Key
 	get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
 	create_crypt_mapping_from_disk_key(device, tmp_enc_map_name, &data.metadata, disk_key, data.uuid_and_salt, false, false, false, true, true, true);
 	
+	memcpy(data.head, head_converting, sizeof(data.head)); // tag converting
 	int64_t offset = -4096;
 	OPERATION_LOCK_AND_WRITE
 	
@@ -570,6 +571,7 @@ void action_create_convert(const char * device, const char * enc_type, const Key
 	
 	copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham");
 	
+	fill_secure_random_bits(data.head, sizeof(data.head));
 	write_header_to_device(&data, device, 0);
 	
 }
@@ -710,18 +712,18 @@ int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bo
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 			revoke_given_key_slot(&data, i, false);
 		}
-		write_header_to_device(&data, device, offset);
+		write_header_to_device(&data, device, (int64_t) offset);
 		return -1;
 	} else if (is_obliterate) {
 		ask_for_conformation(_("Device %s will not be accessible, even if holding the master key, unless backup has created. Continue?"), device);
 		for (int i = 0; i < 3; i++) {
 			fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
-			write_header_to_device(&data, device, offset);
+			write_header_to_device(&data, device, (int64_t) offset);
 		}
 		return -1;
 	} else if (target_unlock_slot != -1) {
 		revoke_given_key_slot(&data, target_unlock_slot, false);
-		write_header_to_device(&data, device, offset);
+		write_header_to_device(&data, device, (int64_t) offset);
 		return target_unlock_slot;
 	}
 	
