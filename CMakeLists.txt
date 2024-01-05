@@ -18,6 +18,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 file(GLOB Argon2_SRC ${CMAKE_SOURCE_DIR}/library/Argon2B3/*.c)
 file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
 file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
+file(GLOB PROGRESSBAR_SRC ${CMAKE_SOURCE_DIR}/library/progressbar/*.c)
 
 set(BLAKE3_AMD64_NAMES amd64 AMD64 x86_64)
 set(BLAKE3_ARM_NAMES aarch64 AArch64 arm64 ARM64)
@@ -37,16 +38,16 @@ endif ()
 # compile according to arch
 function(add_argon2_and_executables_for_arch arch)
     if(CMAKE_BUILD_TYPE STREQUAL "Test")
-        add_executable(windham_test test/test.c  ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
-        target_link_libraries(windham_test m)
+        add_executable(windham_test test/test.c  ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC})
+        target_link_libraries(windham_test ncurses)
         set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
         install(TARGETS windham_test
                 RUNTIME DESTINATION bin
                 RENAME windham_test)
     endif()
 
-    add_executable(windham_${arch} frontend.c  ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC})
-    target_link_libraries(windham_${arch} m)
+    add_executable(windham_${arch} frontend.c  ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC})
+    target_link_libraries(windham_${arch} ncurses)
     set_target_properties(windham_${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
     if(arch STREQUAL "native")
         set_target_properties(windham_${arch} PROPERTIES OUTPUT_NAME "windham")
