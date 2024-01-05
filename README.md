@@ -140,8 +140,11 @@ Additional required libraries:
 | EXT filesystem development package | `libext2fs-dev`             | `libext2fs-devel`                     | `e2fsprogs`     |
 | Kernel Header                      | `linux-headers-$(uname -r)` | `kernel-devel`                        | `linux-headers` | 
 | GNU Gettext                        | `libgettextpo-dev`          | `gettext-runtime` and `gettext-tools` | `gettext`       |
+| ncurses                            | `libncurses-dev`            | `ncurses-devel`                       | `ncurses`       |
 
-Compiling windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sudo make install`).
+Compile windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sudo make install`).
+
+Additional userspace programs (Optional, but windham)
 
 ---
 
