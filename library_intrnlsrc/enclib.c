@@ -343,6 +343,7 @@ void initialize_new_header(Data * uninitialized_header, const char * enc_type, s
 }
 
 void assign_new_header_iv(Data * unlocked_header) {
+	fill_secure_random_bits(unlocked_header->head, sizeof(unlocked_header->master_key_mask));
 	fill_secure_random_bits(unlocked_header->master_key_mask, sizeof(unlocked_header->master_key_mask));
 	fill_secure_random_bits(unlocked_header->AES_align, sizeof(unlocked_header->AES_align));
 }

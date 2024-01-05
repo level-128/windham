@@ -312,6 +312,7 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 		}
 		posix_spawn_file_actions_addclose(&action, pipefd[0]);
 		posix_spawn_file_actions_adddup2(&action, pipefd[1], STDOUT_FILENO);
+		posix_spawn_file_actions_adddup2(&action, pipefd[1], STDERR_FILENO);
 		posix_spawn_file_actions_addclose(&action, pipefd[1]);
 	}
 	if (!is_wait_child) {
