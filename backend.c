@@ -462,7 +462,7 @@ void write_header_to_device(const Data * data, const char * device, int64_t offs
 	fclose(fp);
 }
 
-ENUM_MAPPER_DEVSTAT frontend_read_header(const char * device, Data * unini_data, size_t * unini_offset, bool * is_decoy) {
+ENUM_MAPPER_DEVSTAT frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(const char * device, Data * unini_data, size_t * unini_offset, bool * is_decoy) {
 	ENUM_MAPPER_DEVSTAT ret = detect_device_status(device);
 	switch (ret) {
 		case NMOBJ_MAPPER_DEVSTAT_DECOY:
@@ -532,7 +532,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	size_t start_sector, end_sector;
 	int64_t offset = is_decoy ? -4096 : 0;
 	
-	decide_start_and_end_block(device, &start_sector, &end_sector, block_size, 0, is_decoy, false);
+	decide_start_and_end_block_ret_blkcnt(device, &start_sector, &end_sector, block_size, 0, is_decoy, false);
 	
 	OPERATION_CREATE_DEVICE
 	
@@ -549,7 +549,7 @@ void action_create_convert(const char * device, const char * enc_type, const Key
 	const char * tmp_enc_map_name = ".tmp_windham";
 	
 	size_t start_sector, end_sector;
-	size_t block_count = decide_start_and_end_block(device, &start_sector, &end_sector, block_size, section_size, false, true);
+	size_t block_count = decide_start_and_end_block_ret_blkcnt(device, &start_sector, &end_sector, block_size, section_size, false, true);
 	
 	
 	Dynenc_param dynenc_param;
@@ -563,24 +563,57 @@ void action_create_convert(const char * device, const char * enc_type, const Key
 	get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
 	create_crypt_mapping_from_disk_key(device, tmp_enc_map_name, &data.metadata, disk_key, data.uuid_and_salt, false, false, false, true, true, true);
 	
-	memcpy(data.head, head_converting, sizeof(data.head)); // tag converting
+	tag_header_as_converting(&data, section_size);
 	int64_t offset = -4096;
 	OPERATION_LOCK_AND_WRITE
 	
 	create_disk_hash(dynenc_param, device);
 	
-	copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham");
+	// TODO remove_crypt_mapping when fails
+	copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham", UINT64_MAX);
 	
-	fill_secure_random_bits(data.head, sizeof(data.head));
+	untag_header_as_converting(&data);
 	write_header_to_device(&data, device, 0);
 	
+	remove_crypt_mapping("/dev/mapper/.tmp_windham");
+}
+
+// TODO merge all opens into one open and use one frontend_read_header_ret_ENUM_MAPPER_DEVSTAT
+// TODO take all bools
+
+bool action_open_convert(const char * device, const char * target_name, PARAMS_FOR_KEY, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
+                                      bool is_no_write_workqueue, bool is_no_map_partition) {
+	const char * tmp_enc_map_name = ".tmp_windham"; // TODO make this macro
+	
+	Data data;
+	size_t offset;
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
+	
+	Dynenc_param dynenc_param;
+	dynesc_calc_param(&dynenc_param, get_device_block_cnt(device), data.metadata.section_size);
+	
+	OPERATION_BACKEND_UNENCRYPT_HEADER
+	
+	uint8_t disk_key[HASHLEN];
+	get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
+	create_crypt_mapping_from_disk_key(device, tmp_enc_map_name, &data.metadata, disk_key, data.uuid_and_salt, false, false, false, true, true, true);
+	
+	uint64_t copy_disk_start = check_disk_hash(dynenc_param, device);
+	
+	copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham", copy_disk_start);
+	
+	untag_header_as_converting(&data);
+	write_header_to_device(&data, device, 0);
+	
+	// TODO remove_crypt_mapping when fails
+	remove_crypt_mapping("/dev/mapper/.tmp_windham");
 }
 
 bool action_open_suspended_or_keyring(const char * device, const char * target_name, bool is_decoy, bool is_dry_run, bool is_target_readonly, bool is_allow_discards, bool is_no_read_workqueue,
                                       bool is_no_write_workqueue, bool is_no_map_partition, bool is_nokeyring) {
 	Data data;
 	size_t offset;
-	frontend_read_header(device, &data, &offset, &is_decoy);
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
 	
 	if (is_header_suspended(data)) {
 		if (!is_dry_run) {
@@ -631,7 +664,7 @@ void action_open(const char * device, const char * target_name, PARAMS_FOR_KEY, 
                  bool is_no_write_workqueue, bool is_no_map_partition) {
 	Data data;
 	size_t offset;
-	frontend_read_header(device, &data, &offset, &is_decoy);
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
 	
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 	
@@ -688,7 +721,7 @@ void action_close(const char * device) {
 int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t target_memory, double target_time) {
 	Data data;
 	size_t offset;
-	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header(device, &data, &offset, &is_decoy);
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
 	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
 		print_error(_("The header is suspended. Resume header to perform this operation."));
 	}
@@ -706,7 +739,7 @@ int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t
 int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bool is_obliterate) {
 	Data data;
 	size_t offset;
-	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header(device, &data, &offset, &is_decoy);
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
 	
 	if (is_revoke_all) {
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
@@ -746,7 +779,7 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 	
 	Data data;
 	size_t offset;
-	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header(device, &data, &offset, &is_decoy);
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
 	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
 		print_error(_("The header is suspended. Resume header to perform this operation."));
 	}
@@ -770,7 +803,7 @@ void action_restore(const char * device, const char * filename, bool is_decoy) {
 	
 	Data data;
 	size_t offset;
-	frontend_read_header(filename, &data, &offset, &is_decoy);
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(filename, &data, &offset, &is_decoy);
 	
 	write_header_to_device(&data, device, is_decoy ? -4096 : 0);
 }
@@ -778,7 +811,7 @@ void action_restore(const char * device, const char * filename, bool is_decoy) {
 void action_suspend(const char * device, PARAMS_FOR_KEY) {
 	Data data;
 	size_t offset;
-	frontend_read_header(device, &data, &offset, &is_decoy);
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
 	
 	if (is_header_suspended(data)) {
 		print_error(_("The device %s is already suspended."), device);
@@ -795,7 +828,7 @@ void action_suspend(const char * device, PARAMS_FOR_KEY) {
 void action_resume(const char * device, PARAMS_FOR_KEY) {
 	Data data;
 	size_t offset;
-	frontend_read_header(device, &data, &offset, &is_decoy);
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
 	
 	if (!is_header_suspended(data)) {
 		print_error(_("The device %s is already encrypted."), device);

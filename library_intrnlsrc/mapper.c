@@ -180,7 +180,7 @@ char ** get_crypto_list() {
 	return crypto_list;
 }
 
-size_t decide_start_and_end_block(const char * device, size_t * start_sector, size_t * end_sector, size_t block_size, size_t section_size, bool is_decoy, bool is_dyn_enc) {
+size_t decide_start_and_end_block_ret_blkcnt(const char * device, size_t * start_sector, size_t * end_sector, size_t block_size, size_t section_size, bool is_decoy, bool is_dyn_enc) {
 	size_t device_sector_cnt = get_device_block_cnt(device);
 	
 	size_t safe_node = (0x78000b + (16 << 20)) / 512; // safe sector
@@ -306,6 +306,8 @@ int create_crypt_mapping(const char * device,
 	         is_no_read_workqueue ? "no_read_workqueue" : "",
 	         is_no_write_workqueue ? "no_write_workqueue" : "");
 	
+	print("create_crypt_mapping:: size:", end_sector - start_sector, "params:", params_crypt);
+	
 	if (!(dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
 		print_error(_("dm_task_create failed when mapping device %s"), name);
 	}
@@ -323,7 +325,7 @@ int create_crypt_mapping(const char * device,
 	}
 	if (!p_dm_task_run(dmt)) { ;
 		print_error(_("p_dm_task_run failed when mapping crypt device %s. If this error occurs when trying to use kernel key for unlocking the crypt device, make sure your SELinux or AppArmour policies"
-						  "are properly set. To stop using kernel keyrings, use \"--nokeyring\""), name);
+						  " are properly set. To stop using kernel keyrings, use \"--nokeyring\""), name);
 	}
 	p_dm_task_destroy(dmt);
 	
@@ -344,14 +346,14 @@ void create_crypt_mapping_from_disk_key(const char * device,
                                         bool is_no_write_workqueue,
                                         bool is_no_map_partition) {
 	
-	if (is_use_keyring){
+	if (is_use_keyring){ // TODO merge this into action open
 		assert(disk_key == NULL);
 		char password[strlen(":32:logon:windham:") + 36 /* uuid len */ + 1];
 		strcpy(password, ":32:logon:windham:");
 		generate_UUID_from_bytes(uuid, password + strlen(":32:logon:windham:"));
 		
 		size_t start_sector, end_sector;
-		decide_start_and_end_block(device, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0, false, false);
+		decide_start_and_end_block_ret_blkcnt(device, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0, false, false);
 		create_crypt_mapping(device, target_name, DEFAULT_DISK_ENC_MODE, password, password + strlen(":32:logon:windham:"), start_sector, end_sector, DEFAULT_BLOCK_SIZE, read_only,
 		                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 		

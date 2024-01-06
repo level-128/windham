@@ -8,7 +8,7 @@ void test_map_device(char * device_) {
 	const char * password = "cc6267b0ec9e80cbb77da3320f12c5441d3fe8b086528c4b55cb8fd6c3710363";
 	
 	size_t start_sector, end_sector;
-	decide_start_and_end_block(device_, &start_sector, &end_sector, 4096, 0, false, false);
+	decide_start_and_end_block_ret_blkcnt(device_, &start_sector, &end_sector, 4096, 0, false, false);
 	
 	print("device start and end sector:", start_sector, end_sector, "size :", end_sector - start_sector);
 	

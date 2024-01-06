@@ -7,6 +7,9 @@
 #include <ext2fs/ext2fs.h> // libext2fs-devel
 #include <libprogstats.h>
 
+#ifndef INCL_DYNENC
+#define INCL_DYNENC
+
 #include "enclib.c"
 
 #define CEIL_MULT(x, y) (((x) + (y) - 1) / (y) * (y))
@@ -85,25 +88,18 @@ void create_disk_hash(Dynenc_param param, const char * device) {
 	     i < param.unenc_data_size;
 	     i += param.section_size, j += 4) {
 		
-		// Set file pointer to the start of the sector to be read
 		lseek(fd, i, SEEK_SET);
 		
-		// Read the sector data into buffer
 		if (read(fd, buffer, param.section_size) == -1) {
-			perror("Error reading file");
-			break;
+			print_error(_("Failed to create disk hash: %s. Your data is safe and the disk is still accessible. You can restart the conversion at any time."), strerror(errno));
 		}
 		
-		// Hash the data
 		hash_one_sector(&blake_header, param, buffer, buffer);
 		
-		// Set file pointer to the position where hash is to be written
 		lseek(fd, j, SEEK_SET);
 		
-		// Write the hash value to the disk
 		if (write(fd, buffer, 4) == -1) {
-			perror("Error writing to file");
-			break;
+			print_error(_("Failed to create disk hash: %s. Your data is safe and the disk is still accessible. You can restart the conversion at any time."), strerror(errno));
 		}
 		progressbar_inc(create_disk_hash_progressbar);
 	}
@@ -113,8 +109,8 @@ void create_disk_hash(Dynenc_param param, const char * device) {
 	close(fd);
 }
 
-size_t check_disk_hash(Dynenc_param param, const char * device, size_t block_count) {
-	uint8_t * unenc_mmap = map_disk(device, block_count, false);
+uint64_t check_disk_hash(Dynenc_param param, const char * device) {
+	uint8_t * unenc_mmap = map_disk(device, param.disk_size / 512, false);
 	blake3_hasher blake_header;
 	blake3_hasher_init(&blake_header);
 	size_t sector_start = 0;
@@ -122,8 +118,12 @@ size_t check_disk_hash(Dynenc_param param, const char * device, size_t block_cou
 	uint8_t hash_val[4];
 	while (true) {
 		if (sector_start == sector_stop) {
-			unmap_disk(unenc_mmap, block_count);
-			return sector_start * param.section_size + param.unenc_data_start;
+			unmap_disk(unenc_mmap, param.disk_size / 512);
+			if (sector_start == 0){
+				return UINT64_MAX;
+			} else {
+				return (sector_start - 1) * param.section_size + param.unenc_data_start;
+			}
 		}
 		size_t cur_sector = (sector_start + sector_stop) / 2;
 		hash_one_sector(&blake_header, param, &unenc_mmap[cur_sector * param.section_size + param.unenc_data_start], hash_val);
@@ -135,8 +135,9 @@ size_t check_disk_hash(Dynenc_param param, const char * device, size_t block_cou
 	}
 }
 
-void copy_disk(Dynenc_param param, const char * device, const char * enc_device) {
+void copy_disk(Dynenc_param param, const char * device, const char * enc_device, uint64_t start_point) {
 	int count = 0;
+	progressbar * copy_disk_progressbar;
 	START:
 	{}
 	int fd = open(device, O_RDONLY);
@@ -155,32 +156,25 @@ void copy_disk(Dynenc_param param, const char * device, const char * enc_device)
 	
 	uint8_t * buffer = malloc(param.section_size);
 
-	progressbar * copy_disk_progressbar = progressbar_new(_("Moving sections:"), param.unenc_data_size / param.section_size);
-	
-	for (size_t i = param.unenc_data_start + param.unenc_data_size - param.section_size; i > param.unenc_data_start; i -= param.section_size) {
+	if (start_point == UINT64_MAX){
+		copy_disk_progressbar = progressbar_new(_("Moving sections:"), param.unenc_data_size / param.section_size);
+		start_point = param.unenc_data_start + param.unenc_data_size - param.section_size;
+	} else {
+		copy_disk_progressbar = progressbar_new(_("Recovering progress:"), (start_point - param.unenc_data_start + param.section_size) / param.section_size);
+		start_point = start_point;
+	}
+	for (; start_point != param.unenc_data_start - param.section_size /* Overflow of unsigned integer is a well defined behaviour*/; start_point -= param.section_size) {
 		
-		if (lseek(fd, i, SEEK_SET) == -1 || read(fd, buffer, param.section_size) == -1) {
-			perror("Error reading unencrypted disk");
-			break;
+		if (lseek(fd, (off_t) start_point, SEEK_SET) == -1 || read(fd, buffer, param.section_size) == -1) {
+			print_error(_("Error converting the disk: %s. The disk is now left in an inconsistent state. Use \"windham Open <target>\" to fix the partition."), strerror(errno));
 		}
 		
-		if (lseek(fd_enc, i, SEEK_SET) == -1 || write(fd_enc, buffer, param.section_size) == -1) {
-			perror("Error writing to encrypted disk");
-			break;
+		if (lseek(fd_enc, (off_t) start_point, SEEK_SET) == -1 || write(fd_enc, buffer, param.section_size) == -1) {
+			print_error(_("Error converting the disk: %s. The disk is now left in an inconsistent state. Use \"windham Open <target>\" to fix the partition."), strerror(errno));
 		}
 		fsync(fd_enc);
 		progressbar_inc(copy_disk_progressbar);
 	}
-	
-	// last sector
-	if (lseek(fd, param.unenc_data_start, SEEK_SET) != -1 && read(fd, buffer, param.section_size) != -1) {
-		if (lseek(fd_enc, param.unenc_data_start, SEEK_SET) == -1 || write(fd_enc, buffer, param.section_size) == -1) {
-			perror("Error writing last sector to encrypted disk");
-		}
-	} else {
-		perror("Error reading last sector of unencrypted disk");
-	}
-	fsync(fd_enc);
 	progressbar_finish(copy_disk_progressbar);
 	
 	free(buffer);
@@ -253,3 +247,5 @@ void shrink_disk(Dynenc_param param, const char * device) {
 	ask_for_conformation(_("Windham cannot shrink the given partition: %s. The partition need to be shrank to %lu sectors before proceed. You need to perform the shrinking manually before "
 	                     "continue."), device, param.unenc_data_size / 512);
 }
+
+#endif

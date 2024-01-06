@@ -49,7 +49,8 @@ typedef struct __attribute__((packed)) {
 	uint8_t keyslot_key[KEY_SLOT_COUNT][HASHLEN];
 	uint8_t all_key_mask[KEY_SLOT_COUNT][HASHLEN];
 	int8_t key_slot_is_used[KEY_SLOT_COUNT];
-	__attribute__((unused)) uint8_t reserved[34];
+	uint32_t section_size;
+	__attribute__((unused)) uint8_t reserved[30];
 	uint64_t check_key_magic_number;
 } EncMetadata;
 

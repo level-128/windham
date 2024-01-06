@@ -322,8 +322,8 @@ void operate_all_keyslots_using_keyslot_key_in_metadata(Key_slot data$keyslots[K
 void operate_all_keyslots_using_inited_key(Key_slot data$keyslots[KEY_SLOT_COUNT], const uint8_t inited_key[HASHLEN], const uint8_t data$master_key_mask[HASHLEN], const uint8_t data$uuid_and_salt[16],
                                            bool is_decrypt) {
 	uint8_t keyslot_key[HASHLEN];
+	get_keyslot_key_from_inited_key(inited_key, data$uuid_and_salt, keyslot_key);
 	for (int i = 0; i < KEY_SLOT_COUNT; i++) {
-		get_keyslot_key_from_inited_key(inited_key, data$uuid_and_salt, keyslot_key);
 		operate_key_slot_using_keyslot_key(&data$keyslots[i], keyslot_key, data$master_key_mask, is_decrypt);
 	}
 }
@@ -343,13 +343,18 @@ void initialize_new_header(Data * uninitialized_header, const char * enc_type, s
 }
 
 void assign_new_header_iv(Data * unlocked_header) {
-	fill_secure_random_bits(unlocked_header->head, sizeof(unlocked_header->master_key_mask));
+	fill_secure_random_bits(unlocked_header->head, sizeof(unlocked_header->head));
 	fill_secure_random_bits(unlocked_header->master_key_mask, sizeof(unlocked_header->master_key_mask));
 	fill_secure_random_bits(unlocked_header->AES_align, sizeof(unlocked_header->AES_align));
 }
 
-void tag_header_as_converting(Data * header){
-	memcpy(header->head, head_converting, sizeof(header->head));
+void tag_header_as_converting(Data * unlocked_header, uint64_t section_size){
+	unlocked_header->metadata.section_size = (uint32_t) section_size;
+	memcpy(unlocked_header->head, head_converting, sizeof(unlocked_header->head));
+}
+
+void untag_header_as_converting(Data * header){
+	fill_secure_random_bits(header->head, sizeof(header->head));
 }
 
 void revoke_given_key_slot(Data * initialized_header, int target_slot, bool is_tag_revoke) {

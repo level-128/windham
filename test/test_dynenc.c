@@ -3,7 +3,7 @@
 void test_dynenc_(char * device_){
 
 //	write_test(device_);
-
+	
 	Key key1;
 	key1.key_or_keyfile_location = "hello world";
 	key1.key_type = EMOBJ_key_file_type_key;
