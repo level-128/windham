@@ -13,9 +13,9 @@
 #define DEFAULT_EXEC_DIR "/etc/windham"
 
 #include "library_intrnlsrc/enclib.c"
-#include "backend.c"
 #include "library_intrnlsrc/argon_bench.c"
 #include "library_intrnlsrc/dynenc.c"
+#include "backend/bklibmain.c"
 
 enum {
 	NMOBJ_to,
@@ -75,7 +75,7 @@ const struct option long_options[] = {
 		{"timeout",            required_argument, &options[NMOBJ_unlock_timeout],            1},
 		{"encrypt-type",       required_argument, &options[NMOBJ_encrypt_type],              1},
 		{"block-size",         required_argument, &options[NMOBJ_block_size],                1},
-		{"section-size",         required_argument, &options[NMOBJ_section_size],                1}, // TODO
+		{"section-size",       required_argument, &options[NMOBJ_section_size],              1}, // TODO
 		
 		{"all",                no_argument,       &options[NMOBJ_target_all],                1},
 		{"obliterate",         no_argument,       &options[NMOBJ_target_obliterate],         1},
@@ -89,7 +89,7 @@ const struct option long_options[] = {
 		{"no-read-workqueue",  no_argument,       &options[NMOBJ_target_no_read_workqueue],  1},
 		{"no-write-workqueue", no_argument,       &options[NMOBJ_target_no_write_workqueue], 1},
 		{"systemd-dialog",     no_argument,       &options[NMOBJ_is_systemd],                1},
-		{"dynamic-convert",     no_argument,       &options[NMOBJ_is_dynamic_convert],                1},
+		{"dynamic-convert",    no_argument,       &options[NMOBJ_is_dynamic_convert],        1},
 		{"nokeyring",          no_argument,       &options[NMOBJ_is_nokeyring],              1},
 		{"nofail",             no_argument,       &options[NMOBJ_is_nofail],                 1},
 		{"noadmin",            no_argument,       &options[NMOBJ_is_noadmin],                1},
@@ -113,7 +113,7 @@ const int8_t check_allowed[] =
        CHECK_COMMON, -1,
 				// New
        NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, NMOBJ_block_size, NMOBJ_is_systemd,
-		 NMOBJ_is_dynamic_convert, NMOBJ_section_size, CHECK_COMMON, -1,
+       NMOBJ_is_dynamic_convert, NMOBJ_section_size, CHECK_COMMON, -1,
 				// AddKey
        CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, CHECK_COMMON, -1,
 				// RevokeKey
@@ -166,165 +166,6 @@ void frontend_check_invalid_param(int action_num) {
 			}
 		}
 	}
-}
-
-void frontend_print_unlock_args() {
-	printf(_(
-			       "\nUnlock options:\n"
-			       "\t--key <characters>: key input as argument, instead of asking in the terminal.\n"
-			       "\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' and '--target-slot' are mutually exclusive\n"
-			       "\t--master-key <characters>: using master key to unlock.\n"
-			       "\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
-			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
-			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
-			       "\t--verbose: print unlock progress per keyslot.\n"
-			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"
-					 "\t--nofail: exit normally without error message when the device does not exist.\n"));
-};
-
-void frontend_print_common_args() {
-	printf(_(
-			       "\nCommon options:\n"
-			       "\t--no-admin: forfeit checking root privileges, may produces undefined behaviour. \n"
-			       "\t--yes: do not ask for explicit conformation to potential destructive operations.\n"
-			       "\t--help: print this message.\n"));
-};
-
-noreturn void frontend_help(const char * the_3rd_argv) {
-	int action_count = 3;
-	if (!the_3rd_argv) {
-		printf(_("usage: \"windham <action> <target>\"\n"
-		         "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'RevokeKey' 'Backup' 'Restore' 'Suspend' and 'Resume'\n\n"
-		         "Type \"windham Help <action>\" to view specific help text for each action.\n\n"
-		         "pre-compiled arguments. These arguments serve an informative purpose; changing them may render your "
-		         "device inaccessible.\n"));
-		printf(_("number of keyslots: %i\n"), KEY_SLOT_COUNT);
-		printf(_("Length of the hash (bit): %i\n"), HASHLEN * CHAR_BIT);
-		printf(_("Argon2id memory size exponential count: %i\n"), KEY_SLOT_EXP_MAX);
-		printf(_("Argon2id base memory size (KiB): %i\n"), BASE_MEM_COST);
-		printf(_("Argon2id parallelism: %i\n"), PARALLELISM);
-		printf(_("Default encryption target time: %i\n"), DEFAULT_ENC_TARGET_TIME);
-		printf(_("Default decryption target time (per slot): %i\n"), MAX_UNLOCK_TIME_FACTOR);
-		printf(_("Default encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
-#ifdef __GNUC__
-		printf(_("Compiler: GCC %d.%d.%d\n"), __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
-#elifdef __clang__
-		printf(_("Compiler: Clang %d.%d.%d\n"), __clang_major__, __clang_minor__, __clang_patchlevel__);
-#else
-      printf(_("Unknown compiler\n"));
-#endif
-		printf(_("Compile time: %s, %s\n"), __DATE__, __TIME__);
-
-	} else if (strcmp("--license", the_3rd_argv) == 0) {
-		printf(_("    Copyright (C) 2023-2024  W. Wang (level-128)\n"
-		         "\n"
-		         "    This program is free software: you can redistribute it and/or modify\n"
-		         "    it under the terms of the GNU General Public License (version 3) as\n"
-		         "    published by the Free Software Foundation.\n"
-		         "\n"
-		         "    This program is distributed in the hope that it will be useful,\n"
-		         "    but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-		         "    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-		         "    GNU General Public License for more details.\n"
-		         "\n"
-		         "    You should have received a copy of the GNU General Public License\n"
-		         "    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"));
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("Open <target>: Unlock <target> and create a mapper (decrypted crypt device) under /dev/mapper/<location>. The key, by default, is read from the terminal.\n"
-		         "\n"
-		         "options:\n"
-		         "\t--to <location>: REQUIRED; the target location of the mapper. The mapper will be named as <location>, locate under /dev/mapper/<location>\n"
-		         "\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-prompt when open. Keys are stored in the Linux Kernel Key Retention service (keyring service).\n"
-		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, detect automatically.\n"
-		         "\t--dry-run: run without operating on the block device then print the master key and device parameters.\n"
-		         "\t--nokeyring: do not attempt to use keys in the Linux Kernel Key Retention service (keyring service).\n"
-		         "\t--readonly: Create read only mapper device.\n"
-		         "\t--allow-discards: Allow TRIM commands being sent to the crypt device.\n"
-		         "\t--no-read-workqueue: Process read requests synchronously instead of using a internal workqueue.\n"
-		         "\t--no-write-workqueue: Process write requests synchronously instead of using a internal workqueue.\n"
-		         "\t--no-map-partition: do not map the partition table that reside inside the crypt device after unlock.\n"));
-		frontend_print_unlock_args();
-		frontend_print_common_args();
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("Close <target> close the encrypt block device.\n"));
-		frontend_print_common_args();
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("New <target>: create a windham header on the device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED DEVICES, BECAUSE THEY "
-		         "COULD BE UNLOCKED USING THE SAME MASTER KEY. \n"
-		         "\n"
-		         "options:\n"
-		         "\t--key <characters>: key input as argument, instead of asking in the terminal.\n"
-		         "\t--key-file <location>: key input as key file. The key file will be read as key (exclude EOF character). Option '--key' and '--key-file' are mutually exclusive\n"
-		         "\t--target-slot <int>: choose the target slot to add a new key; the first empty slot will be chosen as default.\n"
-		         "\t--target-memory <int>: total maximum memory (KiB) available to use. \n"
-		         "\t--target-time <float>: the suggested total time (sec) for adding the first key. This is not a hard limit.\n"
-		         "\t--encrypt-type <string>: designate an encryption scheme for the new header instead of the default one. It is not recommended, nor necessary, to do so, unless"
-		         " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\".\n"
-		         "\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
-		         "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"));
-		frontend_print_common_args();
-		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the designated encryption scheme contains an unsupported, "
-		         "but valid, mode, which will trigger a warning, the partition cannot be opened using your system.\n"));
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("AddKey <target>: Add a new key to the existing windham header. The new key will be asked after a successful unlock from the given key.\n"
-		         "\n"
-		         "options:\n"
-		         "\t--target-memory <int>: The total maximum memory (KiB) available to use. \n"
-		         "\t--target-time <float>: the suggested total time (sec) for adding a key. This is not a hard limit.\n"
-		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"));
-		frontend_print_unlock_args();
-		frontend_print_common_args();
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("RevokeKey <target>: remove a existing key from the header.\n"
-		         "\n"
-		         "options:\n"
-		         "\t--target-slot <int>: revoke the key inside the target slot. No password required.\n"
-		         "\t--all: revoke all slots; the device is inaccessible unless using master key to unlock.\n"
-		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
-		         "\t--obliterate: Wipe the header and destroy all data."));
-		frontend_print_unlock_args();
-		frontend_print_common_args();
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("Backup <target>: Backup the header into a separate file.\n"
-		         "\n"
-		         "options:\n"
-		         "\t--to <location>: REQUIRED; the location of the file.\n"
-		         "\t--no-transform: backup the header as is. No key required. \n"
-		         "\t--restore: restore the header from a backup file.\n"));
-		frontend_print_unlock_args();
-		frontend_print_common_args();
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("Restore <target>: Restore the header from a file to the device.\n"
-		         "\n"
-		         "options:\n"
-		         "\t--to <location>: REQUIRED; the location of the file.\n"));
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("Suspend <target>: Make device identifiable and accessible without password. When Suspending, only 'Close' and 'RevokeKey' (With param '--all', '--obliterate' and "
-		         "'--target-slot') could be used.\n"
-		         "\n"));
-		frontend_print_unlock_args();
-		frontend_print_common_args();
-		
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("Resume <target>: unsuspend the device.\n"
-		         "\n"));
-		frontend_print_unlock_args();
-		frontend_print_common_args();
-	} else if (strcmp(actions[action_count++], the_3rd_argv) == 0) {
-		printf(_("Bench: Performing Argon2 benchmark\n"
-		         "\n"));
-	} else {
-		print_error("<action> not recognized. type 'windham Help' to view help");
-	}
-	exit(0);
 }
 
 noreturn void frontend_no_input() {
@@ -404,33 +245,36 @@ void master_key_to_byte_array(const char * hex_string, uint8_t byte_array[HASHLE
 	}
 }
 
-void frontend_create_key(char * params[], Key * key, char * device, bool is_systemd) {
+void frontend_create_key(char * params[], Key * key) {
 	if (options[NMOBJ_key] == 1) {
 		key->key_or_keyfile_location = params[NMOBJ_key];
 		key->key_type = EMOBJ_key_file_type_key;
 	} else if (options[NMOBJ_key_file] == 1) {
 		key->key_or_keyfile_location = params[NMOBJ_key_file];
 		key->key_type = EMOBJ_key_file_type_file;
+	} else if (options[NMOBJ_is_systemd] == 1) {
+		key->key_or_keyfile_location = NULL;
+		key->key_type = EMOBJ_key_file_type_input_systemd;
+	} else if (options[NMOBJ_master_key] == 1) {
+		key->key_or_keyfile_location = NULL;
+		key->key_type = EMOBJ_key_file_type_masterkey;
 	} else {
-		if (is_systemd) {
-			key->key_or_keyfile_location = get_key_input_from_the_console_systemd(device);
-		} else {
-			key->key_or_keyfile_location = get_key_input_from_the_console(device, false);
-		}
+		key->key_or_keyfile_location = NULL;
 		key->key_type = EMOBJ_key_file_type_input;
 	}
 }
 
-#define ASK_KEY \
-\
-if (options[NMOBJ_master_key]) { \
-master_key_to_byte_array(params[NMOBJ_master_key], master_key); \
-} else { \
-frontend_create_key(params, &key, device, options[NMOBJ_is_systemd]);\
-}\
+void init_key_obj_and_master_key(Key * key, uint8_t master_key[HASHLEN], char * params[]) {
+	if (options[NMOBJ_master_key]) {
+		master_key_to_byte_array(params[NMOBJ_master_key], master_key);
+	} else {
+		memset(master_key, 0, HASHLEN);
+	}
+	frontend_create_key(params, key);
+}
 
 
-void frontend_check_validity_and_execute(int action_num, char * device, char * params[]) {
+void noreturn frontend_check_validity_and_execute(int action_num, char * device, char * params[]) {
 	uint8_t master_key[HASHLEN];
 	int target_slot = -1;
 	int unlock_slot = -1;
@@ -512,9 +356,9 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 		section_size = strtoull(params[NMOBJ_section_size], &end, 10);
 		if (*end != '\0') {
 			print_error(_("bad input for argument %s: not an positive integer"), "--section-size");
-		} else if (section_size < block_size){
+		} else if (section_size < block_size) {
 			print_error(_("section size (%lu) is smaller than the block size (%lu)"), section_size, block_size);
-		} else if (__builtin_popcount(section_size) != 1){
+		} else if (__builtin_popcount(section_size) != 1) {
 			print_warning(_("section size is not 2^n."));
 		}
 	}
@@ -527,70 +371,59 @@ void frontend_check_validity_and_execute(int action_num, char * device, char * p
 	
 	init();
 	Key key;
-	key.key_or_keyfile_location = NULL;
-	key.key_type = EMOBJ_key_file_type_none;
+	init_key_obj_and_master_key(&key, master_key, params);
 	
 	// execute
 	// "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume"
 	switch (action_num) {
 		case 0:
-			check_file(device, !options[NMOBJ_target_readonly], options[NMOBJ_is_nofail]);
-			check_is_device_mounted(device);
-			if (!action_open_suspended_or_keyring(device, params[NMOBJ_to], options[NMOBJ_target_decoy], options[NMOBJ_target_dry_run], options[NMOBJ_target_readonly],
-			                                      options[NMOBJ_target_allow_discards],
-			                                      options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue], options[NMOBJ_is_no_map_partition], options[NMOBJ_is_nokeyring])) {
-				ASK_KEY
-				action_open(device, params[NMOBJ_to], key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], timeout, options[NMOBJ_target_dry_run],
-				            options[NMOBJ_target_readonly], options[NMOBJ_target_allow_discards], options[NMOBJ_target_no_read_workqueue], options[NMOBJ_target_no_write_workqueue],
-								options[NMOBJ_is_no_map_partition]);
-			}
+			action_open(device, params[NMOBJ_to], timeout, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time,
+			            BOOL_DEL_START,
+			            options[NMOBJ_target_dry_run],
+							options[NMOBJ_target_decoy],
+			            options[NMOBJ_target_readonly],
+							options[NMOBJ_target_allow_discards],
+			            options[NMOBJ_target_no_read_workqueue],
+							options[NMOBJ_target_no_write_workqueue],
+			            options[NMOBJ_is_no_map_partition],
+							options[NMOBJ_is_nofail],
+			            options[NMOBJ_is_nokeyring],
+			            BOOL_DEL_END);
 			
 			break;
 		case 1:
 			action_close(device);
 			break;
 		case 2:
-			check_file(device, true, options[NMOBJ_is_nofail]);
-			ASK_KEY
-			if (options[NMOBJ_is_dynamic_convert]){
-				action_create_convert(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, block_size, section_size);
-			} else {
-				action_create(device, params[NMOBJ_encrypt_type] ? params[NMOBJ_encrypt_type] : DEFAULT_DISK_ENC_MODE, key, target_slot, target_mem, target_time, options[NMOBJ_target_decoy], block_size);
-			}
+			action_create(device, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, block_size, section_size,
+							  options[NMOBJ_target_decoy], options[NMOBJ_is_dynamic_convert], options[NMOBJ_is_nofail]);
 			break;
 		case 3:
 			check_file(device, true, options[NMOBJ_is_nofail]);
-			ASK_KEY
 			
-			action_addkey(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], target_slot, target_mem, target_time);
+			action_addkey(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
 			break;
 		case 4:
 			check_file(device, true, options[NMOBJ_is_nofail]);
-			if (target_slot == -1 && options[NMOBJ_target_obliterate] == 0) {
-				if (options[NMOBJ_target_all] == 0) {
-					ASK_KEY
-				}
-			}
-			action_revokekey(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_all], options[NMOBJ_target_obliterate]);
+			
+			action_revokekey(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_all], options[NMOBJ_target_obliterate], options[NMOBJ_target_decoy]);
 			break;
 		case 5:
 			check_file(device, false, options[NMOBJ_is_nofail]);
-			if (!(options[NMOBJ_target_no_transform] || options[NMOBJ_target_restore])) {
-				ASK_KEY
-			}
-			action_backup(device, params[NMOBJ_to], key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy], options[NMOBJ_target_no_transform]);
+			
+			action_backup(device, params[NMOBJ_to], key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_no_transform], options[NMOBJ_target_decoy]);
 			break;
 		case 6:
 			action_restore(device, params[NMOBJ_to], options[NMOBJ_target_decoy]);
 			break;
 		case 7:
 			check_file(device, true, options[NMOBJ_is_nofail]);
-			ASK_KEY
+			
 			action_suspend(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		case 8:
 			check_file(device, true, options[NMOBJ_is_nofail]);
-			ASK_KEY
+			
 			action_resume(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		default:
@@ -639,7 +472,7 @@ int main(int argc, char * argv[argc]) {
 	
 	if (argc >= 3) {
 		if (memcmp(argv[2], "-", 1) == 0) {
-			if (strcmp(argv[2], "--help") == 0 || strcmp(argv[2], "-h") == 0){
+			if (strcmp(argv[2], "--help") == 0 || strcmp(argv[2], "-h") == 0) {
 				frontend_help(argv[1]);
 			}
 			print_error(_("arguments should locate after <device>. "));
@@ -657,7 +490,7 @@ int main(int argc, char * argv[argc]) {
 				print_error(_("Unknown option or missing parameter for %s"), argv[optind - 1]);
 			}
 		}
-		if (options[NMOBJ_help]){
+		if (options[NMOBJ_help]) {
 			frontend_help(argv[1]);
 		}
 		frontend_check_validity_and_execute(action_num, argv[2], params);
