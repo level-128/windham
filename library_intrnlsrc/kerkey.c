@@ -44,37 +44,40 @@ void kernel_keyring_init(){
 }
 
 
-int mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMetadata metadata, unsigned timeout) {
+void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMetadata metadata, unsigned timeout) {
 	
 	if (!is_kernel_keyring_exist) {
-		return 0;
+		return;
 	}
-	char not_equal[100] = "{";
+	bool is_ok_for_keyring = true;
+	
 	if (metadata.block_size == DEFAULT_BLOCK_SIZE){
-		strcat(not_equal, "block size, ");
+		print_warning(_("Cannot register the key into Linux Keyring service: The block size is not equal to the default value (%u), got (%u)."), DEFAULT_BLOCK_SIZE, metadata.block_size);
+		is_ok_for_keyring = false;
 	}
 	if (strcmp(metadata.enc_type, DEFAULT_DISK_ENC_MODE) != 0){
-		strcat(not_equal, "encryption mode, ");
+		print_warning(_("Cannot register the key into Linux Keyring service: The encryption mode is not the same as the default (%s), got (%s). The default encryption mode may varies between "
+							 "architecture."), DEFAULT_DISK_ENC_MODE, metadata.enc_type);
+		is_ok_for_keyring = false;
+	} if (metadata.start_sector != 8){
+		print_warning(_("Cannot register the key into Linux Keyring service: The start sector is not the same as the default value (%u), got (%lu)."), 8, metadata.start_sector);
+		is_ok_for_keyring = false;
 	}
-	strcat(not_equal, "}");
-	if (strcmp(not_equal, "{}") != 0){
-		print_warning(_("Cannot store the key into Linux Keyring service, reason: %s is not equal to the default value. Use command \"windham help\" to see a list of default values."), not_equal);
+
+	if (is_ok_for_keyring) {
+		char name[strlen("windham:") + 36 /* uuid len */ + 1];
+		strcpy(name, "windham:");
+		generate_UUID_from_bytes(uuid, name + strlen("windham:"));
+		
+		key_serial_t key_serial;
+		key_serial = p_add_key("logon", name, key, HASHLEN, KEY_SPEC_USER_KEYRING);
+		
+		if (key_serial < 0) {
+			perror("add_key");
+			exit(1);
+		}
+		p_keyctl_set_timeout(key_serial, timeout);
 	}
-	
-	char name[strlen("windham:") + 36 /* uuid len */ + 1];
-	strcpy(name, "windham:");
-	generate_UUID_from_bytes(uuid, name + strlen("windham:"));
-	
-	key_serial_t key_serial;
-	key_serial = p_add_key("logon", name, key, HASHLEN, KEY_SPEC_USER_KEYRING);
-	
-	if (key_serial < 0) {
-		perror("add_key");
-		exit(1);
-	}
-	p_keyctl_set_timeout(key_serial, timeout);
-	
-	return 0;
 }
 
 ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {

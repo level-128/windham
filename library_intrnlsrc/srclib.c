@@ -133,9 +133,10 @@ int debug_print_error_suppress;
 #define ARGFLG_19(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_18(__VA_ARGS__)
 #define ARGFLG_20(a, ...) BOOL_ADDER(a) COMMA_SEPARATOR ARGFLG_19(__VA_ARGS__)
 
-#define ARGFLG_N(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,N,...) __attribute__((unused)) BOOL_DEL _, ARGFLG_##N
+#define ARGFLG_N(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,N,...) __attribute__((unused)) BOOL_DEL_t _, ARGFLG_##N
 
-#define ARGFLG(...) ARGFLG_N(__VA_ARGS__,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)(__VA_ARGS__)
+#define ARGFLG(...) ARGFLG_N(__VA_ARGS__,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)(__VA_ARGS__)  , __attribute__((unused)) BOOL_DEL_END_t _$
+
 
 
 static void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b[length], uint8_t c[length]);
@@ -160,14 +161,20 @@ typedef enum {
 	T_BOOL,
 } TYPE_T;
 
-__attribute__((unused)) typedef union {
+__attribute__((unused)) typedef struct {
 	nullptr_t tmp_var[0];
-} BOOL_DEL;
+} BOOL_DEL_t;
+
+__attribute__((unused)) typedef struct {
+	nullptr_t tmp_var[0];
+} BOOL_DEL_END_t;
+
+__attribute__((unused)) BOOL_DEL_t BOOL_DEL_START;
+
+__attribute__((unused)) BOOL_DEL_END_t BOOL_DEL_END;
 
 TYPE_T argtype[10];
 void * arg_ptr[10];
-
-__attribute__((unused)) BOOL_DEL ARGFLG_delim;
 
 void p__expands_args(int argcount, ...) {
 	va_list p__tmp_va__;
