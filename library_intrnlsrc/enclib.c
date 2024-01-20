@@ -58,14 +58,6 @@ const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', '
 
 const uint8_t head_converting[16] = {'E', 'N', 'C', 'I', 'N', 'G', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
 
-void init_enclib(char * generator_addr) {
-	FLAG_clear_internal_memory = 0;
-	random_fd = fopen(generator_addr, "r");
-	if (random_fd == NULL) {
-		print_error(_("Failed to initialize random generator."));
-	}
-}
-
 void fill_secure_random_bits(uint8_t * address, size_t size) {
 	size_t read_size = fread(address, 1, size, random_fd);
 	if (read_size != size) {
@@ -158,9 +150,9 @@ static int write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t
 		print("target_mem_size:", target_mem_size);
 		if (target_mem_size > exp_PDF_p_bound) { //larger than p=0.05
 			RAND:;
-			int64_t a = rand() % (target_mem_size * 4);
-			int64_t b = rand() % (target_mem_size * 4);
-			int64_t c = rand() % (target_mem_size * 4);
+			int64_t a = (int64_t) (random() % (target_mem_size * 4));
+			int64_t b = (int64_t) (random() % (target_mem_size * 4));
+			int64_t c = (int64_t) (random() % (target_mem_size * 4));
 			if (a > UINT8_MAX || b > UINT8_MAX || c > UINT8_MAX) {
 				goto RAND;
 			}
