@@ -88,7 +88,7 @@ void create_disk_hash(Dynenc_param param, const char * device) {
 	     i < param.unenc_data_size;
 	     i += param.section_size, j += 4) {
 		
-		lseek(fd, i, SEEK_SET);
+		lseek(fd, (__off_t) i, SEEK_SET);
 		
 		if (read(fd, buffer, param.section_size) == -1) {
 			print_error(_("Failed to create disk hash: %s. Your data is safe and the disk is still accessible. You can restart the conversion at any time."), strerror(errno));
@@ -96,7 +96,7 @@ void create_disk_hash(Dynenc_param param, const char * device) {
 		
 		hash_one_sector(&blake_header, param, buffer, buffer);
 		
-		lseek(fd, j, SEEK_SET);
+		lseek(fd, (__off_t) j, SEEK_SET);
 		
 		if (write(fd, buffer, 4) == -1) {
 			print_error(_("Failed to create disk hash: %s. Your data is safe and the disk is still accessible. You can restart the conversion at any time."), strerror(errno));
@@ -119,11 +119,8 @@ uint64_t check_disk_hash(Dynenc_param param, const char * device) {
 	while (true) {
 		if (sector_start == sector_stop) {
 			unmap_disk(unenc_mmap, param.disk_size / 512);
-			if (sector_start == 0){
-				return UINT64_MAX;
-			} else {
-				return (sector_start - 1) * param.section_size + param.unenc_data_start;
-			}
+			return (sector_start) * param.section_size + param.unenc_data_start;
+			
 		}
 		size_t cur_sector = (sector_start + sector_stop) / 2;
 		hash_one_sector(&blake_header, param, &unenc_mmap[cur_sector * param.section_size + param.unenc_data_start], hash_val);
@@ -135,7 +132,7 @@ uint64_t check_disk_hash(Dynenc_param param, const char * device) {
 	}
 }
 
-void copy_disk(Dynenc_param param, const char * device, const char * enc_device, uint64_t start_point) {
+bool copy_disk(Dynenc_param param, const char * device, const char * enc_device, uint64_t start_point) {
 	int count = 0;
 	progressbar * copy_disk_progressbar;
 	START:
@@ -143,6 +140,7 @@ void copy_disk(Dynenc_param param, const char * device, const char * enc_device,
 	int fd = open(device, O_RDONLY);
 	int fd_enc = open(enc_device, O_RDWR);
 	
+	// retry open
 	if (fd == -1 || fd_enc == -1) {
 		if (count++ < 10) {
 			sleep(1);
@@ -163,14 +161,16 @@ void copy_disk(Dynenc_param param, const char * device, const char * enc_device,
 		copy_disk_progressbar = progressbar_new(_("Recovering progress:"), (start_point - param.unenc_data_start + param.section_size) / param.section_size);
 		start_point = start_point;
 	}
-	for (; start_point != param.unenc_data_start - param.section_size /* Overflow of unsigned integer is a well defined behaviour*/; start_point -= param.section_size) {
+	for (; start_point != param.unenc_data_start - param.section_size /* Overflow of unsigned integer is a well-defined behavior*/; start_point -= param.section_size) {
 		
 		if (lseek(fd, (off_t) start_point, SEEK_SET) == -1 || read(fd, buffer, param.section_size) == -1) {
-			print_error(_("Error converting the disk: %s. The disk is now left in an inconsistent state. Use \"windham Open <target>\" to fix the partition."), strerror(errno));
+			print_error_no_exit(_("Error converting the disk: %s. The disk is now left in an inconsistent state. Use \"windham Open <target>\" to fix the partition."), strerror(errno));
+			return false;
 		}
 		
 		if (lseek(fd_enc, (off_t) start_point, SEEK_SET) == -1 || write(fd_enc, buffer, param.section_size) == -1) {
-			print_error(_("Error converting the disk: %s. The disk is now left in an inconsistent state. Use \"windham Open <target>\" to fix the partition."), strerror(errno));
+			print_error_no_exit(_("Error converting the disk: %s. The disk is now left in an inconsistent state. Use \"windham Open <target>\" to fix the partition."), strerror(errno));
+			return false;
 		}
 		fsync(fd_enc);
 		progressbar_inc(copy_disk_progressbar);
@@ -180,39 +180,40 @@ void copy_disk(Dynenc_param param, const char * device, const char * enc_device,
 	free(buffer);
 	close(fd);
 	close(fd_enc);
+	return true;
 }
 
 
-__attribute__((unused)) void write_test(char * device) {
-	size_t device_block_cnt = get_device_block_cnt(device);
-	int fd = open(device, O_WRONLY);
-	if (fd == -1) {
-		perror("Error opening device");
-		return;
-	}
-	
-	uint8_t * buffer = (uint8_t *) malloc(512);
-	if (!buffer) {
-		perror("Failed to allocate memory");
-		close(fd);
-		return;
-	}
-	
-	for (size_t i = 0; i < device_block_cnt; ++i) {
-		for (size_t j = 0; j < 512; ++j) {
-			buffer[j] = (uint8_t) (j % 256);
-		}
-		ssize_t written = write(fd, buffer, 512);
-		if (written != 512) {
-			perror("Error writing to device");
-			break;
-		}
-	}
-	
-	free(buffer);
-	fsync(fd);
-	close(fd);
-}
+//__attribute__((unused)) void write_test(char * device) {
+//	size_t device_block_cnt = get_device_block_cnt(device);
+//	int fd = open(device, O_WRONLY);
+//	if (fd == -1) {
+//		perror("Error opening device");
+//		return;
+//	}
+//
+//	uint8_t * buffer = (uint8_t *) malloc(512);
+//	if (!buffer) {
+//		perror("Failed to allocate memory");
+//		close(fd);
+//		return;
+//	}
+//
+//	for (size_t i = 0; i < device_block_cnt; ++i) {
+//		for (size_t j = 0; j < 512; ++j) {
+//			buffer[j] = (uint8_t) (j % 256);
+//		}
+//		ssize_t written = write(fd, buffer, 512);
+//		if (written != 512) {
+//			perror("Error writing to device");
+//			break;
+//		}
+//	}
+//
+//	free(buffer);
+//	fsync(fd);
+//	close(fd);
+//}
 
 
 void shrink_disk(Dynenc_param param, const char * device) {
