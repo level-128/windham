@@ -28,8 +28,7 @@ void frontend_print_unlock_args() {
 			       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
 			       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
 			       "\t--verbose: print unlock progress per keyslot.\n"
-			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"
-			       "\t--nofail: exit normally without error message when the device does not exist.\n"));
+			       "\t--systemd-dialog: use systemd password input dialog; useful when integrating with systemd.\n"));
 };
 
 void frontend_print_common_args() {
@@ -37,6 +36,7 @@ void frontend_print_common_args() {
 			       "\nCommon options:\n"
 			       "\t--no-admin: forfeit checking root privileges, may produces undefined behavior. \n"
 			       "\t--yes: do not ask for explicit conformation to potential destructive operations.\n"
+			       "\t--nofail: exit normally without error message when the device does not exist.\n"
 			       "\t--help: print this message.\n"));
 };
 
@@ -114,11 +114,14 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\t--target-time <float>: the suggested total time (sec) for adding the first key. This is not a hard limit.\n"
 		         "\t--encrypt-type <string>: designate an encryption scheme for the new header instead of the default one. It is not recommended, nor necessary, to do so, unless"
 		         " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\".\n"
+					"\t--dynamic-convert: Dynamically convert an existing partition to Windham encrypted partition without reformatting.\n"
 		         "\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
+					"\t--section-size <int>: designate the section size for dynamic partition conversion. A larger section size may increase the conversion speed, but will resulting more waste space "
+					"resides before the first encrypt sector.\n"
 		         "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"));
 		frontend_print_common_args();
 		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the designated encryption scheme contains an unsupported, "
-		         "but valid, mode, which will trigger a warning, the partition cannot be opened using your system.\n"));
+		         "but valid, mode, a warning will be displayed, and the partition cannot be opened using your system.\n"));
 		
 	} else if (strcmp("AddKey", the_3rd_argv) == 0) {
 		printf(_("AddKey <target>: Add a new key to the existing windham header. The new key will be asked after a successful unlock from the given key.\n"
