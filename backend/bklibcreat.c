@@ -132,14 +132,14 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 		create_disk_hash(dynenc_param, device);
 		
 		if (copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham", UINT64_MAX) == false) {
-			remove_crypt_mapping("/dev/mapper/.tmp_windham");
+			remove_crypt_mapping(".tmp_windham");
 			exit(EXIT_FAILURE);
 		};
 		
 		untag_header_as_converting(&data);
 		write_header_to_device(&data, device, 0);
 		
-		remove_crypt_mapping("/dev/mapper/.tmp_windham");
+		remove_crypt_mapping(".tmp_windham");
 	} else {
 		ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 		

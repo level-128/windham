@@ -23,6 +23,8 @@ typeof(dm_task_destroy) * p_dm_task_destroy;
 typeof(dm_task_add_target) * p_dm_task_add_target;
 typeof(dm_task_update_nodes) * p_dm_task_update_nodes;
 
+bool is_device_mapper_available;
+
 #pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target dm_task_set_uuid
 
 
@@ -55,6 +57,10 @@ void convert_disk_key_to_hex_format(const uint8_t master_key[32], char key[HASHL
 
 
 void remove_crypt_mapping(const char * name) {
+	if (!is_device_mapper_available){
+		print_error(_("Failed to close device mapping at \"/dev/mapper/%s\" due to missing device mapper library."), name);
+	}
+	
 	char target_loc[strlen(name) + strlen("/dev/mapper/") + 1];
 	sprintf(target_loc, "/dev/mapper/%s", name);
 	
@@ -107,6 +113,10 @@ int create_crypt_mapping(const char * device,
                          bool is_allow_discards,
                          bool is_no_read_workqueue,
                          bool is_no_write_workqueue) {
+	if (!is_device_mapper_available){
+		print_error(_("Failed to create device mapping due to missing device mapper library. \nDevice: %s\nUUID: %s"), device, uuid_str);
+	}
+	
 	struct dm_task * dmt;
 	// allow_discards
 	// fix_padding must be used.
@@ -211,8 +221,9 @@ void mapper_init() {
 	check_container();
 	void * handle = dlopen("libdevmapper.so", RTLD_LAZY);
 	if (!handle) {
-		print_error(_("error loading libdevmapper.so, on-the-fly encryption cannot be supported. Please install 'libdevmapper' (under debian-based distro) or 'device-mapper' (under "
+		print_warning(_("error loading libdevmapper.so, on-the-fly encryption cannot be supported. Please install 'libdevmapper' (under debian-based distro) or 'device-mapper' (under "
 		              "fedora/opensuse-based distro)"));
+		is_device_mapper_available = false;
 	} else {
 		p_dm_task_create = dlsym(handle, "dm_task_create");
 		p_dm_task_set_name = dlsym(handle, "dm_task_set_name");
@@ -222,11 +233,13 @@ void mapper_init() {
 		p_dm_task_destroy = dlsym(handle, "dm_task_destroy");
 		p_dm_task_add_target = dlsym(handle, "dm_task_add_target");
 		p_dm_task_update_nodes = dlsym(handle, "dm_task_update_nodes");
+		
+		is_device_mapper_available = true;
 	}
 	
 	if (access("/dev/mapper/.tmp_windham", F_OK) == 0) {
-		print_warning(_("It was detected that the program did not end properly at the last conversion."));
-		remove_crypt_mapping("/dev/mapper/.tmp_windham");
+		print_warning(_("the program did not end properly during the last conversion."));
+		remove_crypt_mapping(".tmp_windham");
 	}
 }
 

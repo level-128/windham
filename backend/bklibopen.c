@@ -60,7 +60,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 			untag_header_as_converting(&data);
 			write_header_to_device(&data, device, 0);
 			
-			remove_crypt_mapping("/dev/mapper/.tmp_windham");
+			remove_crypt_mapping(".tmp_windham");
 			break;
 		}
 		
