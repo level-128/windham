@@ -46,7 +46,6 @@
 #include "blamka-round-opt.h"
 #else
 #include "blamka-round-ref.h"
-#include "blake-impl.h"
 #endif
 
 
