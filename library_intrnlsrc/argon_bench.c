@@ -35,11 +35,7 @@ static uint64_t rdtsc(void){return 0;};
 #endif
 
 noreturn void benchmark() {
-#if defined(__amd64__) || defined(__x86_64__)
 	printf(_("Start Argon2B3id benchmark:\n"));
-#else
-	print_error(_("'windham Bench' only supports x86-64 (AMD64) architecture."));
-#endif
 
 #define BENCH_OUTLEN 32
 #define BENCH_INLEN 32
@@ -65,7 +61,7 @@ noreturn void benchmark() {
 			
 			clock_t start_time, stop_time;
 			uint64_t start_cycles, stop_cycles;
-			uint64_t delta;
+			double cpb;
 			double mcycles;
 			
 			start_time = clock();
@@ -77,12 +73,16 @@ noreturn void benchmark() {
 			stop_cycles = rdtsc();
 			stop_time = clock();
 			
-			delta = (stop_cycles - start_cycles) / (m_cost);
+			cpb = ((double) (stop_cycles - start_cycles) * thread_n) / (m_cost * 1024);
 			mcycles = (double) (stop_cycles - start_cycles) / (1UL << 20);
 			
+			if (mcycles == 0){
+				printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, Result: \n"), t_cost,
+				       m_cost >> 10, thread_n, ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC));
+			}
 			printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, %2.2f Cycles per byte, %2.2f "
 					 "Mcycles. Result: \n"), t_cost,
-					 m_cost >> 10, thread_n, ((double) stop_time - start_time) / (CLOCKS_PER_SEC), (float) delta / 1024, mcycles);
+					 m_cost >> 10, thread_n, ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC), cpb, mcycles);
 			print_hex_array(outlen, out);
 		}
 	}
