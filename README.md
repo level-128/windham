@@ -144,9 +144,9 @@ Additional required libraries:
 
 Compile windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sudo make install`).
 
-Additional userspace programs (Optional, but functionality will be reduced if these userspace programs if absent)
+Additional userspace programs (Optional, but functionality will be reduced if these userspace programs are absent)
 
-btrfs
+
 
 ---
 
