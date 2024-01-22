@@ -16,7 +16,7 @@
 #error "the program only supports platform with uint8_t defined"
 #endif
 
-#define VERSION "0.231128.1.1"
+#define VERSION "0.231128.2.0"
 
 // defined const
 #define HASHLEN 32
