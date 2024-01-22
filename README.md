@@ -2,22 +2,22 @@
 
 Windham is free and open-source software for disk encryption, an implementation of its own specification, based on the Linux dm-crypt module. 
 
-## Supported features:
+# Supported features:
 
 - Transparent & on-the-fly disk (or partition) encryption.
-- Plausible deniability: through Decoy Partition (steganography) and completely signature-less & random header.
-- Tamper resistance: modifying the encryption header will render it invalid.
+- Plausible deniability: through Decoy Partition (steganography) and completely signature-less & mathematically random header.
+- Tamper resistance: tampering with the encryption header will render it invalid.
 - Password management: supports registering multiple passwords, revoking with or without authorization.
-- Atomic metadata: Changes in the header (e.g. add a new key) will cause every byte of it to change simultaneously.
+- Atomic metadata: Changes in the header (e.g. adding a new key) will cause every byte of it to change simultaneously.
 
-## How To install?
+# How To install?
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
 or later.) under release (if available).
 - Compile by your own. See [Compile Instructions](###Compile instructions: ) below.
 
 
-## Basic usage:
+# Basic usage:
 1. First, find the device that you want to encrypt under `/dev`, you can do this by using 
 your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`; `/dev/sdb2` or `/dev/nvme0n2p2` if 
 you prefer to create an encrypted partition instead.
@@ -127,7 +127,7 @@ a case that a large amount of file needs to be deleted, reformatting the filesys
 
 ---
 
-### Compile instructions:
+# Compile instructions:
 
 `cmake` and `gcc` are required to build Windham.
 
@@ -146,17 +146,33 @@ Compile windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sud
 
 Additional userspace programs (Optional, but functionality will be reduced if these userspace programs are absent)
 
+- `resize2fs`: userspace ext2/ext3/ext4 file system resizer. 
+- `mkfs.vfat`: ExFAT filesystem creation tool.
+- `kpartx`: Create device maps from partition tables.
+- `blkid`: locate/print block device attributes
+
+---
+
+# Feature support matrix
+
+### machine architecture:
+| Architecture | SIMD support               | SIMD dynamic dispatch support | cmake preset targets                        | 
+|--------------|----------------------------|-------------------------------|---------------------------------------------|
+| AMD64        | SSE4, AVX-2, AVX-512(F,VL) | Yes                           | Haswell, Tigerlake, sapphirerapids, zenver3 |
+| aarch64      | NEON                       | No                            | armv8.5-a, armv9-a                          |
+| riscv64      | No                         | No                            | rv64imafdc                                  |
+
 
 
 ---
 
-### Q&A:
+# Q&A:
 
 [For a list of common Q&A, Here:](/Document/Q&A.md)
 
 ---
 
-## Contribute:
+# Contribute:
 
 🥰🥰 Contributions are highly welcome 🥰🥰! 
 
@@ -166,7 +182,7 @@ Any questions? email me: level-128@gmx.com
 
 ---
 
-## License and Legal issues
+# License and Legal issues
 
 Copyright (C) 2023- W. Wang (level-128)
 
