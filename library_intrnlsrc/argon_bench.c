@@ -79,10 +79,11 @@ noreturn void benchmark() {
 			if (mcycles == 0){
 				printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, Result: \n"), t_cost,
 				       m_cost >> 10, thread_n, ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC));
+			} else {
+				printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, %2.2f Cycles per byte, %2.2f "
+				         "Mcycles. Result: \n"), t_cost,
+				       m_cost >> 10, thread_n, ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC), cpb, mcycles);
 			}
-			printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, %2.2f Cycles per byte, %2.2f "
-					 "Mcycles. Result: \n"), t_cost,
-					 m_cost >> 10, thread_n, ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC), cpb, mcycles);
 			print_hex_array(outlen, out);
 		}
 	}
