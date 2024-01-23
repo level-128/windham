@@ -427,6 +427,7 @@ void noreturn frontend_check_validity_and_execute(int action_num, char * device,
 			action_resume(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		default:
+			break;
 	}
 	exit(EXIT_SUCCESS);
 	

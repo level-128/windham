@@ -6,6 +6,7 @@
 #include <spawn.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <linux/limits.h>
 
 #ifndef _ // no GNU gettext
 #define _(x) x
@@ -162,11 +163,11 @@ typedef enum {
 } TYPE_T;
 
 __attribute__((unused)) typedef struct {
-	nullptr_t tmp_var[0];
+	void * tmp_var[0];
 } BOOL_DEL_t;
 
 __attribute__((unused)) typedef struct {
-	nullptr_t tmp_var[0];
+	void * tmp_var[0];
 } BOOL_DEL_END_t;
 
 __attribute__((unused)) BOOL_DEL_t BOOL_DEL_START;
@@ -286,7 +287,7 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 	posix_spawnattr_t attr;
 	int pipefd[2];
 	bool ret;
-	char *path = NULL;
+	char path[PATH_MAX];
 	
 	// Check if the executable exists
 	for (int i = 0; ; i++){
@@ -294,9 +295,8 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 			errno = ENOENT;
 			return false;
 		}
-		asprintf(&path, "%s/%s", exec_dir[i], exec_name);
+		sprintf(path, "%s/%s", exec_dir[i], exec_name);
 		if (access(path, X_OK) != 0) {
-			free(path);
 			if (errno == ENOENT){
 				continue;
 			} else {
@@ -314,7 +314,6 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 	if (dup_stdout && dup_stdout_len) {
 		if (pipe(pipefd) != 0) {
 			perror("pipe");
-			free(path);
 			return false;
 		}
 		posix_spawn_file_actions_addclose(&action, pipefd[0]);
@@ -397,7 +396,6 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 	
 	va_end(args);
 	free(argv);
-	free(path);
 	if (dup_stdout && dup_stdout_len) {
 		posix_spawn_file_actions_destroy(&action);
 	}
