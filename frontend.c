@@ -140,6 +140,7 @@ int frontend_check_actions(char * input) {
 		print_error(_("Arguments should locate after <action> and <target>."));
 	}
 	print_error(_("<action> not recognized. type 'windham Help' to view help"));
+	exit(1);
 }
 
 void frontend_check_invalid_param(int action_num) {
@@ -274,7 +275,7 @@ void init_key_obj_and_master_key(Key * key, uint8_t master_key[HASHLEN], char * 
 }
 
 
-void noreturn frontend_check_validity_and_execute(int action_num, char * device, char * params[]) {
+noreturn void frontend_check_validity_and_execute(int action_num, const char * device, char * params[]) {
 	uint8_t master_key[HASHLEN];
 	int target_slot = -1;
 	int unlock_slot = -1;

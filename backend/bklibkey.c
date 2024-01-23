@@ -143,7 +143,7 @@ char * interactive_ask_new_key_test_key = NULL;
 void interactive_prepare_key(Key * new_key, const char * device) {
 	char option;
 	if (interactive_ask_new_key_test_key == NULL) {
-		printf(_("AddKey: choose your key format \n(1) input key from console;\n(2) use a key file\nOption: \n"));
+		printf(_("Add a new key for %s: choose your key format \n(1) input key from console;\n(2) use a key file\nOption: \n"), device);
 		
 		struct termios oldt, newt;
 		

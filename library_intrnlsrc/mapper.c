@@ -2,9 +2,6 @@
 // Created by level-128 on 8/28/23.
 //
 #include <dlfcn.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <linux_fs.h>
 
 #include <libdevmapper.h>
 
@@ -196,7 +193,7 @@ void create_crypt_mapping_from_disk_key(const char * device,
 		int exec_ret_val;
 		if (exec_name("kpartx", execdir, NULL, 0, &exec_ret_val, false, "-a", target_loc, "-p", "-partition", NULL) == false) {
 			if (errno == ENOENT) {
-				print_warning(_("Cannot detect and map partition table under %s."), target_loc);
+				print_warning(_("Cannot detect and map partition table under %s: kpartx does not exist."), target_loc);
 			}
 		}
 	}

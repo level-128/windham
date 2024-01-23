@@ -254,7 +254,7 @@ void ask_for_conformation(const char * format, ...) {
 	srand(time(NULL)); // NOLINT(*-msc51-cpp)
 	
 	for (int i = 0; i < 3; ++i) {
-		int index = rand() % 64; // NOLINT(*-msc50-cpp)
+		const int index = rand() % 64; // NOLINT(*-msc50-cpp)
 		random_str[i] = base64_chars[index];
 	}
 	random_str[3] = '\0';
