@@ -25,7 +25,7 @@ set(BLAKE3_ARM_NAMES aarch64 AArch64 arm64 ARM64)
 
 set(BLAKE_DIR ${CMAKE_SOURCE_DIR}/library/blake3)
 
-if((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_AMD64_NAMES AND target_arch STREQUAL "native") OR target_arch STREQUAL "X86_64")
+if((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_AMD64_NAMES AND target_arch STREQUAL "native") OR target_arch STREQUAL "x86_64")
     file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c ${BLAKE_DIR}/blake3_sse2_x86-64_unix.S
             ${BLAKE_DIR}/blake3_sse41_x86-64_unix.S ${BLAKE_DIR}/blake3_avx2_x86-64_unix.S ${BLAKE_DIR}/blake3_avx512_x86-64_unix.S)
 elseif((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_ARM_NAMES AND target_arch STREQUAL "native") OR target_arch STREQUAL "aarch64")
@@ -81,6 +81,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         if (NOT DEFINED x86_64_compiler)
             message( FATAL_ERROR "no x86_64_compiler given." )
         endif ()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprefetch-loop-arrays ")
         set(CMAKE_C_COMPILER ${x86_64_compiler})
         add_argon2_and_executables_for_arch("haswell")
         add_argon2_and_executables_for_arch("tigerlake")
