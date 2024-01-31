@@ -50,7 +50,7 @@ enum {
 // approx val of \lim_{n -> \inf} ( \sum_{i = 0}^{n} e^i )^{-1} * e^(n + 1)
 const double exp_index_diff = 1.64905;
 
-const int exp_PDF_p_bound = 66; // p=0.05
+const unsigned int exp_PDF_p_bound = 66; // p=0.05
 
 const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 59874, 162755, 442413, 1202604, 3269017, 8886111, 24154953, 65659969, 178482301, 485165195};
 
@@ -61,7 +61,7 @@ const uint8_t head_converting[16] = {'E', 'N', 'C', 'I', 'N', 'G', 'l', 'e', 'v'
 void fill_secure_random_bits(uint8_t * address, size_t size) {
 	size_t read_size = fread(address, 1, size, random_fd);
 	if (read_size != size) {
-		print_error(_("IO error while reading random generator."));
+		print_error(_("IO error while reading from the random generator."));
 	}
 }
 
@@ -122,10 +122,10 @@ static int read_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, ui
 	return *required_mem_size == 0 ? NMOBJ_STEP_OK : NMOBJ_STEP_CONTINUE;
 }
 
-static void operate_key_slot_using_keyslot_key(Key_slot * keyslot, const uint8_t inited_key[32], const uint8_t master_key_mask[32], bool is_decrypt) {
+static void operate_key_slot_using_keyslot_key(Key_slot * keyslot, const uint8_t keyslot_key[32], const uint8_t master_key_mask[32], bool is_decrypt) {
 	uint8_t temp_key[HASHLEN];
 	
-	xor_with_len(HASHLEN, inited_key, master_key_mask, temp_key);
+	xor_with_len(HASHLEN, keyslot_key, master_key_mask, temp_key);
 	struct AES_ctx ctx;
 	AES_init_ctx_iv(&ctx, temp_key, master_key_mask);
 	
@@ -136,6 +136,29 @@ static void operate_key_slot_using_keyslot_key(Key_slot * keyslot, const uint8_t
 	}
 }
 
+/**
+ * @brief Writes data to the Key_slot structure based on the given parameters.
+ *
+ * This function calculates the target memory size based on the remaining time, exponential index difference, and time per KiB of memory. If the target memory size exceeds the maximum
+ * memory size, it is capped to the maximum value. The target memory size is then divided by the exponential value corresponding to the given length exponential index.
+ *
+ * If the target memory size is larger than the predefined PDF p bound, random values are generated to fill a four-byte array. The values are sorted in ascending order and stored in
+ * the new_mem array. The write_mem_count_from_len_exp_and_update_salt function is then called to write the memory count to the Key_slot structure and update the salt value. If the result
+ * of the read_key_one_step function is NMOBJ_STEP_CONTINUE, the length exponential index is incremented by one.
+ *
+ * The new_mem array is cleared and the write_mem_count_from_len_exp_and_update_salt function is called again with an array of zeros. The argon2id_hash_calc function is used to calculate
+ * a new password hash based on the updated length exponential index and salt values. If the result of the argon2id_hash_calc function is NMOBJ_STEP_ERR_NOMEM, the program exits with
+ * an error code. Otherwise, the new password hash is copied to the password_hash array.
+ *
+ * @param key_slot A pointer to the Key_slot structure.
+ * @param len_exp_index The length exponential index.
+ * @param password_hash The password hash.
+ * @param salt The salt value.
+ * @param time_left The remaining time.
+ * @param time_per_KiB_mem The time per KiB of memory.
+ * @param max_mem_size The maximum memory size.
+ * @return 0 if the write operation is successful.
+ */
 static int write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[112], double time_left, double time_per_KiB_mem, uint64_t max_mem_size) {
 //	print("write_to_exp:", len_exp_index, target_mem_size);
 	uint8_t new_mem[4];
@@ -181,6 +204,26 @@ static int write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t
 	return 0;
 }
 
+/**
+ * @brief Writes the key to one slot in the Key_slot structure.
+ *
+ * This function writes the key to one slot in the Key_slot structure based on the target time.
+ * It calculates the required memory size and iterates through the slot expansion indexes.
+ * For each index, it checks the time used and compares it with the target time.
+ * If the time used exceeds the target time divided by the exponential index difference,
+ * it calls the write_to_exp function and breaks the loop.
+ * Otherwise, it calls the read_key_one_step function to read the key one step at a time,
+ * updating the required memory size. If the read step returns NMOBJ_STEP_OK (0),
+ * indicating that the read memory count is 0, it fills the key's length expansion with secure random bits.
+ * If the read step returns NMOBJ_STEP_ERR_NOMEM (-3), indicating a memory allocation error,
+ * it calls the write_to_exp function to end the writing process and returns NMOBJ_STEP_ERR_NOMEM.
+ *
+ * @param key_slot      The Key_slot structure to write the key.
+ * @param hash          The hash value to be written.
+ * @param max_mem_size  The maximum memory size allowed.
+ * @param target_time   The target time for writing the key.
+ * @return              0 if successful, NMOBJ_STEP_ERR_NOMEM (-3) if memory allocation error occurs.
+ */
 static int write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uint64_t max_mem_size, double target_time) {
 	uint64_t required_mem_size = BASE_MEM_COST;
 	
@@ -210,6 +253,23 @@ static int write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uin
 	return 0;
 }
 
+/**
+ * @brief Reads the key from all slots and performs one step of key calculation.
+ *
+ * This function reads the key from all slots in the given sequence and performs one step of key calculation using the read_key_one_step function.
+ * The calculation continues until the target time is reached or the maximum number of exponential steps is reached for all slots.
+ *
+ * @param data$keyslots The array of key slot data.
+ * @param inited_keys Array of initialized keys for each slot.
+ * @param slot_seq The sequence of slots to calculate the key.
+ * @param max_mem_size The maximum memory size for key calculation.
+ * @param target_time The target time in seconds to perform the key calculation.
+ *
+ * @note This function assumes that the Key_slot structure and other definitions used in this code are defined in the same file.
+ *
+ * @return Returns NMOBJ_STEP_ERR_TIMEOUT if the target time is reached, NMOBJ_STEP_ERR_NOMEM if there is not enough memory,
+ *         NMOBJ_STEP_OK if the key is successfully calculated for a slot, NMOBJ_STEP_ERR_END if all slots have reached the maximum number of exponential steps.
+ */
 int read_key_from_all_slots(Key_slot data$keyslots[KEY_SLOT_COUNT], uint8_t inited_keys[KEY_SLOT_COUNT][HASHLEN], const int slot_seq[KEY_SLOT_COUNT + 1], uint64_t max_mem_size, double target_time) {
 	// initialize salt array
 	uint8_t salts[KEY_SLOT_COUNT][HASHLEN + KEY_SLOT_EXP_MAX * 4];

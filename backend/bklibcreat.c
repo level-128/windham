@@ -100,6 +100,23 @@ void action_new_check_crypt_support_status(const char * str) {
 	free(crypto_list);
 }
 
+/**
+ * @brief Creates an encrypted partition on a device.
+ *
+ * This function corresponds to the `windham New` command.
+ *
+ * @param device The device file to create the partition on.
+ * @param enc_type The encryption mode to use for the partition.
+ * @param key The encryption key or keyfile location.
+ * @param target_slot The key slot to store the key in.
+ * @param target_memory The amount of memory to be used for the key.
+ * @param target_time The time limit for decrypting the key.
+ * @param block_size The size of each block in the encrypted partition.
+ * @param section_size The size of each section in the encrypted partition.
+ * @param is_decoy Whether to create a decoy partition.
+ * @param is_dyn_enc Whether to enable dynamic encryption conversion.
+ * @param is_no_fail Whether to exit if an error occurs during the process.
+ */
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, size_t block_size, size_t section_size, bool is_decoy,
                    bool is_dyn_enc, bool is_no_fail){
 	check_file(device, true, is_no_fail);

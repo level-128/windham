@@ -44,6 +44,21 @@ void kernel_keyring_init(){
 }
 
 
+/**
+ * @brief Adds a key to the Linux Keyring service.
+ *
+ * This function adds a key to the Linux Keyring service. The key is added only if
+ * certain conditions are satisfied, such as the block size, encryption mode, and
+ * start sector being equal to specific default values. If the key is successfully
+ * added to the keyring, a timeout value is set for the key as well.
+ *
+ * @param key The key to be added, given as an array of bytes.
+ * @param uuid The generated UUID for the key, represented as an array of bytes.
+ * @param metadata The metadata information for the key.
+ * @param timeout The timeout value for the key.
+ *
+ * @return None.
+ */
 void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMetadata metadata, unsigned timeout) {
 	
 	if (!is_kernel_keyring_exist) {
@@ -80,6 +95,22 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMet
 	}
 }
 
+/**
+ * @brief Retrieves the serial number of a key from the keyring.
+ *
+ * This function returns the serial number of a key identified by the given UUID. It performs the following steps:
+ * 1. Checks if the kernel keyring exists. If it does not exist, it returns NMOBJ_KEY_ERR_KERNEL_KEYRING.
+ * 2. Generates a key name by concatenating the string "windham:" with the UUID converted to a string.
+ * 3. Calls the p_keyctl function to search for the key in the user keyring with the name "logon" and the generated key name.
+ * 4. If the key is not found, it returns NMOBJ_KEY_ERR_NOKEY.
+ * 5. If the key is revoked, it attempts to unlink it from the user keyring. It then returns NMOBJ_KEY_ERR_KEYREVOKED.
+ * 6. If the key has expired, it unlinks it from the user keyring and returns NMOBJ_KEY_ERR_KEYEXPIRED.
+ * 7. If an error occurs during the key search, it prints an error message and exits with status 1.
+ * 8. If the key is found, it returns NMOBJ_KEY_OK.
+ *
+ * @param[in] uuid The UUID of the key.
+ * @return The serial number of the key or an error code if the key is not found or an error occurs.
+ */
 ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
 	key_serial_t key_serial;
 	if (!is_kernel_keyring_exist) {

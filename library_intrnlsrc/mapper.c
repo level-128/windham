@@ -165,6 +165,25 @@ int create_crypt_mapping(const char * device,
 	return 0;
 }
 
+/**
+ * @brief Create a crypt mapping from a disk key
+ *
+ * This function creates a crypt mapping from a disk key. The crypt mapping is created using the provided device, target name,
+ * encryption metadata, disk key, UUID, and other options. The function first converts the disk key to a hexadecimal format,
+ * generates a UUID string from the UUID bytes, and then calls the create_crypt_mapping function to create the crypt mapping.
+ * If the "is_no_map_partition" option is false, the function also attempts to detect and map the partition table under the specified target location.
+ *
+ * @param device The device to create the crypt mapping on
+ * @param target_name The target name of the crypt mapping
+ * @param metadata The encryption metadata
+ * @param disk_key The disk key
+ * @param uuid The UUID
+ * @param read_only Flag indicating if the crypt mapping should be read-only
+ * @param is_allow_discards Flag indicating if discards are allowed
+ * @param is_no_read_workqueue Flag indicating if read workqueue is disabled
+ * @param is_no_write_workqueue Flag indicating if write workqueue is disabled
+ * @param is_no_map_partition Flag indicating if partition mapping should be skipped
+ */
 void create_crypt_mapping_from_disk_key(const char * device,
                                         const char * target_name,
                                         EncMetadata * metadata,

@@ -52,9 +52,12 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("Argon2id memory size exponential count: %i\n"), KEY_SLOT_EXP_MAX);
 		printf(_("Argon2id base memory size (KiB): %i\n"), BASE_MEM_COST);
 		printf(_("Argon2id parallelism: %i\n"), PARALLELISM);
+		printf(_("Wipe memory for Argon2B3: %b\n"), (bool) ARGON2_FLAG_CLEAR_MEMORY);
 		printf(_("Default encryption target time: %i\n"), DEFAULT_ENC_TARGET_TIME);
 		printf(_("Default decryption target time (per slot): %i\n"), MAX_UNLOCK_TIME_FACTOR);
 		printf(_("Default encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
+		printf(_("Default block size: %d\n"), DEFAULT_BLOCK_SIZE);
+		printf(_("Default section size: %d\n"), DEFAULT_SECTION_SIZE);
 		printf(_("\nSystem and compiler information:\n"));
 		printf(_("System Architecture: %s\n"), detect_architecture());
 #ifdef __GNUC__
