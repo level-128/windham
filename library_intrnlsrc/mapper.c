@@ -250,9 +250,9 @@ void check_container(void) {
 	sscanf(TARGET_KERNEL_VERSION, "%d.%d", &major_b, &minor_b);
 	
 	if(major_a > major_b || (major_a == major_b && minor_a > minor_b)) {
-		printf(_("The target kernel version (%s) is older than the current system kernel version (%s). consider recompile windham if needed."), TARGET_KERNEL_VERSION, local_version);
+		printf(_("The target kernel version (%s) is older than the current system kernel version (%s). consider recompile windham if needed.\n"), TARGET_KERNEL_VERSION, local_version);
 	} else if(major_a < major_b || (major_a == major_b && minor_a < minor_b)) {
-		print_warning(_("The target kernel version (%s) is newer than the current system kernel version (%s). This may leads to compatibility issues. It is stronglly recommended to "
+		print_warning(_("The target kernel version (%s) is newer than the current system kernel version (%s). This may leads to compatibility issues. It is strongly recommended to "
 							 "recompile windham on your local machine."), TARGET_KERNEL_VERSION, local_version);
 	}
 }
