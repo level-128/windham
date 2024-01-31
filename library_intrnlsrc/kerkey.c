@@ -66,7 +66,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMet
 	}
 	bool is_ok_for_keyring = true;
 	
-	if (metadata.block_size == DEFAULT_BLOCK_SIZE){
+	if (metadata.block_size != DEFAULT_BLOCK_SIZE){
 		print_warning(_("Cannot register the key into Linux Keyring service: The block size is not equal to the default value (%u), got (%u)."), DEFAULT_BLOCK_SIZE, metadata.block_size);
 		is_ok_for_keyring = false;
 	}
