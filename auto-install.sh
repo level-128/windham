@@ -16,13 +16,13 @@ echo "Starting package installation..."
 exec > /dev/null
 if [ "$distribution" = "debian" ]; then
     apt-get update
-    apt-get install -y git cmake gcc libdevmapper-dev libkeyutils-dev libext2fs-dev linux-headers-$(uname -r) libgettextpo-dev libncurses-dev e2fsprogs dosfstools kpartx util-linux
+    apt-get install -y cmake gcc libdevmapper-dev libkeyutils-dev libext2fs-dev linux-headers-$(uname -r) libgettextpo-dev libncurses-dev e2fsprogs dosfstools kpartx util-linux
 elif [ "$distribution" = "fedora" ]; then
     dnf update
-    dnf install -y git cmake gcc device-mapper-devel keyutils-devel libext2fs-devel kernel-devel gettext-runtime gettext-tools ncurses-devel e2fsprogs dosfstools kpartx util-linux
+    dnf install -y cmake gcc device-mapper-devel keyutils-devel libext2fs-devel kernel-devel gettext-runtime gettext-tools ncurses-devel e2fsprogs dosfstools kpartx util-linux
 elif [ "$distribution" = "arch" ]; then
     pacman -Sy
-    pacman -S --noconfirm git cmake gcc device-mapper keyutils e2fsprogs linux-headers gettext ncurses dosfstools kpartx util-linux
+    pacman -S --noconfirm cmake gcc device-mapper keyutils e2fsprogs linux-headers gettext ncurses dosfstools kpartx util-linux
 else
     exec > /dev/tty
     echo "Unsupported distribution!"
@@ -31,13 +31,7 @@ fi
 # Redirect stdout back to the terminal
 exec > /dev/tty
 
-echo "Installation completed. Now cloning the repository..."
-# Clone the git repository
-git clone https://gitlab.com/level-128/windham.git
-cd windham
-
-
-echo "Package installation completed. Now compiling windham..."
+echo "Installation completed. Now compiling windham..."
 # Navigate to the directory of this script and compile windham
 cmake -B build
 cd build
