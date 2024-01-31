@@ -148,8 +148,8 @@ void NOT_OPTIMIZED secure_wipe_memory(void * v, size_t n) {
 #endif
 }
 
-/* Memory clear flag defaults to true. */
-int FLAG_clear_internal_memory = 1;
+/* Memory clear flag */
+int FLAG_clear_internal_memory = ARGON2_FLAG_CLEAR_MEMORY;
 
 void clear_internal_memory(void * v, size_t n) {
 	if (FLAG_clear_internal_memory && v) {
