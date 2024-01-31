@@ -27,11 +27,14 @@
 #define BASE_MEM_COST 64
 #define PARALLELISM 1
 #define DEFAULT_ENC_TARGET_TIME 1
-#define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
 #define DEFAULT_TARGET_TIME 1
 #define MAX_UNLOCK_TIME_FACTOR 5
 #define DEFAULT_BLOCK_SIZE 4096
 #define DEFAULT_SECTION_SIZE 16 * 1024 * 1024
+
+#ifndef DEFAULT_DISK_ENC_MODE
+#define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
+#endif
 
 // encryption related
 #define CHECK_KEY_MAGIC_NUMBER 0x49713d1c7f5dce80

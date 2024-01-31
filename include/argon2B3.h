@@ -92,9 +92,13 @@ extern "C" {
 #define ARGON2_DEFAULT_FLAGS UINT32_C(0)
 #define ARGON2_FLAG_CLEAR_PASSWORD (UINT32_C(1) << 0)
 #define ARGON2_FLAG_CLEAR_SECRET (UINT32_C(1) << 1)
+#ifndef ARGON2_FLAG_CLEAR_MEMORY // define default behavior of wiping memory
+#define ARGON2_FLAG_CLEAR_MEMORY UINT32_C(1)
+#endif
+
 
 /* Global flag to determine if we are wiping internal memory buffers. This flag
- * is defined in core.c and defaults to 1 (wipe internal memory). */
+ * defaults to 1 (wipe internal memory). */
 extern int FLAG_clear_internal_memory;
 
 /* Error codes */
