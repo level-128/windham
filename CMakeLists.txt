@@ -1,17 +1,54 @@
-if (NOT DEFINED target_arch)
-set(target_arch "native") # X86_64 aarch64 riscv64 or native
-endif ()
-
 cmake_minimum_required(VERSION 3.20)
 project(windham C)
 set(CMAKE_C_STANDARD 23)
 enable_language(ASM)
 
+# --------------------------------------------------------------------
+# define options
+
+if (NOT DEFINED TARGET_ARCHITECTURE)
+    set(TARGET_ARCHITECTURE "native" CACHE STRING "Target Architecture")
+endif ()
+
+if (NOT DEFINED WINDHAM_DEFAULT_DISK_ENC_MODE)
+    set(WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64" CACHE STRING "default encryption mode")
+endif ()
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Set the default build type" FORCE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the build type (default: Release)" FORCE)
 endif()
 
+if(NOT DEFINED AARCH64_USE_NEON)
+    set(AARCH64_USE_NEON ON CACHE BOOL "Use NEON when TARGET_ARCHITECTURE=aarch64")
+endif()
+
+if(NOT DEFINED NO_SIMD_OPTIMIZE)
+    set(NO_SIMD_OPTIMIZE OFF CACHE BOOL "Disable SIMD optimization, use portable C implementation instead.")
+endif()
+
+if(NOT DEFINED NO_WIPE_MEMORY)
+    set(NO_WIPE_MEMORY ON CACHE BOOL "Not wiping the memory after key operations")
+endif()
+
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Test" "Language")
+set_property(CACHE TARGET_ARCHITECTURE PROPERTY STRINGS "native" "x86_64" "aarch64" "riscv64")
+set_property(CACHE WINDHAM_DEFAULT_DISK_ENC_MODE PROPERTY STRINGS "aes-xts-plain64" "twofish-xts-plain64"
+        "serpent-xts-plain64" "twofish-xts-plain64be" "aes-xts-plain64be" "twofish-xts-plain64be")
+
+
+set(CMAKE_INSTALL_BIN "/usr/sbin" CACHE STRING "Set install location" FORCE)
+if(NOT DEFINED x86_64_compiler)
+set(x86_64_compiler "" CACHE STRING "Set default x86_64 compiler. must be set when target arch is x86_64" FORCE)
+endif ()
+if(NOT DEFINED aarch64_compiler)
+set(aarch64_compiler "" CACHE STRING "Set default aarch64 compiler. must be set when target arch is aarch64" FORCE)
+endif ()
+if(NOT DEFINED riscv64_compiler)
+set(riscv64_compiler "" CACHE STRING "Set default riscv64 compiler. must be set when target arch is riscv64" FORCE)
+endif ()
+
+
+# --------------------------------------------------------------------
 # add files
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
@@ -25,16 +62,17 @@ set(BLAKE3_ARM_NAMES aarch64 AArch64 arm64 ARM64)
 
 set(BLAKE_DIR ${CMAKE_SOURCE_DIR}/library/blake3)
 
-if((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_AMD64_NAMES AND target_arch STREQUAL "native") OR target_arch STREQUAL "x86_64")
+
+if((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_AMD64_NAMES AND TARGET_ARCHITECTURE STREQUAL "native") OR TARGET_ARCHITECTURE STREQUAL "x86_64")
     file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c ${BLAKE_DIR}/blake3_sse2_x86-64_unix.S
             ${BLAKE_DIR}/blake3_sse41_x86-64_unix.S ${BLAKE_DIR}/blake3_avx2_x86-64_unix.S ${BLAKE_DIR}/blake3_avx512_x86-64_unix.S)
-elseif((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_ARM_NAMES AND target_arch STREQUAL "native") OR target_arch STREQUAL "aarch64")
+elseif((CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_ARM_NAMES AND TARGET_ARCHITECTURE STREQUAL "native") OR TARGET_ARCHITECTURE STREQUAL "aarch64")
     file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c ${BLAKE_DIR}/blake3_neon.c)
 else()
     file(GLOB Blake3_SRC ${BLAKE_DIR}/blake3.c ${BLAKE_DIR}/blake3_dispatch.c ${BLAKE_DIR}/blake3_portable.c)
 endif ()
 
-
+# --------------------------------------------------------------------
 # compile according to arch
 function(add_argon2_and_executables_for_arch arch)
     if(CMAKE_BUILD_TYPE STREQUAL "Test")
@@ -44,7 +82,6 @@ function(add_argon2_and_executables_for_arch arch)
             set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
         endif()
         install(TARGETS windham_test
-                RUNTIME DESTINATION bin
                 RENAME windham_test)
     endif()
 
@@ -57,18 +94,27 @@ function(add_argon2_and_executables_for_arch arch)
         set_target_properties(windham${arch} PROPERTIES OUTPUT_NAME "windham")
     endif()
     install(TARGETS windham${arch}
-            RUNTIME DESTINATION /usr/sbin)
+            RUNTIME DESTINATION ${install_location})
 
 endfunction()
 
 
-
+# --------------------------------------------------------------------
+# build targets
 if(CMAKE_BUILD_TYPE STREQUAL "Test")
+    add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
     include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -Wextra -g -O0")
     add_argon2_and_executables_for_arch("x86-64")
 
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    if(NO_SIMD_OPTIMIZE)
+        add_definitions(-D__Argon2_opt_disable__)
+    endif ()
+    if (NO_WIPE_MEMORY)
+        add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
+    endif ()
+    add_definitions(-DDEFAULT_DISK_ENC_MODE="${WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fstack-reuse=all ")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto -fwhole-program -fno-fat-lto-objects")
@@ -76,9 +122,9 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_NM "gcc-nm")
     set(CMAKE_RANLIB "gcc-ranlib")
 
-    if(target_arch STREQUAL "x86_64")
+    if(TARGET_ARCHITECTURE STREQUAL "x86_64")
         include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_system)
-        if (NOT DEFINED x86_64_compiler)
+        if (x86_64_compiler STREQUAL "")
             message( FATAL_ERROR "no x86_64_compiler given." )
         endif ()
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprefetch-loop-arrays ")
@@ -88,24 +134,28 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_argon2_and_executables_for_arch("sapphirerapids")
         add_argon2_and_executables_for_arch("znver3")
 
-    elseif(target_arch STREQUAL "aarch64")
+    elseif(TARGET_ARCHITECTURE STREQUAL "aarch64")
         include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_system)
-        if (NOT DEFINED aarch64_compiler)
+        if (aarch64_compiler STREQUAL "")
             message( FATAL_ERROR "no aarch64_compiler given." )
         endif ()
+        if(AARCH64_USE_NEON)
+            add_definitions(-DBLAKE3_USE_NEON=1)
+        endif()
+
         set(CMAKE_C_COMPILER ${aarch64_compiler})
         add_argon2_and_executables_for_arch("armv8.5-a")
         add_argon2_and_executables_for_arch("armv9-a")
 
-    elseif(target_arch STREQUAL "riscv64")
+    elseif(TARGET_ARCHITECTURE STREQUAL "riscv64")
         include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_system)
-        if (NOT DEFINED riscv64_compiler)
+        if (riscv64_compiler STREQUAL "")
             message( FATAL_ERROR "no riscv64_compiler given." )
         endif ()
         set(CMAKE_C_COMPILER ${riscv64_compiler})
         add_argon2_and_executables_for_arch("rv64imafdc")
 
-    elseif(target_arch STREQUAL "native")
+    elseif(TARGET_ARCHITECTURE STREQUAL "native")
         include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_system)
         if(CMAKE_SYSTEM_PROCESSOR IN_LIST BLAKE3_AMD64_NAMES)
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native")
