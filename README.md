@@ -8,13 +8,13 @@ Windham is free and open-source software for disk encryption, an implementation 
 - Plausible deniability: through Decoy Partition (steganography) and completely signature-less & mathematically random header.
 - Tamper resistance: tampering with the encryption header will render it invalid.
 - Password management: supports registering multiple passwords, revoking with or without authorization.
-- Atomic metadata: Changes in the header (e.g. adding a new key) will cause every byte of it to change simultaneously.
+- Atomic metadata: Changes to the partition (e.g. adding a new key) will cause each byte in the header to change simultaneously.
 
 # How To install?
 You can Choose to:
 - Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
 or later.) under release (if available).
-- Compile by your own. See [Compile Instructions](###Compile instructions: ) below.
+- Compile by your own. See [Compile Instructions](#compile-instructions) below.
 
 
 # Basic usage:
