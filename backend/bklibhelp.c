@@ -52,7 +52,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 #endif
 #if defined(CMAKE_VERSION)
 		printf(_("System architecture: %s\n"), TARGET_ARCH);
-		printf(_("Build host Architecture: %s"), HOST_ARCH);
+		printf(_("Build host Architecture: %s\n"), HOST_ARCH);
 		printf(_("Compile time (GMT): %s\n"), CURRENT_TIME);
 		printf(_("CMake version: %s\n"), CMAKE_VERSION);
 		printf(_("Target kernel version for this build: %s\n"), TARGET_KERNEL_VERSION);
