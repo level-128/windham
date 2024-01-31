@@ -47,6 +47,17 @@ if(NOT DEFINED riscv64_compiler)
 set(riscv64_compiler "" CACHE STRING "Set default riscv64 compiler. must be set when target arch is riscv64" FORCE)
 endif ()
 
+string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
+set(CMAKE_VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
+set(SYSTEM_INFO ${CMAKE_SYSTEM})
+
+# Pass the variables to code via preprocessor definitions
+add_definitions("-DCURRENT_TIME=\"${CURRENT_TIME}\"")
+add_definitions("-DCMAKE_VERSION=\"${CMAKE_VERSION}\"")
+execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+add_definitions("-DTARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\"")
+add_definitions("-DHOST_ARCH=\"${CMAKE_HOST_SYSTEM_PROCESSOR}\"")
+add_definitions("-DTARGET_ARCH=\"${CMAKE_SYSTEM_PROCESSOR}\"")
 
 # --------------------------------------------------------------------
 # add files
@@ -93,6 +104,7 @@ function(add_argon2_and_executables_for_arch arch)
     if(arch STREQUAL "native")
         set_target_properties(windham${arch} PROPERTIES OUTPUT_NAME "windham")
     endif()
+    add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
     install(TARGETS windham${arch}
             RUNTIME DESTINATION ${install_location})
 
@@ -116,7 +128,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif ()
     add_definitions(-DDEFAULT_DISK_ENC_MODE="${WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fstack-reuse=all ")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fstack-reuse=all")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto -fwhole-program -fno-fat-lto-objects")
     set(CMAKE_AR "gcc-ar")
     set(CMAKE_NM "gcc-nm")
