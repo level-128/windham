@@ -281,6 +281,38 @@ void ask_for_conformation(const char * format, ...) {
 
 extern char **environ;
 
+/**
+ * @brief Executes a given command with options and arguments.
+ *
+ * This function tries to execute the specified command by searching for it in the provided
+ * array of directories. It checks each directory in order until the executable is found.
+ * If the executable is found, it sets up stdout redirection if required and spawns a new
+ * process to execute the command. It also waits for the child process to complete if the
+ * `is_wait_child` argument is set to true.
+ *
+ * When `dup_stdout` parameter is NULL, the stdout of the child process
+ * is not redirected/captured. Conversely, when `dup_stdout` is NOT NULL, the stdout of the child
+ * process is captured and made available in the buffer pointed to by the `dup_stdout` argument. If `is_wait_child`
+ * is false, the function does not wait for child process to terminate rather returns immediately after spawning
+ * it.
+ *
+ * @param exec_name The name of the executable to be executed.
+ * @param exec_dir An array of directories to search for the executable.
+ * @param dup_stdout A pointer to the destination buffer for duplicated stdout stream, or NULL if stdout is not required to be captured.
+ * @param dup_stdout_len A pointer to the size of the duplicated stdout buffer, or NULL if stdout is not required to be captured.
+ * @param exec_ret_val A pointer to store the return value of the child process, or NULL if not required.
+ * @param is_wait_child Flag indicating whether to wait for the child process to complete or spawn it in detached mode.
+ * @param ... Optional arguments to be passed to the executed command, terminated by a NULL argument.
+ * @return True if the command was executed successfully, false otherwise.
+ *
+ * @note The `exec_name` and `exec_dir` parameters must not be NULL.
+ * @note The `exec_dir` array must be terminated with a NULL pointer.
+ * @note The `dup_stdout` and `dup_stdout_len` parameters are only used when stdout redirection is required.
+ * @note The `is_wait_child` parameter is only used when waiting for the child process to complete is required.
+ * @note The `exec_ret_val` parameter is only used when storing the return value of the child process is required.
+ * @note The optional arguments should be provided as (char *) type, terminated by a NULL argument.
+ * @note The environment variable 'environ' must be defined externally.
+ */
 bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *dup_stdout_len, int *exec_ret_val, bool is_wait_child, ...) {
 	pid_t pid;
 	posix_spawn_file_actions_t action;
