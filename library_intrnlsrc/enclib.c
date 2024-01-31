@@ -34,24 +34,32 @@ typedef struct __attribute__((packed)) STR_data {
 } Data;
 
 
-enum {
+/**
+ * @enum ActionResult
+ * Enumeration of possible result codes returned by an action step.
+ * @note These values are negative to indicate errors.
+ */
+typedef enum {
 	NMOBJ_STEP_OK = -1,
 	NMOBJ_STEP_CONTINUE = -2,
 	NMOBJ_STEP_ERR_NOMEM = -3,
 	NMOBJ_STEP_ERR_TIMEOUT = -4,
 	NMOBJ_STEP_ERR_END = -5
-};
+} ENUM_STEP_STAT;
 
-enum {
-	NMOBJ_select_available_key_slot_NO_FREE_SLOT = -1,
-	NMOBJ_select_available_key_slot_PWD_USED = -2,
-};
+typedef enum{
+	EMOBJ_SLOT_AVALIABLE,
+	EMOBJ_SLOT_AVALIABLE_REVOKE_ONLY,
+	EMOBJ_SLOT_NO_SLOT,
+} ENUM_select_available_key_slot;
+
 
 // approx val of \lim_{n -> \inf} ( \sum_{i = 0}^{n} e^i )^{-1} * e^(n + 1)
 const double exp_index_diff = 1.64905;
 
 const unsigned int exp_PDF_p_bound = 66; // p=0.05
 
+// floor(exp(i))
 const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 59874, 162755, 442413, 1202604, 3269017, 8886111, 24154953, 65659969, 178482301, 485165195};
 
 const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
@@ -86,6 +94,9 @@ static int argon2id_hash_calc(const uint8_t pwd[HASHLEN], uint_fast8_t len_exp_i
 	return 0;
 }
 
+/**
+ * @see write_to_exp
+ */
 static uint64_t write_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index,
                                                              uint8_t salt[], uint8_t new_mem[4]) {
 	xor_with_len(sizeof(uint8_t) * 4, hash, new_mem, key_slot->len_exp[len_exp_index]);
@@ -96,6 +107,9 @@ static uint64_t write_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot
 	return 0;
 }
 
+/**
+ * @see read_key_one_step
+ */
 static uint64_t read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint8_t salt[]) {
 	uint8_t plain_text[4];
 	memcpy(&salt[HASHLEN + len_exp_index * sizeof(uint8_t) * 4], key_slot->len_exp[len_exp_index], sizeof(uint8_t) * 4);
@@ -107,7 +121,32 @@ static uint64_t read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot,
 	return mem_size * exp_val[len_exp_index];
 }
 
-static int read_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size,
+/**
+ * @brief Reads key in one step and updates the password hash.
+ *
+ * This function and function read_mem_count_from_len_exp_and_update_salt reads a key in one step by performing the following operations:
+ * 1. Reads the memory count from the len_exp field of the key slot and updates the salt.
+ * 2. Checks if the required memory size exceeds the maximum memory size. If it does, returns an error code indicating no memory.
+ * 3. Calculates the new password hash using the argon2id_hash_calc function. If the calculation fails due to insufficient memory, returns an error code indicating no memory.
+ * 4. Copies the new password hash to the password_hash array.
+ * 5. Returns an error code indicating the result of the key reading operation.
+ *
+ * @param key_slot The key slot containing the key details.
+ * @param len_exp_index The index of the len_exp field in the key slot.
+ * @param password_hash The current password hash.
+ * @param salt The salt used for key operations.
+ * @param max_mem_size The maximum memory size allowed for key operations.
+ * @param required_mem_size A pointer to the variable storing the required memory size.
+ * @return An ENUM_STEP_STAT enum value indicating the result of the key reading operation. Possible values: NMOBJ_STEP_ERR_NOMEM, NMOBJ_STEP_OK, NMOBJ_STEP_CONTINUE.
+ *
+ * @see Key_slot
+ * @see read_mem_count_from_len_exp_and_update_salt
+ * @see argon2id_hash_calc
+ * @see NMOBJ_STEP_ERR_NOMEM
+ * @see NMOBJ_STEP_OK
+ * @see NMOBJ_STEP_CONTINUE
+ */
+static ENUM_STEP_STAT read_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size,
                              uint64_t * required_mem_size) {
 	uint8_t new_pwd[HASHLEN];
 	
@@ -140,10 +179,11 @@ static void operate_key_slot_using_keyslot_key(Key_slot * keyslot, const uint8_t
  * @brief Writes data to the Key_slot structure based on the given parameters.
  *
  * This function calculates the target memory size based on the remaining time, exponential index difference, and time per KiB of memory. If the target memory size exceeds the maximum
- * memory size, it is capped to the maximum value. The target memory size is then divided by the exponential value corresponding to the given length exponential index.
+ * memory size, it is capped to the maximum value. The target memory size is then divided by the exponential value corresponding to the given length exponential index (it will be restored
+ * to the original size by multiplying with the exponential value in read_mem_count_from_len_exp_and_update_salt).
  *
- * If the target memory size is larger than the predefined PDF p bound, random values are generated to fill a four-byte array. The values are sorted in ascending order and stored in
- * the new_mem array. The write_mem_count_from_len_exp_and_update_salt function is then called to write the memory count to the Key_slot structure and update the salt value. If the result
+ * If the target memory size is larger than the predefined PDF bound (p >= 0.05), random values are generated to fill a four-byte array. The values are sorted in ascending order and stored
+ * in the new_mem array. The write_mem_count_from_len_exp_and_update_salt function is then called to write the memory count to the Key_slot structure and update the salt value. If the result
  * of the read_key_one_step function is NMOBJ_STEP_CONTINUE, the length exponential index is incremented by one.
  *
  * The new_mem array is cleared and the write_mem_count_from_len_exp_and_update_salt function is called again with an array of zeros. The argon2id_hash_calc function is used to calculate
@@ -159,7 +199,7 @@ static void operate_key_slot_using_keyslot_key(Key_slot * keyslot, const uint8_t
  * @param max_mem_size The maximum memory size.
  * @return 0 if the write operation is successful.
  */
-static int write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[112], double time_left, double time_per_KiB_mem, uint64_t max_mem_size) {
+static void write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[112], double time_left, double time_per_KiB_mem, uint64_t max_mem_size) {
 //	print("write_to_exp:", len_exp_index, target_mem_size);
 	uint8_t new_mem[4];
 	if (time_left > 0) {
@@ -201,17 +241,18 @@ static int write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t
 		exit(1); // not possible. since m_count is BASE_MEM_COST.
 	}
 	memcpy(password_hash, new_pwd, HASHLEN);
-	return 0;
 }
 
 /**
  * @brief Writes the key to one slot in the Key_slot structure.
  *
- * This function writes the key to one slot in the Key_slot structure based on the target time.
+ * This function writes the key to one slot in the Key_slot structure based on the target time:
  * It calculates the required memory size and iterates through the slot expansion indexes.
+ *
  * For each index, it checks the time used and compares it with the target time.
  * If the time used exceeds the target time divided by the exponential index difference,
  * it calls the write_to_exp function and breaks the loop.
+ *
  * Otherwise, it calls the read_key_one_step function to read the key one step at a time,
  * updating the required memory size. If the read step returns NMOBJ_STEP_OK (0),
  * indicating that the read memory count is 0, it fills the key's length expansion with secure random bits.
@@ -222,9 +263,9 @@ static int write_to_exp(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t
  * @param hash          The hash value to be written.
  * @param max_mem_size  The maximum memory size allowed.
  * @param target_time   The target time for writing the key.
- * @return              0 if successful, NMOBJ_STEP_ERR_NOMEM (-3) if memory allocation error occurs.
+ * @return              NMOBJ_STEP_OK if successful, NMOBJ_STEP_ERR_NOMEM if memory allocation error occurs.
  */
-static int write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uint64_t max_mem_size, double target_time) {
+static ENUM_STEP_STAT write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uint64_t max_mem_size, double target_time) {
 	uint64_t required_mem_size = BASE_MEM_COST;
 	
 	uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4];
@@ -250,7 +291,7 @@ static int write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HASHLEN], uin
 			return NMOBJ_STEP_ERR_NOMEM;
 		}
 	}
-	return 0;
+	return NMOBJ_STEP_OK;
 }
 
 /**
@@ -332,9 +373,7 @@ void set_master_key_to_slot(Key_slot * key_slot, const uint8_t inited_key[HASHLE
 void get_metadata_key_or_disk_key_from_master_key(const uint8_t master_key[HASHLEN], const uint8_t mask[HASHLEN], const uint8_t data$uuid_and_salt[16], uint8_t key[HASHLEN]) {
 	uint8_t inter_key[HASHLEN];
 	xor_with_len(HASHLEN, master_key, mask, inter_key);
-	
 	argon2id_hash_raw(1, BASE_MEM_COST * 2, PARALLELISM, inter_key, HASHLEN, data$uuid_and_salt, 16, key, HASHLEN);
-	
 }
 
 bool lock_or_unlock_metadata_using_master_key(Data * data, const uint8_t master_key[HASHLEN]) {
@@ -422,35 +461,68 @@ void register_key_slot_as_used(Data * decrypted_header, uint8_t keyslot_key[HASH
 	memcpy(decrypted_header->metadata.keyslot_key[slot], keyslot_key, HASHLEN);
 }
 
-int select_available_key_slot(const EncMetadata decrypted_metadata, int target_slot, Key_slot data$keyslots[KEY_SLOT_COUNT]) {
-	target_slot = target_slot == NMOBJ_select_available_key_slot_NO_FREE_SLOT ? rand() % KEY_SLOT_COUNT : target_slot; // NOLINT(*-msc50-cpp)
-	if (target_slot != NMOBJ_select_available_key_slot_NO_FREE_SLOT) {
-		if (decrypted_metadata.key_slot_is_used[target_slot] == false && memcmp(data$keyslots[target_slot].key_mask, decrypted_metadata.all_key_mask[target_slot], HASHLEN) != 0) {
-			return target_slot;
+
+/**
+ * @brief Selects an available key slot based on the given encrypted metadata and target slot.
+ *
+ * This function selects an available key slot based on the provided encrypted metadata and target slot. It checks if the target slot is designated and available. If not, it randomly
+ * selects an available slot. If no empty slot is available, it selects a revoked slot instead. If all slots are registered, it returns EMOBJ_SLOT_NO_SLOT.
+ *
+ * @param decrypted_metadata The decrypted metadata containing key slot information.
+ * @param target_slot Pointer to the target slot variable. This parameter is modified inside the function.
+ * @param data$keyslots An array of key slots.
+ * @return ENUM_select_available_key_slot The selected key slot status.
+ */
+ENUM_select_available_key_slot select_available_key_slot(const EncMetadata decrypted_metadata, int * target_slot, Key_slot data$keyslots[KEY_SLOT_COUNT]) {
+	if (*target_slot != -1) { // if target_slot is not -1, means the user has designated a key slot. check it's available or not.
+		if (decrypted_metadata.key_slot_is_used[*target_slot] == false){
+			return EMOBJ_SLOT_AVALIABLE;
+		}
+		if (memcmp(data$keyslots[*target_slot].key_mask, decrypted_metadata.all_key_mask[*target_slot], HASHLEN) != 0) {
+			return EMOBJ_SLOT_AVALIABLE_REVOKE_ONLY;
 		}
 	}
 	
-	target_slot = NMOBJ_select_available_key_slot_NO_FREE_SLOT;
+	srand((unsigned) time(NULL));
+	int arr[KEY_SLOT_COUNT];
 	
-	for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--) {
-		if (memcmp(data$keyslots, decrypted_metadata.keyslot_key[i], HASHLEN) == 0) { // is key used
-			return NMOBJ_select_available_key_slot_PWD_USED;
-		}
-		
-		if (decrypted_metadata.key_slot_is_used[i] == false) {
-			target_slot = i;
+	for (int i = 0; i < KEY_SLOT_COUNT; i++){
+		arr[i] = i;
+	}
+	
+	for (int i = KEY_SLOT_COUNT - 1; i > 0; i--) {
+		int j = rand() % (i + 1);
+		int temp = arr[i];
+		arr[i] = arr[j];
+		arr[j] = temp;
+	}
+	
+	for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+		if (decrypted_metadata.key_slot_is_used[arr[i]] == false) {
+			*target_slot = arr[i];
+			return EMOBJ_SLOT_AVALIABLE;
 		}
 	}
-	if (target_slot == NMOBJ_select_available_key_slot_NO_FREE_SLOT) {
-		for (int i = KEY_SLOT_COUNT - 1; i >= 0; i--) {
-			if (memcmp(data$keyslots[i].key_mask, decrypted_metadata.all_key_mask[i], HASHLEN) != 0) {
-				target_slot = i;
-			}
+	for (int i = 0; i < KEY_SLOT_COUNT; i++) { // if no empty slots, return a revoked slot.
+		if (memcmp(data$keyslots[arr[i]].key_mask, decrypted_metadata.all_key_mask[arr[i]], HASHLEN) != 0) {
+			*target_slot = arr[i];
+			return EMOBJ_SLOT_AVALIABLE_REVOKE_ONLY;
 		}
 	}
-	return target_slot;
+	return EMOBJ_SLOT_NO_SLOT;
 }
 
+/**
+ * @brief Check master key and slots for revocation.
+ *
+ * This function checks the master key and key slots in the decrypted header
+ * for revocation. If a key slot is revoked, the corresponding key mask and key
+ * data are cleared.
+ *
+ * @param decrypted_header The decrypted header data.
+ * @param revoked_untagged_slot Output array indicating the revocation status of each key slot.
+ *                              A value of true indicates that the key slot is revoked and untagged.
+ */
 void check_master_key_and_slots_revoke(Data * decrypted_header, bool revoked_untagged_slot[KEY_SLOT_COUNT]) {
 	if (!is_header_suspended(*decrypted_header)) { // when the header is suspended, the metadata area
 		uint8_t temp[HASHLEN] = {0};

@@ -2,22 +2,6 @@
 // Created by level-128 on 1/19/24.
 //
 
-const char* detect_architecture() {
-#if defined(__x86_64__) || defined(_M_X64)
-	return "AMD64";
-#elif defined(__aarch64__)
-	return "aarch64";
-    #elif defined(__riscv) && __riscv_xlen == 64
-    return "RISC-V 64-bit";
-    #elif defined(__powerpc64__) || defined(__ppc64__)
-    return "Power64";
-    #elif defined(__loongarch64)
-    return "LoongArch64";
-    #else
-    return "Unknown Architecture";
-#endif
-}
-
 void frontend_print_unlock_args() {
 	printf(_(
 			       "\nUnlock options:\n"
@@ -59,7 +43,6 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("Default block size: %d\n"), DEFAULT_BLOCK_SIZE);
 		printf(_("Default section size: %d\n"), DEFAULT_SECTION_SIZE);
 		printf(_("\nSystem and compiler information:\n"));
-		printf(_("System Architecture: %s\n"), detect_architecture());
 #ifdef __GNUC__
 		printf(_("Compiler: GCC %d.%d.%d\n"), __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
 #elifdef __clang__
@@ -67,8 +50,21 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 #else
 		printf(_("Unknown compiler\n"));
 #endif
-		printf(_("Compile time: %s, %s\n"), __DATE__, __TIME__);
-		
+#if defined(CMAKE_VERSION)
+		printf(_("System architecture: %s\n"), TARGET_ARCH);
+		printf(_("Build host Architecture: %s"), HOST_ARCH);
+		printf(_("Compile time (GMT): %s\n"), CURRENT_TIME);
+		printf(_("CMake version: %s\n"), CMAKE_VERSION);
+		printf(_("Target kernel version for this build: %s\n"), TARGET_KERNEL_VERSION);
+#ifdef COMPILE_PARAMS
+		printf(_("Compile Params: %s\n"), COMPILE_PARAMS);
+#else
+		printf(_("No Compile Params were givin, possibly debug build"));
+#endif
+#else // #if defined(CMAKE_VERSION)
+		printf(_("Windham is not built by CMake, hence the system information is not avaliable."));
+#endif // #if defined(CMAKE_VERSION)
+	
 	} else if (strcmp("--license", the_3rd_argv) == 0) {
 		printf(_("    Copyright (C) 2023-2024  W. Wang (level-128)\n"
 		         "\n"

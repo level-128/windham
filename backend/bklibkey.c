@@ -197,6 +197,26 @@ void get_slot_list_for_get_master_key(int slot_seq[KEY_SLOT_COUNT + 1], int targ
 	}
 }
 
+/**
+ * @brief Retrieves the master key for a given target slot.
+ *
+ * This function is used to retrieve the master key for a target slot. The master key is retrieved by operating
+ * on all key slots using an initialized key obtained from the input key. The function checks the maximum
+ * memory limit and adjusts it if necessary. It also randomizes the unlock sequence if the target slot is not
+ * designated. If the key cannot be unlocked due to incorrect key, insufficient memory, or timeout, an error
+ * message is printed. If the unlock is successful, the master key is XORed with the key mask of the unlocked slot
+ * and stored in the provided master_key array.
+ *
+ * @param self The data structure containing the key slots and other metadata
+ * @param master_key The array where the master key will be stored
+ * @param key The input key or key file location
+ * @param device The device identifier
+ * @param target_slot The target slot for the master key, or -1 if the unlock sequence should be randomized
+ * @param max_unlock_mem The maximum unlock memory limit
+ * @param max_unlock_time The maximum unlock time limit
+ *
+ * @return The index of the unlocked slot, or an error code if the unlock was unsuccessful
+ */
 int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, const char * device, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
 	if (key.key_type == EMOBJ_key_file_type_masterkey) { // uses master key
 		return -1;
@@ -243,15 +263,35 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, const 
 	return unlocked_slot;
 }
 
+/**
+ * @brief Adds a key to a key slot in the provided decrypted_self data structure.
+ *
+ * This function adds a key to a key slot in the decrypted_self data structure. It prepares the key, selects an available key slot, checks if the key is already used in any slot, and
+* sets the master key to the selected slot. If adding the key is successful, it registers the key slot as used and returns the target slot.
+ *
+ * @param decrypted_self Pointer to the decrypted_self data structure.
+ * @param master_key The master key used for encryption.
+ * @param key The key or keyfile location to be added.
+ * @param device The device name.
+ * @param target_slot The target slot to add the key.
+ * @param max_unlock_mem The maximum unlock memory.
+ * @param max_unlock_time The maximum unlock time.
+ * @return The target slot.
+ */
 int add_key_to_keyslot(Data * decrypted_self, const uint8_t master_key[32], const Key key, const char * device, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
 	uint8_t inited_key[HASHLEN];
 	uint8_t keyslot_key[HASHLEN];
 	
 	prepare_key(key, inited_key, device);
 	
-	// select slot
-	if ((target_slot = select_available_key_slot(decrypted_self->metadata, target_slot, decrypted_self->keyslots)) == -1) {
-		print_error(_("All key slots are full. Remove or revoke one or more keys to add a new key."));
+	switch (select_available_key_slot(decrypted_self->metadata, &target_slot, decrypted_self->keyslots)) {
+		case EMOBJ_SLOT_AVALIABLE:
+			break;
+		case EMOBJ_SLOT_AVALIABLE_REVOKE_ONLY:
+			print_warning(_("No unused slots, select a revoked slot instead."));
+			break;
+		case EMOBJ_SLOT_NO_SLOT:
+			print_error(_("All key slots are full. Remove or revoke one or more keys to add a new key."));
 	}
 	
 	get_keyslot_key_from_inited_key(inited_key, decrypted_self->uuid_and_salt, keyslot_key);

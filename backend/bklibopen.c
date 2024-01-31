@@ -27,8 +27,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 			if (!is_dry_run) {
 				uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
 				get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
-				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue,
-				                                   is_no_write_workqueue, is_no_map_partition);
+				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition);
 				print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
 			} else {
 				char uuid_str[37];
@@ -75,8 +74,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 					
 					size_t start_sector, end_sector;
 					decide_start_and_end_block_ret_blkcnt(device, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0, false, false);
-					create_crypt_mapping(device, target_name, DEFAULT_DISK_ENC_MODE, password, password + strlen(":32:logon:windham:"), start_sector, end_sector, DEFAULT_BLOCK_SIZE, is_target_readonly,
-					                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+					create_crypt_mapping(device, target_name, DEFAULT_DISK_ENC_MODE, password, password + strlen(":32:logon:windham:"), start_sector, end_sector, DEFAULT_BLOCK_SIZE, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 					return;
 				case NMOBJ_KEY_ERR_KEYREVOKED:
 				print_warning(_("The stored key in kernel keyring subsystem has removed. re-unlocking %s to /dev/mapper/%s..."), device, target_name);
@@ -88,7 +86,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 				case NMOBJ_KEY_ERR_KERNEL_KEYRING:
 					break;
 			}
-			
+			// falls through
 		case NMOBJ_MAPPER_DEVSTAT_DECOY: { // unlock when NMOBJ_MAPPER_DEVSTAT_NORM and NMOBJ_MAPPER_DEVSTAT_DECOY
 			
 			printf(_("Unlocking %s to /dev/mapper/%s...\n"), device, target_name);
@@ -105,8 +103,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 						mapper_keyring_add_key(disk_key, data.uuid_and_salt, data.metadata, timeout);
 					}
 				}
-				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue,
-				                                   is_no_write_workqueue, is_no_map_partition);
+				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition);
 				
 			} else {
 				char uuid_str[37];
