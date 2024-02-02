@@ -12,7 +12,9 @@
 
 #include <termcap.h>  /* tgetent, tgetnum */
 #include <assert.h>
-#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "libprogstats.h"
 
 ///  How wide we assume the screen is if termcap fails.

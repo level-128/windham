@@ -12,10 +12,11 @@ Windham is free and open-source software for disk encryption, an implementation 
 
 # How To install?
 You can Choose to:
-- Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
-or later.) under release (if available).
+- Download the repository and use the `auto-install.sh` script, which will install all dependencies automatically and build Windham using
+CMake. Most distros are supported.
 - Compile by your own. See [Compile Instructions](#compile-instructions) below.
-
+- ~~Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
+or later.) under release (if available).~~ deprecated. Reason? see Q&A.
 
 # Basic usage:
 1. First, find the device that you want to encrypt under `/dev`, you can do this by using 
@@ -104,6 +105,7 @@ sudo windham Resume /dev/sdc
 
 [technical details](/Document/technical_details.md)
 
+&nbsp;
 
 ## Introduction to Decoy Partition
 
@@ -142,18 +144,18 @@ Additional required libraries:
 | GNU Gettext                        | `libgettextpo-dev`          | `gettext-runtime` and `gettext-tools` | `gettext`       |
 | ncurses                            | `libncurses-dev`            | `ncurses-devel`                       | `ncurses`       |
 
-Compile windham using cmake (`cmake CMakeLists.txt` -> `make` -> (optional) `sudo make install`).
+Compile windham using cmake: `cmake CMakeLists.txt` -> `make` -> `sudo make install`(optional).
 
 Additional userspace programs (Optional, but functionality will be reduced if these userspace programs are absent)
 
-- `resize2fs`: userspace ext2/ext3/ext4 file system resizer. 
-- `mkfs.vfat`: ExFAT filesystem creation tool.
+- `resize2fs`: userspace ext2/ext3/ext4 file system resizer (under `e2fsprogs`).
+- `mkfs.vfat`: ExFAT filesystem creation tool (under `dosfstools`).
 - `kpartx`: Create device maps from partition tables.
-- `blkid`: locate/print block device attributes
+- `blkid`: locate/print block device attributes (under `util-linux`)
 
----
+&nbsp;
 
-# Feature support matrix
+## Feature support matrix
 
 ### machine architecture:
 | Architecture | SIMD support               | SIMD dynamic dispatch support | cmake preset targets                        | 
@@ -161,6 +163,14 @@ Additional userspace programs (Optional, but functionality will be reduced if th
 | AMD64        | SSE4, AVX-2, AVX-512(F,VL) | Yes                           | Haswell, Tigerlake, sapphirerapids, zenver3 |
 | aarch64      | NEON                       | No                            | armv8.5-a, armv9-a                          |
 | riscv64      | No                         | No                            | rv64imafdc                                  |
+
+&nbsp;
+
+## using `ccmake` to configure the compile options
+
+Install `ccmake`, then using `cmake CMakeLists.txt` -> `ccmake CMakeCache.txt` to open the `ccmake` frontend. 
+
+Under `ccmake`, you could configure each options conveniently. You might see a TUI interface like this: 
 
 
 

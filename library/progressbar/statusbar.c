@@ -9,6 +9,10 @@
 * statusbar -- a C class (by convention) for displaying progress
 * on the command line (to stderr).
 */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "libprogstats.h"
 
 statusbar *statusbar_new_with_format(const char *label, const char *format)

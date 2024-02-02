@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <stdnoreturn.h>
 #include <libintl.h>
-#include <limits.h>
 
 #include "aes.h"
 
