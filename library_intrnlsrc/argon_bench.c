@@ -17,12 +17,9 @@
  * You should have received a copy of both of these licenses along with this
  * software. If not, they may be obtained at the above URLs.
  */
+#include <argon2B3.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-
-#include "argon2B3.h"
+#include "srclib.c"
 
 #if defined(__amd64__) || defined(__x86_64__)
 static uint64_t rdtsc(void) {

@@ -1,12 +1,16 @@
-#include "windham_const.h"
-
+#include <errno.h>
 #include <inttypes.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <assert.h>
 #include <spawn.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <string.h>
 #include <linux/limits.h>
+#include <time.h>
+#include <stddef.h>
+#include <unistd.h>
 
 #ifndef _ // no GNU gettext
 #define _(x) x
@@ -106,9 +110,6 @@ int debug_print_error_suppress;
     printf("\033[1;33m%s: ", _("WARNING")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n")
-
-#include <stddef.h>
-#include <unistd.h>
 
 #define BOOL_ADDER(a) bool a
 #define COMMA_SEPARATOR ,

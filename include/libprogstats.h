@@ -1,6 +1,3 @@
-//
-// Created by level-128 on 1/5/24.
-//
 /**
 * \file
 * \author Trevor Fountain
@@ -17,9 +14,6 @@
 #define WINDHAM_LIBPROGSTATS_H
 
 #include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 /**
  * Statusbar data structure (do not modify or create directly)

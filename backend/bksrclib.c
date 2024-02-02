@@ -1,20 +1,16 @@
-//
-// Created by level-128 on 1/19/24.
-//
+#pragma once
 
-#ifndef INCL_BKSRCLIB
-#define INCL_BKSRCLIB
-
-#include "../library_intrnlsrc/srclib.c"
+#include <windham_const.h>
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <linux/fs.h>
 
-// supported crypt
-char * crypt_list[] = {"aes", "twofish", "serpent", NULL};
-char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
-char * iv_list[] = {"plain64", "plain64be", "essiv", "eboiv", NULL};
-
+#include "../library_intrnlsrc/srclib.c"
+#include "../library_intrnlsrc/enclib.c"
+#include "../library_intrnlsrc/kerkey.c"
+#include "../library_intrnlsrc/dynenc.c"
+#include "../library_intrnlsrc/mapper.c"
 
 #define OPERATION_BACKEND_UNENCRYPT_HEADER    \
 [[maybe_unused]] int unlocked_slot = get_master_key(data, master_key, key, device, target_unlock_slot, max_unlock_mem, max_unlock_time); \
@@ -37,6 +33,12 @@ lock_or_unlock_metadata_using_master_key(&data, master_key);\
 write_header_to_device(&data, device, offset);
 
 #define PARAMS_FOR_KEY Key key, uint8_t master_key[32], int target_unlock_slot, uint64_t max_unlock_mem, double max_unlock_time
+
+
+// supported crypt
+char * crypt_list[] = {"aes", "twofish", "serpent", NULL};
+char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
+char * iv_list[] = {"plain64", "plain64be", "essiv", "eboiv", NULL};
 
 
 void check_file(const char * filename, bool is_write, bool is_nofail) {
@@ -316,5 +318,3 @@ size_t decide_start_and_end_block_ret_blkcnt(const char * device, size_t * start
 	}
 	return device_sector_cnt;
 }
-
-#endif

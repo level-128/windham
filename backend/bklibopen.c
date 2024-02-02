@@ -2,7 +2,6 @@
 // Created by level-128 on 1/19/24.
 //
 
-#include "../library_intrnlsrc/kerkey.c"
 #include "bklibkey.c"
 #include "bksrclib.c"
 

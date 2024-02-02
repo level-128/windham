@@ -3,6 +3,8 @@ project(windham C)
 set(CMAKE_C_STANDARD 23)
 enable_language(ASM)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # --------------------------------------------------------------------
 # define options
 
@@ -128,7 +130,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif ()
     add_definitions(-DDEFAULT_DISK_ENC_MODE="${WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fstack-reuse=all")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto -fwhole-program -fno-fat-lto-objects")
     set(CMAKE_AR "gcc-ar")
     set(CMAKE_NM "gcc-nm")

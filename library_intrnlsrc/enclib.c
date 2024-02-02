@@ -1,6 +1,6 @@
-#include "windham_const.h"
+#pragma once
 
-#include <time.h>
+#include "windham_const.h"
 
 #include "srclib.c"
 #include "argon2B3.h"
@@ -11,27 +11,6 @@
 #if KEY_SLOT_EXP_MAX % 4 != 0
 #error "KEY_SLOT_EXP_MAX must devideable by 4, ensuring Key_slot is AES blocksize alligned."
 #endif
-
-
-// data
-#ifndef INCL_ENCLIB
-#define INCL_ENCLIB
-
-typedef struct __attribute__((packed)) {
-	uint8_t hash_salt[HASHLEN]; // 256b
-	uint8_t len_exp[KEY_SLOT_EXP_MAX][4]; // 32b each
-	uint8_t key_mask[HASHLEN]; // 256b
-} Key_slot;
-
-typedef struct __attribute__((packed)) STR_data {
-	uint8_t head[16];
-	uint8_t uuid_and_salt[16];
-	uint8_t master_key_mask[HASHLEN];
-	Key_slot keyslots[KEY_SLOT_COUNT];
-	EncMetadata metadata;
-	__attribute__((unused)) uint8_t AES_align[
-			(AES_BLOCKLEN - (sizeof(EncMetadata) % AES_BLOCKLEN)) % AES_BLOCKLEN];
-} Data;
 
 
 /**
@@ -65,6 +44,10 @@ const uint64_t exp_val[] = {1, 3, 7, 20, 55, 148, 403, 1097, 2981, 8103, 22026, 
 const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
 
 const uint8_t head_converting[16] = {'E', 'N', 'C', 'I', 'N', 'G', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
+
+// data
+#ifndef INCL_ENCLIB
+#define INCL_ENCLIB
 
 void fill_secure_random_bits(uint8_t * address, size_t size) {
 	size_t read_size = fread(address, 1, size, random_fd);

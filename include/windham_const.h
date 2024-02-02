@@ -3,9 +3,12 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <errno.h>
 #include <stdbool.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdnoreturn.h>
+#include <libintl.h>
+#include <limits.h>
 
 #include "aes.h"
 
@@ -18,6 +21,8 @@
 #endif
 
 #define VERSION "0.231128.2.0"
+
+#define _(STRING) gettext(STRING)
 
 // defined const
 #define HASHLEN 32
@@ -57,5 +62,21 @@ typedef struct __attribute__((packed)) {
 	__attribute__((unused)) uint8_t reserved[30];
 	uint64_t check_key_magic_number;
 } EncMetadata;
+
+typedef struct __attribute__((packed)) {
+	uint8_t hash_salt[HASHLEN]; // 256b
+	uint8_t len_exp[KEY_SLOT_EXP_MAX][4]; // 32b each
+	uint8_t key_mask[HASHLEN]; // 256b
+} Key_slot;
+
+typedef struct __attribute__((packed)) STR_data {
+	uint8_t head[16];
+	uint8_t uuid_and_salt[16];
+	uint8_t master_key_mask[HASHLEN];
+	Key_slot keyslots[KEY_SLOT_COUNT];
+	EncMetadata metadata;
+	__attribute__((unused)) uint8_t AES_align[
+			(AES_BLOCKLEN - (sizeof(EncMetadata) % AES_BLOCKLEN)) % AES_BLOCKLEN];
+} Data;
 
 #endif

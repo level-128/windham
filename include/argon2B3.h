@@ -22,6 +22,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include <string.h>
+#include <stdnoreturn.h>
 
 #if defined(__cplusplus)
 extern "C" {

@@ -1,4 +1,5 @@
-#include "windham_const.h"
+#pragma once
+
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -6,9 +7,6 @@
 #include <linux/fs.h>
 #include <ext2fs/ext2fs.h> // libext2fs-devel
 #include <libprogstats.h>
-
-#ifndef INCL_DYNENC
-#define INCL_DYNENC
 
 #include "enclib.c"
 
@@ -248,5 +246,3 @@ void shrink_disk(Dynenc_param param, const char * device) {
 	ask_for_conformation(_("Windham cannot shrink the given partition: %s. The partition need to be shrank to %lu sectors before proceed. You need to perform the shrinking manually before "
 	                     "continue."), device, param.unenc_data_size / 512);
 }
-
-#endif

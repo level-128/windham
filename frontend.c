@@ -8,13 +8,11 @@
 #include <libintl.h>
 #include <locale.h>
 
-#define _(STRING) gettext(STRING)
 
 #define DEFAULT_EXEC_DIR "/etc/windham"
 
 #include "library_intrnlsrc/enclib.c"
 #include "library_intrnlsrc/argon_bench.c"
-#include "library_intrnlsrc/dynenc.c"
 #include "backend/bklibmain.c"
 
 enum {
