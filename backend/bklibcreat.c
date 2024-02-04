@@ -116,9 +116,10 @@ void action_new_check_crypt_support_status(const char * str) {
  * @param is_decoy Whether to create a decoy partition.
  * @param is_dyn_enc Whether to enable dynamic encryption conversion.
  * @param is_no_fail Whether to exit if an error occurs during the process.
+ * @param is_no_detect_entropy Do not attempt to add the key with decreased cost when the key has high entropy.
  */
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, size_t block_size, size_t section_size, bool is_decoy,
-                   bool is_dyn_enc, bool is_no_fail){
+                   bool is_dyn_enc, bool is_no_fail, bool is_no_detect_entropy){
 	check_file(device, true, is_no_fail);
 	check_is_device_mounted(device);
 	
@@ -129,7 +130,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	fill_secure_random_bits(master_key, HASHLEN);
 	size_t block_count = decide_start_and_end_block_ret_blkcnt(device, &start_sector, &end_sector, block_size, section_size, is_decoy, is_dyn_enc);
 	initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);
-	add_key_to_keyslot(&data, master_key, key, device, target_slot, target_memory, target_time);
+	add_key_to_keyslot(&data, master_key, key, device, target_slot, target_memory, target_time, is_no_detect_entropy);
 	
 	if (is_dyn_enc){
 		Dynenc_param dynenc_param;

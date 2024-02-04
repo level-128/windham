@@ -36,6 +36,7 @@ enum {
 	NMOBJ_target_dry_run,
 	NMOBJ_verbose,
 	NMOBJ_target_no_transform,
+	NMOBJ_is_no_detect_entropy,
 	NMOBJ_target_restore,
 	NMOBJ_target_decoy,
 	NMOBJ_target_readonly,
@@ -80,6 +81,7 @@ const struct option long_options[] = {
 		{"dry-run",            no_argument,       &options[NMOBJ_target_dry_run],            1},
 		{"verbose",            no_argument,       &options[NMOBJ_verbose],                   1},
 		{"no-transform",       no_argument,       &options[NMOBJ_target_no_transform],       1},
+		{"no-detect-entropy",  no_argument,       &options[NMOBJ_is_no_detect_entropy],      1}, // TODO help
 		{"restore",            no_argument,       &options[NMOBJ_target_restore],            1},
 		{"decoy",              no_argument,       &options[NMOBJ_target_decoy],              1},
 		{"readonly",           no_argument,       &options[NMOBJ_target_readonly],           1},
@@ -111,9 +113,9 @@ const int8_t check_allowed[] =
        CHECK_COMMON, -1,
 				// New
        NMOBJ_key, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_target_slot, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_encrypt_type, NMOBJ_target_decoy, NMOBJ_block_size, NMOBJ_is_systemd,
-       NMOBJ_is_dynamic_convert, NMOBJ_section_size, CHECK_COMMON, -1,
+       NMOBJ_is_dynamic_convert, NMOBJ_section_size, NMOBJ_is_no_detect_entropy, CHECK_COMMON, -1,
 				// AddKey
-       CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, CHECK_COMMON, -1,
+       CHECK_ALLOWED_OPEN, NMOBJ_max_unlock_time, NMOBJ_target_mem, NMOBJ_target_time, NMOBJ_is_no_detect_entropy, CHECK_COMMON, -1,
 				// RevokeKey
        CHECK_ALLOWED_OPEN, NMOBJ_target_slot, NMOBJ_target_all, NMOBJ_target_obliterate, CHECK_COMMON, -1,
 				// Backup
@@ -395,12 +397,12 @@ noreturn void frontend_check_validity_and_execute(int action_num, const char * d
 			break;
 		case 2:
 			action_create(device, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, block_size, section_size,
-							  options[NMOBJ_target_decoy], options[NMOBJ_is_dynamic_convert], options[NMOBJ_is_nofail]);
+							  options[NMOBJ_target_decoy], options[NMOBJ_is_dynamic_convert], options[NMOBJ_is_nofail], options[NMOBJ_is_no_detect_entropy]);
 			break;
 		case 3:
 			check_file(device, true, options[NMOBJ_is_nofail]);
 			
-			action_addkey(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, target_slot, target_mem, target_time, options[NMOBJ_target_decoy]);
+			action_addkey(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, target_slot, target_mem, target_time, options[NMOBJ_target_decoy], options[NMOBJ_is_no_detect_entropy]);
 			break;
 		case 4:
 			check_file(device, true, options[NMOBJ_is_nofail]);

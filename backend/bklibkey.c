@@ -5,10 +5,14 @@
 #ifndef INCL_BKLIBKEY
 #define INCL_BKLIBKEY
 
+#include <stdint.h>
+#include <string.h>
 #include <windham_const.h>
 #include <termios.h>
 
 #include "bksrclib.c"
+#include <sha256.h>
+#include <huffman.h>
 
 
 #define MIN_KEY_CHAR 7
@@ -113,29 +117,44 @@ uint8_t * read_key_file(const Key key, size_t * length) {
 	return buffer;
 }
 
-void prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device) {
+void hash_key_file(size_t length, uint8_t input_key[length], uint8_t inited_key[length]){
+	sha256_digest_all(input_key, length < 1024 ? length : 1024, inited_key);
+	if (length > 1024){
+		uint8_t blake3_hash_result[length];
+		blake3_hasher_long(blake3_hash_result, HASHLEN, &input_key[1024], length - 1024);
+		xor_with_len(HASHLEN, inited_key, blake3_hash_result, inited_key);
+	}
+}
+
+bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device) {
 	size_t key_size;
 	char * input_key = NULL;
 	
 	switch (key.key_type) {
 		case EMOBJ_key_file_type_masterkey:
-			break;
+			return false;
 		case EMOBJ_key_file_type_input:
 			input_key = get_key_input_from_the_console(device, true);
-			sha256_digest_all(input_key, strlen(input_key), inited_key);
+			key_size = strlen(input_key);
+			sha256_digest_all(input_key, key_size, inited_key);
 			break;
 		case EMOBJ_key_file_type_input_systemd:
 			input_key = get_key_input_from_the_console_systemd(device);
-			sha256_digest_all(input_key, strlen(input_key), inited_key);
+			key_size = strlen(input_key);
+			sha256_digest_all(input_key, key_size, inited_key);
 			break;
 		case EMOBJ_key_file_type_file:
 			input_key = (char *) read_key_file(key, &key_size);
-			sha256_digest_all(input_key, key_size, inited_key);
+			hash_key_file(key_size, (uint8_t *) input_key, inited_key);
 			break;
 		case EMOBJ_key_file_type_key:
-			sha256_digest_all(key.key_or_keyfile_location, strlen(key.key_or_keyfile_location), inited_key);
+			input_key = key.key_or_keyfile_location;
+			key_size = strlen(input_key);
+			sha256_digest_all(input_key, key_size, inited_key);
 	}
+	bool result = get_is_high_entropy(key_size, (uint8_t*) input_key);
 	free(input_key);
+	return result;
 }
 
 char * interactive_ask_new_key_test_key = NULL;
@@ -276,13 +295,14 @@ int get_master_key(Data self, uint8_t master_key[HASHLEN], const Key key, const 
  * @param target_slot The target slot to add the key.
  * @param max_unlock_mem The maximum unlock memory.
  * @param max_unlock_time The maximum unlock time.
+ * @param is_no_detect_entropy Do not attempt to add the key with decreased cost when the key has high entropy.
  * @return The target slot.
  */
-int add_key_to_keyslot(Data * decrypted_self, const uint8_t master_key[32], const Key key, const char * device, int target_slot, uint64_t max_unlock_mem, double max_unlock_time) {
+int add_key_to_keyslot(Data * decrypted_self, const uint8_t master_key[32], const Key key, const char * device, int target_slot, uint64_t max_unlock_mem, double max_unlock_time, bool is_no_detect_entropy) {
 	uint8_t inited_key[HASHLEN];
 	uint8_t keyslot_key[HASHLEN];
 	
-	prepare_key(key, inited_key, device);
+	bool is_high_entropy_key = prepare_key(key, inited_key, device);
 	
 	switch (select_available_key_slot(decrypted_self->metadata, &target_slot, decrypted_self->keyslots)) {
 		case EMOBJ_SLOT_AVALIABLE:
@@ -296,13 +316,19 @@ int add_key_to_keyslot(Data * decrypted_self, const uint8_t master_key[32], cons
 	
 	get_keyslot_key_from_inited_key(inited_key, decrypted_self->uuid_and_salt, keyslot_key);
 	
+	// check keyslots revoked without auth.
 	for (int i = 0; i < KEY_SLOT_COUNT; i++) {
 		if (memcmp(decrypted_self->metadata.keyslot_key[i], keyslot_key, HASHLEN) == 0) {
 			print_error(_("The given key is used at slot %i"), i);
 		}
 	}
 	
-	max_unlock_mem = check_target_mem(max_unlock_mem, true);
+	if (is_high_entropy_key && !is_no_detect_entropy){
+		max_unlock_mem = 0;
+		printf(_("High entropy key detected, adding the key to the keyslot with decreased cost to increase unlock speed. to disable this feature, use \"--no-detect-entropy\"\n"));
+	} else {
+		max_unlock_mem = check_target_mem(max_unlock_mem, true);
+	}
 	
 	set_master_key_to_slot(&decrypted_self->keyslots[target_slot], inited_key, max_unlock_mem, max_unlock_time, master_key);
 	register_key_slot_as_used(decrypted_self, keyslot_key, target_slot);

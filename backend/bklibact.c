@@ -15,7 +15,7 @@ void action_close(const char * device) {
 }
 
 
-int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t target_memory, double target_time, bool is_decoy) {
+int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t target_memory, double target_time, bool is_decoy, bool is_no_detect_entropy) {
 	Data data;
 	size_t offset;
 	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
@@ -27,7 +27,7 @@ int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t
 	
 	Key new_key;
 	interactive_prepare_key(&new_key, device);
-	int added_slot = add_key_to_keyslot(&data, master_key, new_key, device, target_slot, target_memory, target_time);
+	int added_slot = add_key_to_keyslot(&data, master_key, new_key, device, target_slot, target_memory, target_time, is_no_detect_entropy);
 	
 	OPERATION_LOCK_AND_WRITE
 	return added_slot;

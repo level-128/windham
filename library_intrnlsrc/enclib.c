@@ -259,7 +259,7 @@ static ENUM_STEP_STAT write_key_to_one_slot(Key_slot * key_slot, uint8_t hash[HA
 		double time_used = ((double) clock() - (double) start_time) / CLOCKS_PER_SEC;
 		double time_per_KiB_mem = time_used / (double) required_mem_size / exp_index_diff;
 		
-		if (time_used > target_time / exp_index_diff) {
+		if (time_used > target_time / exp_index_diff) { // time quota met
 			write_to_exp(key_slot, i, hash, salt, target_time - time_used, time_per_KiB_mem, max_mem_size);
 			break;
 		}
