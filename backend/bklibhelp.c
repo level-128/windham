@@ -119,6 +119,8 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
 					"\t--section-size <int>: designate the section size for dynamic partition conversion. A larger section size may increase the conversion speed, but will resulting more waste space "
 					"resides before the first encrypt sector.\n"
+					"\t--no-detect-entropy: run full key derivation process regardless of the key/keyfile's estimate entropy. may increase unlock time when the key/keyfile itself is entropy-rich, which is enough to "
+					"ensure security without the key derivation process (e.g. random generated key).\n"
 		         "\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at the unallocated sector of the FAT32 filesystem.\n"));
 		frontend_print_common_args();
 		printf(_("A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the designated encryption scheme contains an unsupported, "
@@ -130,7 +132,9 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         "options:\n"
 		         "\t--target-memory <int>: The total maximum memory (KiB) available to use. \n"
 		         "\t--target-time <float>: the suggested total time (sec) for adding a key. This is not a hard limit.\n"
-		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"));
+		         "\t--decoy: Opening the device assuming that the decoy partition exists; otherwise, auto-detect.\n"
+					"\t--no-detect-entropy: run full key derivation process regardless of the key/keyfile's estimate entropy. may increase unlock time when the key/keyfile itself is entropy-rich, which is enough to "
+					"ensure security without the key derivation process (e.g. random generated key).\n"));
 		frontend_print_unlock_args();
 		frontend_print_common_args();
 		

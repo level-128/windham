@@ -74,14 +74,14 @@ const struct option long_options[] = {
 		{"timeout",            required_argument, &options[NMOBJ_unlock_timeout],            1},
 		{"encrypt-type",       required_argument, &options[NMOBJ_encrypt_type],              1},
 		{"block-size",         required_argument, &options[NMOBJ_block_size],                1},
-		{"section-size",       required_argument, &options[NMOBJ_section_size],              1}, // TODO
+		{"section-size",       required_argument, &options[NMOBJ_section_size],              1},
 		
 		{"all",                no_argument,       &options[NMOBJ_target_all],                1},
 		{"obliterate",         no_argument,       &options[NMOBJ_target_obliterate],         1},
 		{"dry-run",            no_argument,       &options[NMOBJ_target_dry_run],            1},
 		{"verbose",            no_argument,       &options[NMOBJ_verbose],                   1},
 		{"no-transform",       no_argument,       &options[NMOBJ_target_no_transform],       1},
-		{"no-detect-entropy",  no_argument,       &options[NMOBJ_is_no_detect_entropy],      1}, // TODO help
+		{"no-detect-entropy",  no_argument,       &options[NMOBJ_is_no_detect_entropy],      1},
 		{"restore",            no_argument,       &options[NMOBJ_target_restore],            1},
 		{"decoy",              no_argument,       &options[NMOBJ_target_decoy],              1},
 		{"readonly",           no_argument,       &options[NMOBJ_target_readonly],           1},
