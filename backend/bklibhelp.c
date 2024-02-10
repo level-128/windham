@@ -117,7 +117,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		         " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\".\n"
 					"\t--dynamic-convert: Dynamically convert an existing partition to Windham encrypted partition without reformatting.\n"
 		         "\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
-					"\t--section-size <int>: designate the section size for dynamic partition conversion. A larger section size may increase the conversion speed, but will resulting more waste space "
+					"\t--section-size <int>: designate the section size for dynamic partition conversion. A larger section size may increases the conversion speed, but it will occupy more waste space "
 					"resides before the first encrypt sector.\n"
 					"\t--no-detect-entropy: run full key derivation process regardless of the key/keyfile's estimate entropy. may increase unlock time when the key/keyfile itself is entropy-rich, which is enough to "
 					"ensure security without the key derivation process (e.g. random generated key).\n"

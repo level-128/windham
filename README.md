@@ -19,86 +19,22 @@ CMake. Most distros are supported.
 or later.) under release (if available).~~ deprecated. Reason? see Q&A.
 
 # Basic usage:
-1. First, find the device that you want to encrypt under `/dev`, you can do this by using 
-your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`; `/dev/sdb2` or `/dev/nvme0n2p2` if 
-you prefer to create an encrypted partition instead.
+1. First, find the device that you want to encrypt under `/dev`, you can do this by using
+   your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`; `/dev/sdb2` or `/dev/nvme0n2p2` if
+   you prefer to create an encrypted partition instead.
 2. To create a new Windham device, use command `windham New *your device*`. For example, creating a Windham device on
-`/dev/sdb`, use command `sudo windham New /dev/sdb` and enter your password. 
+   `/dev/sdb`, use command `sudo windham New /dev/sdb` and enter your password.
 3. To map your device, use command `windham Open *your device* --to=*name*`. For example, to open `/dev/sdb`,
-using `sudo windham Open /dev/sdb --to=enc1` will create a mapper device at `/dev/mapper/enc1`.
+   using `sudo windham Open /dev/sdb --to=enc1` will create a mapper device at `/dev/mapper/enc1`.
 4. create filesystem on `/dev/mapper/enc1`, as if it is an empty partition, as you wish.
-5. To close your device, use `windham close *name*`. 
+5. To close your device, use `windham close *name*`.
 6. (Optional, but recommended) Use `windham Open *your device* --dry-run` to view your master key; back it up into a safe place.
-The master key can access, control and modify the entire partition.
+   The master key can access, control and modify the entire partition.
 
-## Advanced features and examples:
+# How To Use?
 
-- Suspend support. Use `windham Suspend` to suspend an encrypted device. The device will be accessible by everyone. But, 
-relax, your passwords and master keys are secure, and being able to access your encrypted device doesn't mean that someone 
-else can read your passphrases or tamper the encryption that you've set up.  
-- Add up to 6 passphrases. Also, you can revoke your passphrases by `windham RevokeKey`. Using a revoked passphrase will 
-trigger an error (`This key has been revoked.`), instead of an ambiguous message claiming that the key might be incorrect. You can
-revoke a passphrase even if you don't have the corresponding passphrase by `windham RevokeKey --target-slot=*slot*` (which 
-is pretty useful when you forgot your passphrase).
-- Use `windham Backup --to=*location*` to back up the header when tinkering with the partitions. A corrupted header
-will render the crypt device inaccessible.
+See: [How To Use?](/Document/how_to_use.md)
 
-**Examples**:
-
-Command `New` creates a new crypt device. Enter your key to the terminal, or use one of the `--key --key-file`.
-You can designate the target memory and time usage. Utilizing a larger time or memory to enhance the protection against a short passphrase.
-```
-sudo Windham New /dev/nvme0n2p1
-sudo Windham New /dev/nvme0n2 --target-time=0.8 
-sudo Windham New /dev/nvme0n2 --key="hello world" --target-slot=2 --target-memory=1024000 --yes
-sudo windham New /dev/sda --key-file=Documents/key --encrypt-type=twofish-xts-essiv --yes --target-time=2 --block-size=512 --decoy
-```
-
-Command `Open` opens the device. Provide your key to the terminal, or use one of the `--key --key-file` or `--master-key`. `--allow-discards` boosts performance
-when using SSDs and SMR hard disks. **allowing discards on encrypted devices may lead to the leak of information about the crypt 
-device (filesystem type, used space etc.) if the discarded blocks can be located easily on the device later.** `--allow-discards `
-may not work on USB flash drives since OS cannot pass TRIM command through USB.
-```
-sudo windham Open /dev/sda --to=crypt
-sudo windham Open /dev/sdb --to=enc1 --master-key="9fab fe68 20e5 7b89 0b8e 2c01 b842 b268 136f 3d68 bc0c 0427 068a d687 6bf2 3348"
-sudo windham Open /dev/sdb --to=c1 --allow-discards --no-read-workqueue --no-write-workqueue --unlock-slot=0 --systemd-dialog
-sudo windham Open /dev/sdb --dry-run --verbose
-```
-
-`Close`: Close the device
-```
-sudo windham Close enc1
-```
-
-`AddKey`: Add a new key.
-`AddKey`, `RevokeKey` (only if revoking passphrase, not slots), `Backup` (unless using `--no-transform`) and `Suspend` requires
-authorization just like `Open`. You can use the same unlock options from `Open`.
-```
-sudo windham AddKey /dev/nvme0n1
-sudo windham AddKey /dev/nvme0n1 --unlock-slot=0 --target-slot=1`
-```
-
-`RevokeKey`:
-```
-sudo windham RevokeKey /dev/nvme0n1p4 
-sudo windham RevokeKey /dev/nvme0n1p4 --target-slot=3
-sudo windham RevokeKey /dev/nvme0n1p4 --obliterate
-sudo windham RevokeKey /dev/nvme0n1p4 --unlock-slot=2 --key-file=file
-```
-
-`Backup` header and `Restore`:
-```
-sudo windham Backup /dev/sda --to=/home/level-128/header.bin 
-sudo windham Restore /dev/sda --to=/home/level-128/header.bin 
-```
-
-`Suspend` and `Resume`. Open a suspend header will display a warning message. 
-```
-sudo windham Suspend /dev/sdc --verbose
-sudo windham Resume /dev/sdc
-```
-
-&nbsp;
 ### Want to know how Windham works? Here:
 
 [The introduction to Windham's memory-hard hash function:](https://gitlab.com/level-128/argon2b3)
@@ -131,9 +67,41 @@ a case that a large amount of file needs to be deleted, reformatting the filesys
 
 # Compile instructions:
 
-`cmake` and `gcc` are required to build Windham.
+Windham supports multiple architectures as long as the system is:
+- little-endian (Sorry, IBM z/Architecture is not supported).
+- 64-bit (might work on 32-bit system, but can't unlock partition that uses large RAM to derive its keys, making it almost useless).
+- GNU operating system with POSIX-compliant kernel, but strongly recommends Linux kernel. Without the Linux kernel, only partition creation 
+and management is possible (a great example is you have `mkfs` support but can't mount that filesystem). there is an instruction below about how 
+to build and run Windham on GNU system with non-Linux kernel (mostly GNU/Windows NT, a.k.a. WSL1).
+- has `uint8_t`, `uint16_t`, `uint32_t` and `uint64_t` defined.
 
-Additional required libraries:
+## Feature support matrix
+
+there are three pre-defined compile pattern with first-tier support:
+
+| `TARGET_ARCHITECTURE` | SIMD support               | SIMD dynamic dispatch support | cmake preset targets                        | 
+|-----------------------|----------------------------|-------------------------------|---------------------------------------------|
+| AMD64                 | SSE4, AVX-2, AVX-512(F,VL) | Yes                           | Haswell, Tigerlake, sapphirerapids, zenver3 |
+| aarch64               | NEON                       | No                            | armv8.5-a, armv9-a                          |
+| riscv64               | No                         | No                            | rv64imafdc                                  |
+
+`cmake` and `gcc` are required to build Windham. You can use the auto build script, or build from source manually.
+
+## Auto-compile using `auto-install.sh`
+
+Run `auto-install.sh` at the location of the source code. step-by-step guide:
+
+```shell
+git clone https://level-128-git.com/level-128/windham.git
+cd windham
+sudo sh auto-install.sh
+```
+which will install all dependencies automatically and build Windham using CMake. Most distros are supported. This is the default build option with
+native architecture and SIMD extension support.
+
+## Build manually
+
+Install additional required libraries:
 
 | Description                        | Debian-based                | Fedora-based / SUSE                   | Arch-based      |
 |------------------------------------|-----------------------------|---------------------------------------|-----------------|
@@ -144,8 +112,6 @@ Additional required libraries:
 | GNU Gettext                        | `libgettextpo-dev`          | `gettext-runtime` and `gettext-tools` | `gettext`       |
 | ncurses                            | `libncurses-dev`            | `ncurses-devel`                       | `ncurses`       |
 
-Compile windham using cmake: `cmake CMakeLists.txt` -> `make` -> `sudo make install`(optional).
-
 Additional userspace programs (Optional, but functionality will be reduced if these userspace programs are absent)
 
 - `resize2fs`: userspace ext2/ext3/ext4 file system resizer (under `e2fsprogs`).
@@ -153,26 +119,47 @@ Additional userspace programs (Optional, but functionality will be reduced if th
 - `kpartx`: Create device maps from partition tables.
 - `blkid`: locate/print block device attributes (under `util-linux`)
 
+Compile windham using cmake: `cmake CMakeLists.txt` -> `make` -> `sudo make install`(optional). To configure 
+
+### using `ccmake` to configure the compile options
+
+Install `ccmake`, then using `cmake CMakeLists.txt` -> `ccmake CMakeCache.txt` to open the `ccmake` frontend. You can use CMake's `-D` Option
+to specify each build option, but it is not a preferred way.
+
+Under `ccmake`, you could configure each options conveniently. You might see a TUI interface like this:
+
+```
+                                             Page 1 of 1
+ AARCH64_USE_NEON                 ON
+ CMAKE_BUILD_TYPE                 Release
+ CMAKE_EXPORT_COMPILE_COMMANDS    ON
+ CMAKE_INSTALL_BIN                /usr/sbin
+ CMAKE_INSTALL_PREFIX             /usr/local
+ COMPILIER_ENABLE_LTO             ON
+ COMPILIER_OPT                    -O3
+ NO_SIMD_OPTIMIZE                 OFF
+ TARGET_ARCHITECTURE              native
+ WINDHAM_DEFAULT_DISK_ENC_MODE    aes-xts-plain64
+ WIPE_MEMORY                      OFF
+ aarch64_compiler
+ riscv64_compiler
+ x86_64_compiler
+
+Keys: [enter] Edit an entry [d] Delete an entry                              CMake Version 3.25.1
+      [l] Show log output   [c] Configure
+      [h] Help              [q] Quit without generating
+      [t] Toggle advanced mode (currently off)
+```
+which is self-explanatory. For some options, use left and right key to choose one option from the given list. Then `make` -> `make install` (optional).
+
+Note:
+- `aarch64_compiler`, `riscv64_compiler` and `x86_64_compiler` must be defined accordingly if the `TARGET_ARCHITECTURE` is not native.
+- `COMPILIER_ENABLE_LTO` requires enough RAM. might not be an issue on your own PC, but might be on CI/CD servers with small RAM.
+- To change the default C compiler when the `TARGET_ARCHITECTURE` is native, press `t` and navigate to option `CMAKE_C_COMPILER`.
+- If your target does not support hardware AES extension (e.g. `AES-NI`, _Armv8 Cryptographic Extension_), `twofish-xts-plain64`
+is probably a good default encryption choice. 
+
 &nbsp;
-
-## Feature support matrix
-
-### machine architecture:
-| Architecture | SIMD support               | SIMD dynamic dispatch support | cmake preset targets                        | 
-|--------------|----------------------------|-------------------------------|---------------------------------------------|
-| AMD64        | SSE4, AVX-2, AVX-512(F,VL) | Yes                           | Haswell, Tigerlake, sapphirerapids, zenver3 |
-| aarch64      | NEON                       | No                            | armv8.5-a, armv9-a                          |
-| riscv64      | No                         | No                            | rv64imafdc                                  |
-
-&nbsp;
-
-## using `ccmake` to configure the compile options
-
-Install `ccmake`, then using `cmake CMakeLists.txt` -> `ccmake CMakeCache.txt` to open the `ccmake` frontend. 
-
-Under `ccmake`, you could configure each options conveniently. You might see a TUI interface like this: 
-
-
 
 ---
 
