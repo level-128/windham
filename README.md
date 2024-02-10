@@ -2,6 +2,8 @@
 
 Windham is free and open-source software for disk encryption, an implementation of its own specification, based on the Linux dm-crypt module. 
 
+&nbsp;
+
 # Supported features:
 
 - Transparent & on-the-fly disk (or partition) encryption.
@@ -10,6 +12,8 @@ Windham is free and open-source software for disk encryption, an implementation 
 - Password management: supports registering multiple passwords, revoking with or without authorization.
 - Atomic metadata: Changes to the partition (e.g. adding a new key) will cause each byte in the header to change simultaneously.
 
+&nbsp;
+
 # How To install?
 You can Choose to:
 - Download the repository and use the `auto-install.sh` script, which will install all dependencies automatically and build Windham using
@@ -17,6 +21,8 @@ CMake. Most distros are supported.
 - Compile by your own. See [Compile Instructions](#compile-instructions) below.
 - ~~Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
 or later.) under release (if available).~~ deprecated. Reason? see Q&A.
+
+&nbsp;
 
 # Basic usage:
 1. First, find the device that you want to encrypt under `/dev`, you can do this by using
@@ -31,6 +37,8 @@ or later.) under release (if available).~~ deprecated. Reason? see Q&A.
 6. (Optional, but recommended) Use `windham Open *your device* --dry-run` to view your master key; back it up into a safe place.
    The master key can access, control and modify the entire partition.
 
+&nbsp;
+
 # How To Use?
 
 See: [How To Use?](/Document/how_to_use.md)
@@ -43,7 +51,7 @@ See: [How To Use?](/Document/how_to_use.md)
 
 &nbsp;
 
-## Introduction to Decoy Partition
+## Introduction to the Decoy Partition
 
 ### What is Decoy Partition?
 
@@ -63,7 +71,7 @@ deleted the decoy partition, auto-detection will not work. In this case, use arg
 There is no protection to ensure the modification of the decoy partition will not overwrite the encrypted partition. In 
 a case that a large amount of file needs to be deleted, reformatting the filesystem is a better idea.
 
----
+&nbsp;
 
 # Compile instructions:
 
@@ -71,7 +79,7 @@ Windham supports multiple architectures as long as the system is:
 - little-endian (Sorry, IBM z/Architecture is not supported).
 - 64-bit (might work on 32-bit system, but can't unlock partition that uses large RAM to derive its keys, making it almost useless).
 - GNU operating system with POSIX-compliant kernel, but strongly recommends Linux kernel. Without the Linux kernel, only partition creation 
-and management is possible (a great example is you have `mkfs` support but can't mount that filesystem). there is an instruction below about how 
+and management is possible. there is an instruction below about how 
 to build and run Windham on GNU system with non-Linux kernel (mostly GNU/Windows NT, a.k.a. WSL1).
 - has `uint8_t`, `uint16_t`, `uint32_t` and `uint64_t` defined.
 
@@ -153,21 +161,31 @@ Keys: [enter] Edit an entry [d] Delete an entry                              CMa
 which is self-explanatory. For some options, use left and right key to choose one option from the given list. Then `make` -> `make install` (optional).
 
 Note:
-- `aarch64_compiler`, `riscv64_compiler` and `x86_64_compiler` must be defined accordingly if the `TARGET_ARCHITECTURE` is not native.
+- `aarch64_compiler`, `riscv64_compiler` and `x86_64_compiler` must be defined with the `TARGET_ARCHITECTURE` if the `TARGET_ARCHITECTURE` is not native.
 - `COMPILIER_ENABLE_LTO` requires enough RAM. might not be an issue on your own PC, but might be on CI/CD servers with small RAM.
 - To change the default C compiler when the `TARGET_ARCHITECTURE` is native, press `t` and navigate to option `CMAKE_C_COMPILER`.
 - If your target does not support hardware AES extension (e.g. `AES-NI`, _Armv8 Cryptographic Extension_), `twofish-xts-plain64`
 is probably a good default encryption choice. 
 
+## Compile on non-Linux GNU systems
+
+Windham requires the kernel header to compile. However, there is a `include/linux_fs_include`, which contains the minimal content for the program to compile. 
+
+Windham loads the kernel model dynamically. if `include/linux_fs_include` is used instead of the header provided by the system package manager, 
+the dynamic loading of the device mapper subsystem and kernel key retention service is disabled, making Windham incapable of opening the partition, only 
+capable of creating and accessing the metadata of the partition, similar to what `mkfs` utilities does (also with key management).
+
+To configure Windham for using `include/linux_fs_include`, toggle option `USE_FS_INCLUDE` to `ON`. A warning message will be generated during compile. 
+
 &nbsp;
 
----
 
 # Q&A:
 
 [For a list of common Q&A, Here:](/Document/Q&A.md)
 
----
+&nbsp;
+
 
 # Contribute:
 
@@ -177,7 +195,8 @@ Oh, make sure that you have acknowledged [the code of conduct](CODE_OF_CONDUCT.m
 
 Any questions? email me: level-128@gmx.com
 
----
+&nbsp;
+
 
 # License and Legal issues
 
