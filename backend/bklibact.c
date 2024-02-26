@@ -23,6 +23,7 @@ void action_close(const char * device) {
 											 is_free_loop = true;
 										 }
 	);
+	CHECK_DEVICE_TOPOLOGY_FREE(parent);
 	remove_crypt_mapping(device);
 	if (is_free_loop){
 		free_loop(parent[0]);

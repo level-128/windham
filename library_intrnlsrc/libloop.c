@@ -15,7 +15,7 @@
       device_loc = malloc(strlen(device) + strlen(device_path"/") + 1); \
       sprintf(device_loc, device_path"/%s", device); \
    } else {                                                        \
-      device_loc = device_path;                                                                \
+      device_loc = (char *)device;                                                                \
 	}                                                                \
    char ** parent = NULL;                                          \
    char ** child = NULL;\
@@ -29,8 +29,7 @@ if (strcmp(device_path, "") != 0){                                              
 }                                                                   \
 if (retval == 0){                                                  \
 CODE_EXEC_IF_RET                                                                   \
-}\
-check_device_topology_free(parent, mount_points, parent_ret_len, mount_points_len)
+}
 
 
 #define CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(comp_var, CODE_CMP_COND, pri_arr, CODE_PRI_ONE_RETLEN, CODE_PRI_MUL_RETLEN) \
@@ -47,7 +46,10 @@ if (comp_var CODE_CMP_COND) {                                                   
 }
 
 
-
+#define CHECK_DEVICE_TOPOLOGY_FREE(res) \
+if (retval == 0){                                        \
+	check_device_topology_free(res, mount_points, res##_ret_len, mount_points_len); \
+}
 
 #ifndef INCL_LIBLOOP
 #define INCL_LIBLOOP

@@ -23,6 +23,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 	                            (_("device %s has already been mapped as \"%s\" either by Windham or other device mapper schemes."), device, child[0]),
 	                            (""));
 	);
+	CHECK_DEVICE_TOPOLOGY_FREE(child);
 	
 	if (is_nokeyring) {
 		is_kernel_keyring_exist = false;

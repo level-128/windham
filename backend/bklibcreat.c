@@ -130,6 +130,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 	                      (_("device %s has already been mapped as \"%s\" either by Windham or other device mapper schemes."), device, child[0]),
 	                      (""));
 	);
+	CHECK_DEVICE_TOPOLOGY_FREE(child);
 	
 	enc_type = enc_type ? enc_type : DEFAULT_DISK_ENC_MODE;
 	action_new_check_crypt_support_status(enc_type);
