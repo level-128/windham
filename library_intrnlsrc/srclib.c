@@ -82,11 +82,11 @@ bool print_enable;
 bool print_verbose;
 
 #define print(...) \
-   if (print_enable){                \
+   do {if (print_enable){                \
    int tmp_var = CV_VA_NUM_ARGS(__VA_ARGS__);\
    p__get_types__(__VA_ARGS__);                   \
    p__expands_args(tmp_var, __VA_ARGS__);\
-   p__print__(tmp_var);} while(0)
+   p__print__(tmp_var);} }while(0)
 
 
 int debug_print_error_suppress;

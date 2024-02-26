@@ -16,7 +16,7 @@
 
 
 /**
- * @enum ActionResult
+ * @enum ENUM_STEP_STAT
  * Enumeration of possible result codes returned by an action step.
  * @note These values are negative to indicate errors.
  */
@@ -52,7 +52,7 @@ const uint8_t head_converting[16] = {'E', 'N', 'C', 'I', 'N', 'G', 'l', 'e', 'v'
 #define INCL_ENCLIB
 
 void fill_secure_random_bits(uint8_t * address, size_t size) {
-	size_t read_size = fread(address, 1, size, random_fd);
+	const size_t read_size = fread(address, 1, size, random_fd);
 	if (read_size != size) {
 		print_error(_("IO error while reading from the random generator."));
 	}
@@ -95,7 +95,7 @@ static uint64_t write_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot
 /**
  * @see read_key_one_step
  */
-static uint64_t read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint8_t salt[]) {
+static uint64_t read_mem_count_from_len_exp_and_update_salt(const Key_slot * key_slot, const uint8_t hash[HASHLEN], uint_fast8_t len_exp_index, uint8_t salt[]) {
 	uint8_t plain_text[4];
 	memcpy(&salt[HASHLEN + len_exp_index * sizeof(uint8_t) * 4], key_slot->len_exp[len_exp_index], sizeof(uint8_t) * 4);
 	
@@ -131,7 +131,7 @@ static uint64_t read_mem_count_from_len_exp_and_update_salt(Key_slot * key_slot,
  * @see NMOBJ_STEP_OK
  * @see NMOBJ_STEP_CONTINUE
  */
-static ENUM_STEP_STAT read_key_one_step(Key_slot * key_slot, uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size,
+static ENUM_STEP_STAT read_key_one_step(Key_slot * key_slot, const uint_fast8_t len_exp_index, uint8_t password_hash[HASHLEN], uint8_t salt[HASHLEN + KEY_SLOT_EXP_MAX * 4], uint64_t max_mem_size,
                              uint64_t * required_mem_size) {
 	uint8_t new_pwd[HASHLEN];
 	
