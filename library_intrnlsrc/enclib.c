@@ -2,10 +2,12 @@
 
 #include "windham_const.h"
 
+#include <endian.h>
 #include "srclib.c"
 #include "argon2B3.h"
 #include "aes.h"
 #include "sha256.h"
+
 
 
 #if KEY_SLOT_EXP_MAX % 4 != 0
@@ -359,6 +361,20 @@ void get_metadata_key_or_disk_key_from_master_key(const uint8_t master_key[HASHL
 	argon2id_hash_raw(1, BASE_MEM_COST * 2, PARALLELISM, inter_key, HASHLEN, data$uuid_and_salt, 16, key, HASHLEN);
 }
 
+void convert_metadata_endianness_to_le(EncMetadata * data$metadata){
+	data$metadata->section_size = htole32(data$metadata->section_size);
+	data$metadata->block_size = htole16(data$metadata->block_size);
+	data$metadata->start_sector = htole64(data$metadata->start_sector);
+	data$metadata->end_sector = htole64(data$metadata->end_sector);
+}
+
+void convert_metadata_endianness_to_h(EncMetadata * data$metadata){
+	data$metadata->section_size = le32toh(data$metadata->section_size);
+	data$metadata->block_size = le16toh(data$metadata->block_size);
+	data$metadata->start_sector = le64toh(data$metadata->start_sector);
+	data$metadata->end_sector = le64toh(data$metadata->end_sector);
+}
+
 bool lock_or_unlock_metadata_using_master_key(Data * data, const uint8_t master_key[HASHLEN]) {
 	uint8_t key[HASHLEN];
 	
@@ -367,11 +383,12 @@ bool lock_or_unlock_metadata_using_master_key(Data * data, const uint8_t master_
 	struct AES_ctx ctx;
 	AES_init_ctx_iv(&ctx, key, data->master_key_mask);
 	
-	
-	if (data->metadata.check_key_magic_number != CHECK_KEY_MAGIC_NUMBER) {
+	if (le64toh(data->metadata.check_key_magic_number) != CHECK_KEY_MAGIC_NUMBER) {
 		AES_CBC_decrypt_buffer(&ctx, (uint8_t *) &data->metadata, sizeof(EncMetadata));
-		return data->metadata.check_key_magic_number == CHECK_KEY_MAGIC_NUMBER;
+		convert_metadata_endianness_to_h(&data->metadata);
+		return le64toh(data->metadata.check_key_magic_number) == CHECK_KEY_MAGIC_NUMBER;
 	} else {
+		convert_metadata_endianness_to_le(&data->metadata);
 		AES_CBC_encrypt_buffer(&ctx, (uint8_t *) &data->metadata, sizeof(EncMetadata));
 		return true;
 	}
@@ -407,7 +424,7 @@ void initialize_new_header(Data * uninitialized_header, const char * enc_type, s
 	
 	memset(uninitialized_header->metadata.key_slot_is_used, false, sizeof(uninitialized_header->metadata.key_slot_is_used));
 	strcpy(uninitialized_header->metadata.enc_type, enc_type);
-	uninitialized_header->metadata.check_key_magic_number = CHECK_KEY_MAGIC_NUMBER;
+	uninitialized_header->metadata.check_key_magic_number = htole64(CHECK_KEY_MAGIC_NUMBER);
 	
 	uninitialized_header->metadata.start_sector = start_sector;
 	uninitialized_header->metadata.end_sector = end_sector;

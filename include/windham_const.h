@@ -42,7 +42,7 @@
 #endif
 
 // encryption related
-#define CHECK_KEY_MAGIC_NUMBER 0x49713d1c7f5dce80
+#define CHECK_KEY_MAGIC_NUMBER 0x49713d1c7f5dce80U
 
 FILE * random_fd; // file handler of the random number generator.
 
