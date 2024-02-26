@@ -12,10 +12,6 @@
 
 #include "aes.h"
 
-#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#error "This code cannot be compiled on a big-endian machine."
-#endif
-
 #ifndef UINT8_MAX
 #error "the program only supports platform with uint8_t defined"
 #endif

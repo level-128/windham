@@ -47,7 +47,7 @@ noreturn void frontend_help(const char * the_3rd_argv) {
 		printf(_("\nSystem and compiler information:\n"));
 #ifdef __GNUC__
 		printf(_("Compiler: GCC %d.%d.%d\n"), __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
-#elifdef __clang__
+#elif defined(__clang__)
 		printf(_("Compiler: Clang %d.%d.%d\n"), __clang_major__, __clang_minor__, __clang_patchlevel__);
 #else
 		printf(_("Unknown compiler\n"));

@@ -20,8 +20,8 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 			                      (_("Cannot open device %s, unmount the device to continue. Active mount points:"), device));
 			                      
 	                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(child_ret_len, > 0, child,
-	                            (_("device %s has already been mapped as \"%s\" either by Windham or other device mapper schemes. Use \"windham Close *location*\" to close it."), device, child[0]),
-	                            (_("device %s has already been mapped by either by Windham or other device mapper schemes. Use \"windham Close *location*\" to close them. mapped locations:"), device));
+	                            (_("device %s has already been mapped as \"%s\" either by Windham or other device mapper schemes. Use \"windham Close *name*\" to close it."), device, child[0]),
+	                            (_("device %s has already been mapped by either by Windham or other device mapper schemes. Use \"windham Close *name*\" to close them. mapped locations:"), device));
 	);
 	CHECK_DEVICE_TOPOLOGY_FREE(child);
 	
