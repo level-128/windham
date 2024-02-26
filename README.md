@@ -25,15 +25,16 @@ or later.) under release (if available).~~ deprecated. Reason? see Q&A.
 &nbsp;
 
 # Basic usage:
-1. First, find the device that you want to encrypt under `/dev`, you can do this by using
+1. First, locate the device that you want to encrypt under `/dev`, you can do this by using
    your disk manager or using command `lsblk`. It might be something like `/dev/sdb` or `/dev/nvme0n1`; `/dev/sdb2` or `/dev/nvme0n2p2` if
    you prefer to create an encrypted partition instead.
-2. To create a new Windham device, use command `windham New *your device*`. For example, creating a Windham device on
-   `/dev/sdb`, use command `sudo windham New /dev/sdb` and enter your password.
-3. To map your device, use command `windham Open *your device* --to=*name*`. For example, to open `/dev/sdb`,
-   using `sudo windham Open /dev/sdb --to=enc1` will create a mapper device at `/dev/mapper/enc1`.
-4. create filesystem on `/dev/mapper/enc1`, as if it is an empty partition, as you wish.
-5. To close your device, use `windham close *name*`.
+2. To create a new Windham device, use `windham New *your device*`. e.g: creating a Windham device on
+   `/dev/sdb`, use `sudo windham New /dev/sdb` and enter your password.
+3. To map your device, use `windham Open *your device* --to=*name*`. e.g: `sudo windham Open /dev/sdb --to=enc1` will open `/dev/sdb`: at 
+   `/dev/mapper/enc1`.
+4. create the filesystem as if it is an empty partition. You can use your disk manager or e.g: `sudo mkfs.ext4 /dev/mapper/*name*` to 
+   create an ext4 partition. 
+5. Use `windham close *name*` to close your device.
 6. (Optional, but recommended) Use `windham Open *your device* --dry-run` to view your master key; back it up into a safe place.
    The master key can access, control and modify the entire partition.
 
