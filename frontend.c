@@ -397,7 +397,9 @@ noreturn void frontend_check_validity_and_execute(int action_num, const char * d
 			
 			break;
 		case 1:
+			// do not init device, since the device is mapper's name.
 			action_close(device);
+			// loop frees inside it
 			break;
 		case 2:
 			init_device(device, true, options[NMOBJ_is_nofail]);

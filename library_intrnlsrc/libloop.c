@@ -118,16 +118,19 @@ void init_device(const char * filename, bool make_loop_device, bool is_nofail) {
 	}
 }
 
+void free_loop(const char * name){
+	char *exec_dir[] = {"/sbin", "/usr/sbin", "/bin", "/usr/bin", NULL};
+	int exec_ret_val = 0;
+	
+	bool success = exec_name("losetup", exec_dir, NULL, NULL, &exec_ret_val, true, "-d", name, NULL);
+	if (!success || exec_ret_val != 0) {
+		print_warning(_("Failed to free loop device %s. Please run \"losetup -d %s\" manually."), name, name);
+	}
+}
 
 void fin_device(){
 	if (STR_device->is_loop == true){
-		char *exec_dir[] = {"/sbin", "/usr/sbin", "/bin", "/usr/bin", NULL};
-			int exec_ret_val = 0;
-			
-			bool success = exec_name("losetup", exec_dir, NULL, NULL, &exec_ret_val, true, "-d", STR_device->name, NULL);
-			if (!success || exec_ret_val != 0) {
-				print_error(_("Failed to free loop device %s"), STR_device->name);
-			}
+		free_loop(STR_device->name);
 	}
 	if (STR_device->is_malloced_name == true){
 		free((void *)STR_device->name);
