@@ -5,6 +5,7 @@
 #include "bklibkey.c"
 #include "bksrclib.c"
 #include "../library_intrnlsrc/mapper.c"
+#include "windham_const.h"
 
 #define MAX_LINE_LENGTH 1024
 #define TARGET_PREFIX "name         : "
@@ -119,35 +120,42 @@ void action_new_check_crypt_support_status(const char * str) {
  * @param is_no_detect_entropy Do not attempt to add the key with decreased cost when the key has high entropy.
  */
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, size_t block_size, size_t section_size, bool is_decoy,
-                   bool is_dyn_enc, bool is_no_fail, bool is_no_detect_entropy){
-	check_file(device, true, is_no_fail);
-	check_is_device_mounted(device);
+                   bool is_dyn_enc, bool is_no_detect_entropy){
+	CHECK_DEVICE_TOPOLOGY("/dev", parent,
+	                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(mount_points_len, > 0, mount_points,
+			                      (_("Cannot create device %s, device has been mounted at %s. Unmount the device to continue"), device, mount_points[0]),
+			                      (_("Cannot create device %s, unmount the device to continue. Active mount points:"), device));
+			                      
+			                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(child_ret_len, > 1, child,
+	                      (_("device %s has already been mapped as \"%s\" either by Windham or other device mapper schemes."), device, child[0]),
+	                      (""));
+	);
 	
 	enc_type = enc_type ? enc_type : DEFAULT_DISK_ENC_MODE;
 	action_new_check_crypt_support_status(enc_type);
 	
 	Data data; uint8_t master_key[HASHLEN]; size_t start_sector, end_sector;
 	fill_secure_random_bits(master_key, HASHLEN);
-	size_t block_count = decide_start_and_end_block_ret_blkcnt(device, &start_sector, &end_sector, block_size, section_size, is_decoy, is_dyn_enc);
-	initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);
-	add_key_to_keyslot(&data, master_key, key, device, target_slot, target_memory, target_time, is_no_detect_entropy);
 	
 	if (is_dyn_enc){
 		Dynenc_param dynenc_param;
 		uint8_t disk_key[HASHLEN];
-		
+		size_t block_count = STR_device->block_size;
+
 		dynesc_calc_param(&dynenc_param, block_count, section_size);
-		
 		shrink_disk(dynenc_param, device);
 		
-		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
-		create_crypt_mapping_from_disk_key(device, ".tmp_windham", &data.metadata, disk_key, data.uuid_and_salt, false, false, true, true, true);
-		
+		initialize_new_header(&data, enc_type, dynenc_param.enc_data_start / 512, dynenc_param.enc_data_size / 512 + dynenc_param.enc_data_start / 512, block_size);
+		add_key_to_keyslot(&data, master_key, key, device, target_slot, target_memory, target_time, is_no_detect_entropy);
 		tag_header_as_converting(&data, section_size);
-		int64_t offset = -4096;
-		OPERATION_LOCK_AND_WRITE
 		
 		create_disk_hash(dynenc_param, device);
+		get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
+		create_crypt_mapping_from_disk_key(device, ".tmp_windham", data.metadata.enc_type, disk_key, data.uuid_and_salt, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size,  false, false, true, true, true);
+		
+		int64_t offset = -4096;
+		bool is_assign_new_head = false;
+		OPERATION_LOCK_AND_WRITE
 		
 		if (copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham", UINT64_MAX) == false) {
 			remove_crypt_mapping(".tmp_windham");
@@ -159,9 +167,16 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 		
 		remove_crypt_mapping(".tmp_windham");
 	} else {
+		size_t device_block_cnt = STR_device->block_size;
+		decide_start_and_end(device, device_block_cnt, &start_sector, &end_sector, block_size, is_decoy);
+
+		initialize_new_header(&data, enc_type, start_sector, end_sector, block_size);
+		add_key_to_keyslot(&data, master_key, key, device, target_slot, target_memory, target_time, is_no_detect_entropy);
+
 		ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 		
 		int64_t offset = is_decoy ? -4096 : 0;
+		bool is_assign_new_head = true;
 		OPERATION_LOCK_AND_WRITE
 		
 		if (is_decoy) {

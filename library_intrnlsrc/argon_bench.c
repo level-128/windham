@@ -64,6 +64,7 @@ noreturn void benchmark() {
 			start_time = clock();
 			start_cycles = rdtsc();
 			
+
 			argon2id_hash_raw(t_cost, m_cost, thread_n, pwd_array, inlen,
 									salt_array, inlen, out, outlen);
 			

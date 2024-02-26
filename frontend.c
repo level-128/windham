@@ -1,3 +1,5 @@
+#include "windham_const.h"
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +15,7 @@
 
 #include "library_intrnlsrc/enclib.c"
 #include "library_intrnlsrc/argon_bench.c"
+#include "library_intrnlsrc/libloop.c"
 #include "backend/bklibmain.c"
 
 enum {
@@ -371,6 +374,7 @@ noreturn void frontend_check_validity_and_execute(int action_num, const char * d
 	print_verbose = options[NMOBJ_verbose];
 	
 	init();
+
 	Key key;
 	init_key_obj_and_master_key(&key, master_key, params);
 	
@@ -378,7 +382,8 @@ noreturn void frontend_check_validity_and_execute(int action_num, const char * d
 	// "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume"
 	switch (action_num) {
 		case 0:
-			action_open(device, params[NMOBJ_to], timeout, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time,
+			init_device(device, true, options[NMOBJ_is_nofail]);
+			action_open(STR_device->name, params[NMOBJ_to], timeout, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time,
 			            BOOL_DEL_START,
 			            options[NMOBJ_target_dry_run],
 							options[NMOBJ_target_decoy],
@@ -387,7 +392,6 @@ noreturn void frontend_check_validity_and_execute(int action_num, const char * d
 			            options[NMOBJ_target_no_read_workqueue],
 							options[NMOBJ_target_no_write_workqueue],
 			            options[NMOBJ_is_no_map_partition],
-							options[NMOBJ_is_nofail],
 			            options[NMOBJ_is_nokeyring],
 			            BOOL_DEL_END);
 			
@@ -396,41 +400,44 @@ noreturn void frontend_check_validity_and_execute(int action_num, const char * d
 			action_close(device);
 			break;
 		case 2:
-			action_create(device, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, block_size, section_size,
-							  options[NMOBJ_target_decoy], options[NMOBJ_is_dynamic_convert], options[NMOBJ_is_nofail], options[NMOBJ_is_no_detect_entropy]);
+			init_device(device, true, options[NMOBJ_is_nofail]);
+			action_create(STR_device->name, params[NMOBJ_encrypt_type], key, target_slot, target_mem, target_time, block_size, section_size,
+							  options[NMOBJ_target_decoy], options[NMOBJ_is_dynamic_convert], options[NMOBJ_is_no_detect_entropy]);
 			break;
 		case 3:
-			check_file(device, true, options[NMOBJ_is_nofail]);
+			init_device(device, false, options[NMOBJ_is_nofail]);
 			
-			action_addkey(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, target_slot, target_mem, target_time, options[NMOBJ_target_decoy], options[NMOBJ_is_no_detect_entropy]);
+			action_addkey(STR_device->name, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, target_slot, target_mem, target_time, options[NMOBJ_target_decoy], options[NMOBJ_is_no_detect_entropy]);
 			break;
 		case 4:
-			check_file(device, true, options[NMOBJ_is_nofail]);
+			init_device(device, false, options[NMOBJ_is_nofail]);
 			
-			action_revokekey(device, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_all], options[NMOBJ_target_obliterate], options[NMOBJ_target_decoy]);
+			action_revokekey(STR_device->name, key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_all], options[NMOBJ_target_obliterate], options[NMOBJ_target_decoy]);
 			break;
 		case 5:
-			check_file(device, false, options[NMOBJ_is_nofail]);
+			init_device(device, false, options[NMOBJ_is_nofail]);
 			
-			action_backup(device, params[NMOBJ_to], key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_no_transform], options[NMOBJ_target_decoy]);
+			action_backup(STR_device->name, params[NMOBJ_to], key, master_key, target_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_no_transform], options[NMOBJ_target_decoy]);
 			break;
 		case 6:
-			action_restore(device, params[NMOBJ_to], options[NMOBJ_target_decoy]);
+			init_device(device, false, options[NMOBJ_is_nofail]);
+
+			action_restore(STR_device->name, params[NMOBJ_to], options[NMOBJ_target_decoy]);
 			break;
 		case 7:
-			check_file(device, true, options[NMOBJ_is_nofail]);
+			init_device(device, false, options[NMOBJ_is_nofail]);
 			
-			action_suspend(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
+			action_suspend(STR_device->name, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		case 8:
-			check_file(device, true, options[NMOBJ_is_nofail]);
+			init_device(device, false, options[NMOBJ_is_nofail]);
 			
-			action_resume(device, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
+			action_resume(STR_device->name, key, master_key, unlock_slot, max_unlock_mem, max_unlock_time, options[NMOBJ_target_decoy]);
 			break;
 		default:
 			break;
 	}
-	exit(EXIT_SUCCESS);
+	longjmp(windham_exit, NMOBJ_windham_exit_normal);
 	
 }
 

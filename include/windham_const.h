@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stdnoreturn.h>
 #include <libintl.h>
+#include <setjmp.h>
 
 #include "aes.h"
 
@@ -19,7 +20,7 @@
 #error "the program only supports platform with uint8_t defined"
 #endif
 
-#define VERSION "0.231128.2.0"
+#define VERSION "0.231128.3.0"
 
 #define _(STRING) gettext(STRING)
 
@@ -44,6 +45,23 @@
 #define CHECK_KEY_MAGIC_NUMBER 0x49713d1c7f5dce80
 
 FILE * random_fd; // file handler of the random number generator.
+
+jmp_buf windham_exit;
+
+enum {
+	NMOBJ_windham_exit_normal = 1,
+	NMOBJ_windham_exit_error = 2,
+};
+
+
+typedef struct{
+   const char * name;
+	size_t block_size;
+   bool is_malloced_name;
+   bool is_loop;
+} Device;
+
+Device * STR_device;
 
 typedef struct __attribute__((packed)) {
 	uint8_t disk_key_mask[HASHLEN];

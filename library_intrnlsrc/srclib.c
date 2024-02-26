@@ -1,3 +1,5 @@
+#include <windham_const.h>
+
 #include <errno.h>
 #include <inttypes.h>
 #include <stdarg.h>
@@ -99,7 +101,7 @@ int debug_print_error_suppress;
     printf("\033[1;31m%s: ", _("ERROR")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n");   \
-    exit(EXIT_FAILURE);} while (false)
+    longjmp(windham_exit, NMOBJ_windham_exit_error);} while (false)
 
 #define print_error_no_exit(...) \
     printf("\033[1;31m%s: ", _("ERROR")); \
@@ -110,6 +112,7 @@ int debug_print_error_suppress;
     printf("\033[1;33m%s: ", _("WARNING")); \
     printf(__VA_ARGS__);           \
     printf("\033[0m\n")
+
 
 #define BOOL_ADDER(a) bool a
 #define COMMA_SEPARATOR ,
@@ -143,7 +146,7 @@ int debug_print_error_suppress;
 
 static void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b[length], uint8_t c[length]);
 
-bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *dup_stdout_len, int *exec_ret_val, bool is_wait_child, ...);
+bool exec_name(char *exec_name, char * exec_dir[], char * volatile * dup_stdout, size_t *dup_stdout_len, int *exec_ret_val, bool is_wait_child, ...);
 
 void print_hex_array(size_t length, const uint8_t arr[length]);
 
@@ -291,30 +294,30 @@ extern char **environ;
  * process to execute the command. It also waits for the child process to complete if the
  * `is_wait_child` argument is set to true.
  *
- * When `dup_stdout` parameter is NULL, the stdout of the child process
- * is not redirected/captured. Conversely, when `dup_stdout` is NOT NULL, the stdout of the child
+ * When `dup_stdout` parameter is NULL, the stdout and stderr of the child process
+ * is not redirected/captured. Conversely, when `dup_stdout` is NOT NULL, the stdout and stderr of the child
  * process is captured and made available in the buffer pointed to by the `dup_stdout` argument. If `is_wait_child`
  * is false, the function does not wait for child process to terminate rather returns immediately after spawning
  * it.
  *
  * @param exec_name The name of the executable to be executed.
- * @param exec_dir An array of directories to search for the executable.
+ * @param exec_dir An array of directories to search for the executable, must be terminated with a NULL pointer.
  * @param dup_stdout A pointer to the destination buffer for duplicated stdout stream, or NULL if stdout is not required to be captured.
+ * 	The buffer is allocated by the callee. If `is_wait_child` is false, `dup_stdout` makes no effect. If the call has failed,
+ * 	`dup_stdout` will not be set.
  * @param dup_stdout_len A pointer to the size of the duplicated stdout buffer, or NULL if stdout is not required to be captured.
+ * 	If `is_wait_child` is false, `dup_stdout_len` makes no effect.
  * @param exec_ret_val A pointer to store the return value of the child process, or NULL if not required.
  * @param is_wait_child Flag indicating whether to wait for the child process to complete or spawn it in detached mode.
- * @param ... Optional arguments to be passed to the executed command, terminated by a NULL argument.
- * @return True if the command was executed successfully, false otherwise.
+ * @param ... Optional arguments, should be provided as (char *) type, to be passed to the executed command, terminated by a NULL argument.
+ * @return True if the command was executed successfully, false otherwise, in this case, errno will be set.
  *
  * @note The `exec_name` and `exec_dir` parameters must not be NULL.
- * @note The `exec_dir` array must be terminated with a NULL pointer.
  * @note The `dup_stdout` and `dup_stdout_len` parameters are only used when stdout redirection is required.
  * @note The `is_wait_child` parameter is only used when waiting for the child process to complete is required.
- * @note The `exec_ret_val` parameter is only used when storing the return value of the child process is required.
- * @note The optional arguments should be provided as (char *) type, terminated by a NULL argument.
  * @note The environment variable 'environ' must be defined externally.
  */
-bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *dup_stdout_len, int *exec_ret_val, bool is_wait_child, ...) {
+bool exec_name(char *exec_name, char * exec_dir[], char * volatile * dup_stdout, size_t *dup_stdout_len, int *exec_ret_val, bool is_wait_child, ...) {
 	pid_t pid;
 	posix_spawn_file_actions_t action;
 	posix_spawnattr_t attr;
@@ -344,7 +347,7 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 	posix_spawn_file_actions_init(&action);
 	posix_spawnattr_init(&attr);
 	
-	if (dup_stdout && dup_stdout_len) {
+	if (dup_stdout && dup_stdout_len && is_wait_child) {
 		if (pipe(pipefd) != 0) {
 			perror("pipe");
 			return false;
@@ -390,7 +393,7 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 	}
 	
 	// Read from pipe if required
-	if (dup_stdout && dup_stdout_len) {
+	if (dup_stdout && dup_stdout_len && is_wait_child) {
 		close(pipefd[1]);
 		
 		size_t buffer_size = 1024;
@@ -398,7 +401,7 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 		if (*dup_stdout == NULL) {
 			perror("malloc");
 			close(pipefd[0]);
-			return false;
+			exit(1);
 		}
 		
 		ssize_t bytes_read;
@@ -412,7 +415,7 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 					perror("realloc");
 					free(*dup_stdout);
 					close(pipefd[0]);
-					return false;
+					exit(1);
 				}
 				*dup_stdout = new_buffer;
 			}
@@ -429,7 +432,7 @@ bool exec_name(char *exec_name, char * exec_dir[], char **dup_stdout, size_t *du
 	
 	va_end(args);
 	free(argv);
-	if (dup_stdout && dup_stdout_len) {
+	if (dup_stdout && dup_stdout_len && is_wait_child) {
 		posix_spawn_file_actions_destroy(&action);
 	}
 	posix_spawnattr_destroy(&attr);

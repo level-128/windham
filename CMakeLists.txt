@@ -40,7 +40,7 @@ if(NOT DEFINED COMPILIER_ENABLE_LTO)
     set(COMPILIER_ENABLE_LTO ON CACHE STRING "Enable LTO optmization")
 endif()
 
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Test" "Language")
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Debug" "Test" "Language")
 set_property(CACHE TARGET_ARCHITECTURE PROPERTY STRINGS "native" "x86_64" "aarch64" "riscv64")
 set_property(CACHE WINDHAM_DEFAULT_DISK_ENC_MODE PROPERTY STRINGS "aes-xts-plain64" "twofish-xts-plain64"
         "serpent-xts-plain64" "twofish-xts-plain64be" "aes-xts-plain64be" "serpent-xts-plain64be")
@@ -79,6 +79,7 @@ file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
 file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
 file(GLOB PROGRESSBAR_SRC ${CMAKE_SOURCE_DIR}/library/progressbar/*.c)
 file(GLOB HUFFMAN_SRC ${CMAKE_SOURCE_DIR}/library/huffman/*.c)
+file(GLOB cJSON_SRC ${CMAKE_SOURCE_DIR}/library/cJSON/*.c)
 
 set(BLAKE3_AMD64_NAMES amd64 AMD64 x86_64)
 set(BLAKE3_ARM_NAMES aarch64 AArch64 arm64 ARM64)
@@ -98,40 +99,34 @@ endif ()
 # --------------------------------------------------------------------
 # compile according to arch
 function(add_argon2_and_executables_for_arch arch)
-    if(CMAKE_BUILD_TYPE STREQUAL "Test")
-        add_executable(windham_test test/test.c  
-            ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC} ${HUFFMAN_SRC})
-        target_link_libraries(windham_test ncurses m)
+        add_executable(windham${arch} frontend.c  
+            ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC} ${HUFFMAN_SRC} ${cJSON_SRC})
+        target_link_libraries(windham${arch} ncurses m)
         if(NOT arch STREQUAL "")
-            set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=${arch}")
+            set_target_properties(windham${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
         endif()
-        install(TARGETS windham_test
-                RENAME windham_test)
-    endif()
-
-    add_executable(windham${arch} frontend.c  
-        ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC} ${HUFFMAN_SRC})
-    target_link_libraries(windham${arch} ncurses m)
-    if(NOT arch STREQUAL "")
-        set_target_properties(windham${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
-    endif()
-    if(arch STREQUAL "native")
-        set_target_properties(windham${arch} PROPERTIES OUTPUT_NAME "windham")
-    endif()
-    add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
-    install(TARGETS windham${arch}
-            RUNTIME DESTINATION ${install_location})
-
+        if(arch STREQUAL "native")
+            set_target_properties(windham${arch} PROPERTIES OUTPUT_NAME "windham")
+        endif()
+        add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
+        install(TARGETS windham${arch}
+                RUNTIME DESTINATION ${install_location})
 endfunction()
 
 
 # --------------------------------------------------------------------
 # build targets
-if(CMAKE_BUILD_TYPE STREQUAL "Test")
+
+set(CMAKE_AR "gcc-ar")
+set(CMAKE_NM "gcc-nm")
+set(CMAKE_RANLIB "gcc-ranlib")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
+    add_definitions(-DDEFAULT_DISK_ENC_MODE="aes-xts-plain64")
     include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -Wextra -g -O0")
-    add_argon2_and_executables_for_arch("x86-64")
+    add_argon2_and_executables_for_arch("x86-64-v2")
 
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     if(NO_SIMD_OPTIMIZE)
@@ -142,13 +137,10 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif ()
     add_definitions(-DDEFAULT_DISK_ENC_MODE="${WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMPILIER_OPT}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMPILIER_OPT} -s")
     if (COMPILIER_ENABLE_LTO)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto -fwhole-program -fno-fat-lto-objects")
     endif()
-    set(CMAKE_AR "gcc-ar")
-    set(CMAKE_NM "gcc-nm")
-    set(CMAKE_RANLIB "gcc-ranlib")
 
     if(TARGET_ARCHITECTURE STREQUAL "x86_64")
         include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_system)
@@ -157,10 +149,9 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         endif ()
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprefetch-loop-arrays ")
         set(CMAKE_C_COMPILER ${x86_64_compiler})
-        add_argon2_and_executables_for_arch("haswell")
-        add_argon2_and_executables_for_arch("tigerlake")
-        add_argon2_and_executables_for_arch("sapphirerapids")
-        add_argon2_and_executables_for_arch("znver3")
+        add_argon2_and_executables_for_arch("x86-64-v2")
+        add_argon2_and_executables_for_arch("x86-64-v3")
+        add_argon2_and_executables_for_arch("x86-64-v4")
 
     elseif(TARGET_ARCHITECTURE STREQUAL "aarch64")
         include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_system)
@@ -199,6 +190,20 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     else()
         message( FATAL_ERROR "unknown arch. Arch must be one of the x86_64 aarch64 riscv64 or native" )
     endif()
+
+elseif(CMAKE_BUILD_TYPE STREQUAL "Test")
+
+    add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
+    add_definitions(-DDEFAULT_DISK_ENC_MODE="aes-xts-plain64")
+    include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -Wextra -g -O3") # ensure speed
+
+    add_executable(windham_test test/test.c  
+        ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC} ${HUFFMAN_SRC} ${cJSON_SRC})
+    target_link_libraries(windham_test ncurses m)
+    set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=native")
+    add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
+    install(TARGETS windham_test RENAME windham_test)
 
 elseif(CMAKE_BUILD_TYPE STREQUAL "Language")
     # update translations

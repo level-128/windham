@@ -186,9 +186,15 @@ int create_crypt_mapping(const char * device,
  */
 void create_crypt_mapping_from_disk_key(const char * device,
                                         const char * target_name,
-                                        EncMetadata * metadata,
+													 const char * enc_type,
+
                                         const uint8_t disk_key[HASHLEN],
                                         uint8_t uuid[16],
+
+													 size_t start_sector,
+													 size_t end_sector,
+													 size_t block_size,
+
                                         bool read_only,
                                         bool is_allow_discards,
                                         bool is_no_read_workqueue,
@@ -201,7 +207,7 @@ void create_crypt_mapping_from_disk_key(const char * device,
 	char uuid_str[37];
 	generate_UUID_from_bytes(uuid, uuid_str);
 	
-	create_crypt_mapping(device, target_name, metadata->enc_type, password, uuid_str, metadata->start_sector, metadata->end_sector, metadata->block_size, read_only,
+	create_crypt_mapping(device, target_name, enc_type, password, uuid_str, start_sector, end_sector, block_size, read_only,
 	                     is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
 	
 	if (!is_no_map_partition) {

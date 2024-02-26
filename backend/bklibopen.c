@@ -4,16 +4,25 @@
 
 #include "bklibkey.c"
 #include "bksrclib.c"
+#include "windham_const.h"
 
 void action_open(const char * device, const char * target_name, unsigned timeout,
                  PARAMS_FOR_KEY,
-                 ARGFLG(is_dry_run, is_decoy, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition, is_no_fail, is_nokeyring)){
+                 ARGFLG(is_dry_run, is_decoy, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition, is_nokeyring)){
 	Data data;
 	size_t offset;
 	Dynenc_param dynenc_param;
+	uint8_t disk_key[HASHLEN];
 	
-	check_file(device, is_target_readonly, is_no_fail);
-	check_is_device_mounted(device);
+	CHECK_DEVICE_TOPOLOGY("/dev", parent,
+	                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(mount_points_len, > 0, mount_points,
+			                      (_("Cannot open device %s, device has been mounted at %s. Unmount the device to continue"), device, mount_points[0]),
+			                      (_("Cannot open device %s, unmount the device to continue. Active mount points:"), device));
+			                      
+	                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(child_ret_len, > 1, child,
+	                            (_("device %s has already been mapped as \"%s\" either by Windham or other device mapper schemes."), device, child[0]),
+	                            (""));
+	);
 	
 	if (is_nokeyring) {
 		is_kernel_keyring_exist = false;
@@ -22,11 +31,13 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 	}
 	
 	switch (frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy)) {
+
+		// Case 1: Open a suspend partition
 		case NMOBJ_MAPPER_DEVSTAT_SUSP: {
 			if (!is_dry_run) {
-				uint8_t zeros[HASHLEN] = {0}, disk_key[HASHLEN];
+				uint8_t zeros[HASHLEN] = {0};
 				get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
-				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition);
+				create_crypt_mapping_from_disk_key(device, target_name, data.metadata.enc_type, disk_key, data.uuid_and_salt, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition);
 				print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."), device);
 			} else {
 				char uuid_str[37];
@@ -41,39 +52,53 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 			}
 			return;
 		}
-		
+		// END case 1 ---------------------------------------------------------------------------------------------------------------------------
+
+		// Case 2: Open a converting partition
 		case NMOBJ_MAPPER_DEVSTAT_CONV: {
-			dynesc_calc_param(&dynenc_param, get_device_block_cnt(device), data.metadata.section_size);
+			printf(_("Device %s has been aborted from the last conversion. Continue converting... \n"), device);
 			
 			OPERATION_BACKEND_UNENCRYPT_HEADER
 			
-			uint8_t disk_key[HASHLEN];
-			get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
-			create_crypt_mapping_from_disk_key(device, ".tmp_windham", &data.metadata, disk_key, data.uuid_and_salt, false, false, true, true, true);
+			dynesc_calc_param(&dynenc_param, STR_device->block_size, data.metadata.section_size);
 			
+			get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
+
+			create_crypt_mapping_from_disk_key(device, ".tmp_windham", data.metadata.enc_type, disk_key, data.uuid_and_salt, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size,  false, false, true, true, true);
+			
+			printf(_("Probing for the area where the encryption was interrupted..."));
 			uint64_t copy_disk_start = check_disk_hash(dynenc_param, device);
+			printf(_(" complete, at section %lu\n"), copy_disk_start);
 			
 			copy_disk(dynenc_param, device, "/dev/mapper/.tmp_windham", copy_disk_start);
 			
-			untag_header_as_converting(&data);
-			write_header_to_device(&data, device, 0);
+			offset = 0; // write as normal header
+			bool is_assign_new_head = true;
+			OPERATION_LOCK_AND_WRITE
+			
+			sync();
+			
+			// obliterate the old header
+			fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
+			write_header_to_device(&data, device, (int64_t) -4096);
 			
 			remove_crypt_mapping(".tmp_windham");
+			printf(_("Dynamic convert has complete. Please use the same command to open the partition."));
 			break;
 		}
-		
+		// END case 2 ---------------------------------------------------------------------------------------------------------------------------
+
+		// Case 3 & 4: Open a partition
 		case NMOBJ_MAPPER_DEVSTAT_NORM: // only read key from keyring when the device is not decoy
-			switch (mapper_keyring_get_serial(data.uuid_and_salt)) {
+			switch (mapper_keyring_get_serial(data.uuid_and_salt, disk_key)) {
 				case NMOBJ_KEY_OK:
 					printf(_("Found kernel keyring key\n"));
 					
-					char password[18 + /* strlen(":32:logon:windham:") */ + 36 /* uuid len */ + 1];
-					strcpy(password, ":32:logon:windham:");
-					generate_UUID_from_bytes(data.uuid_and_salt, password + strlen(":32:logon:windham:"));
-					
 					size_t start_sector, end_sector;
-					decide_start_and_end_block_ret_blkcnt(device, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0, false, false);
-					create_crypt_mapping(device, target_name, DEFAULT_DISK_ENC_MODE, password, password + strlen(":32:logon:windham:"), start_sector, end_sector, DEFAULT_BLOCK_SIZE, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue);
+					size_t device_block_cnt = STR_device->block_size;
+					decide_start_and_end(device, device_block_cnt, &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, false);
+					create_crypt_mapping_from_disk_key(device, target_name, DEFAULT_DISK_ENC_MODE, disk_key, data.uuid_and_salt, start_sector, end_sector, DEFAULT_BLOCK_SIZE, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition);
+
 					return;
 				case NMOBJ_KEY_ERR_KEYREVOKED:
 				print_warning(_("The stored key in kernel keyring subsystem has removed. re-unlocking %s to /dev/mapper/%s..."), device, target_name);
@@ -81,6 +106,8 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 				case NMOBJ_KEY_ERR_KEYEXPIRED:
 				print_warning(_("The stored key in kernel keyring subsystem has expired. re-unlocking %s to /dev/mapper/%s..."), device, target_name);
 					break;
+				case NMOBJ_KEY_ERR_KEYCTL_READ:
+				print_warning(_("Cannot read the key in the keyring system. The key may has been modified. re-unlocking %s to /dev/mapper/%s..."), device, target_name);
 				case NMOBJ_KEY_ERR_NOKEY:
 				case NMOBJ_KEY_ERR_KERNEL_KEYRING:
 					break;
@@ -92,7 +119,6 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 			OPERATION_BACKEND_UNENCRYPT_HEADER
 			
 			if (!is_dry_run) {
-				uint8_t disk_key[HASHLEN];
 				get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
 				if (timeout) {
 					if (is_decoy) {
@@ -102,8 +128,9 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 						mapper_keyring_add_key(disk_key, data.uuid_and_salt, data.metadata, timeout);
 					}
 				}
-				create_crypt_mapping_from_disk_key(device, target_name, &data.metadata, disk_key, data.uuid_and_salt, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition);
 				
+				create_crypt_mapping_from_disk_key(device, target_name, data.metadata.enc_type, disk_key, data.uuid_and_salt, data.metadata.start_sector, data.metadata.end_sector, data.metadata.block_size, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition);
+
 			} else {
 				char uuid_str[37];
 				generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);

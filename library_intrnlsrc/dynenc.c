@@ -27,6 +27,12 @@ typedef struct {
 } Dynenc_param;
 
 void dynesc_calc_param(Dynenc_param * param, size_t device_sector_count, size_t section_size) {
+
+		const size_t min_size_bytes = (8 << 10) /* min size for device */ + section_size * 2 /* sector before and after the unenc data region */ + 4096 /* hash */ + 4096 /* header at the end */;
+		if (device_sector_count < (min_size_bytes) / 512) {
+			print_error(_("Device is too small; Windham requires at least %lu KiB to dynamically convert the partition under sector size %lu."), min_size_bytes, section_size);
+		}
+	
 	const size_t device_size = device_sector_count * 512;
 	param->disk_size = device_size;
 	param->unenc_data_start = 0;
@@ -131,19 +137,15 @@ uint64_t check_disk_hash(Dynenc_param param, const char * device) {
 }
 
 bool copy_disk(Dynenc_param param, const char * device, const char * enc_device, uint64_t start_point) {
-	int count = 0;
+	// int count = 0;
 	progressbar * copy_disk_progressbar;
-	START:
+	// START:
 	{}
 	int fd = open(device, O_RDONLY);
 	int fd_enc = open(enc_device, O_RDWR);
 	
 	// retry open
 	if (fd == -1 || fd_enc == -1) {
-		if (count++ < 10) {
-			sleep(1);
-			goto START;
-		}
 		perror("Error opening file");
 		if (fd != -1) { close(fd); }
 		if (fd_enc != -1) { close(fd_enc); }
@@ -157,7 +159,6 @@ bool copy_disk(Dynenc_param param, const char * device, const char * enc_device,
 		start_point = param.unenc_data_start + param.unenc_data_size - param.section_size;
 	} else {
 		copy_disk_progressbar = progressbar_new(_("Recovering progress:"), (start_point - param.unenc_data_start + param.section_size) / param.section_size);
-		start_point = start_point;
 	}
 	for (; start_point != param.unenc_data_start - param.section_size /* Overflow of unsigned integer is a well-defined behavior*/; start_point -= param.section_size) {
 		

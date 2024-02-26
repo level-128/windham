@@ -5,12 +5,21 @@
 #include "bklibkey.c"
 #include "bksrclib.c"
 #include "../library_intrnlsrc/mapper.c"
+#include "../library_intrnlsrc/srclib.c"
+#include <stdio.h>
+#include <string.h>
 
 
 void action_close(const char * device) {
-	char device_loc[strlen(device) + strlen("/dev/mapper/") + 1];
-	sprintf(device_loc, "/dev/mapper/%s", device);
-	check_is_device_mounted(device_loc);
+	CHECK_DEVICE_TOPOLOGY("/dev/mapper", child,
+								       CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(mount_points_len, > 0, mount_points,
+			                      (_("Cannot close device %s, device has been mounted at %s. Unmount the device to continue"), device, mount_points[0]),
+			                      (_("Cannot close device %s, unmount the device to continue. Active mount points:"), device));
+			                      
+			                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(parent_ret_len, > 1, parent,
+			                      (_("The associate device %s has multiple parents. This is likely because the partition mapping scheme has been modified since last setup. Windham can not close this device."), device),
+			                      (""));
+	)
 	remove_crypt_mapping(device);
 }
 
@@ -29,6 +38,7 @@ int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t
 	interactive_prepare_key(&new_key, device);
 	int added_slot = add_key_to_keyslot(&data, master_key, new_key, device, target_slot, target_memory, target_time, is_no_detect_entropy);
 	
+	bool is_assign_new_head = true;
 	OPERATION_LOCK_AND_WRITE
 	return added_slot;
 }
@@ -65,6 +75,7 @@ int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bo
 	
 	revoke_given_key_slot(&data, unlocked_slot, true);
 	
+	bool is_assign_new_head = true;
 	OPERATION_LOCK_AND_WRITE
 	return unlocked_slot;
 }
@@ -87,6 +98,7 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 		OPERATION_BACKEND_UNENCRYPT_HEADER
 		device = filename;
 		offset = 0;
+		bool is_assign_new_head = true;
 		OPERATION_LOCK_AND_WRITE
 	}
 }

@@ -76,20 +76,19 @@ a case that a large amount of file needs to be deleted, reformatting the filesys
 # Compile instructions:
 
 Windham supports multiple architectures as long as the system is:
-- little-endian (Sorry, IBM z/Architecture is not supported).
-- 64-bit (might work on 32-bit system, but can't unlock partition that uses large RAM to derive its keys, making it almost useless).
-- GNU operating system with POSIX-compliant kernel, but strongly recommends Linux kernel. Without the Linux kernel, only partition creation 
-and management is possible. there is an instruction below about how 
+- little-endian (Big-endian, e.g. s390x and ppc64be are not supported).
+- 64-bit (might work, but untested. on 32-bit system, it can't unlock partition that uses large RAM to derive its keys, making it almost useless).
+- GNU operating system with POSIX-compliant kernel; strongly recommends the Linux kernel. Without the Linux kernel, only partition creation 
+and management is possible. Following the instruction below about how 
 to build and run Windham on GNU system with non-Linux kernel (mostly GNU/Windows NT, a.k.a. WSL1).
-- has `uint8_t`, `uint16_t`, `uint32_t` and `uint64_t` defined.
 
 ## Feature support matrix
 
 there are three pre-defined compile pattern with first-tier support:
 
-| `TARGET_ARCHITECTURE` | SIMD support               | SIMD dynamic dispatch support | cmake preset targets                        | 
+| `TARGET_ARCHITECTURE` | SIMD ASM / intrinsics support               | SIMD function multi-versioning support | cmake preset targets                        | 
 |-----------------------|----------------------------|-------------------------------|---------------------------------------------|
-| AMD64                 | SSE4, AVX-2, AVX-512(F,VL) | Yes                           | Haswell, Tigerlake, sapphirerapids, zenver3 |
+| AMD64                 | SSE4, AVX-2, AVX-512(F,VL) | Yes                           | x86-64-v2, x86-64-v3, x86-64-v4 |
 | aarch64               | NEON                       | No                            | armv8.5-a, armv9-a                          |
 | riscv64               | No                         | No                            | rv64imafdc                                  |
 
@@ -97,7 +96,7 @@ there are three pre-defined compile pattern with first-tier support:
 
 ## Auto-compile using `auto-install.sh`
 
-Run `auto-install.sh` at the location of the source code. step-by-step guide:
+Run `auto-install.sh` at the location of the source code, step-by-step:
 
 ```shell
 git clone https://level-128-git.com/level-128/windham.git

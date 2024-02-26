@@ -3,14 +3,14 @@
 #include <windham_const.h>
 
 #include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <linux/fs.h>
 
 #include "../library_intrnlsrc/srclib.c"
 #include "../library_intrnlsrc/enclib.c"
 #include "../library_intrnlsrc/kerkey.c"
 #include "../library_intrnlsrc/dynenc.c"
 #include "../library_intrnlsrc/mapper.c"
+#include "../library_intrnlsrc/libloop.c"
+
 
 #define OPERATION_BACKEND_UNENCRYPT_HEADER    \
 [[maybe_unused]] int unlocked_slot = get_master_key(data, master_key, key, device, target_unlock_slot, max_unlock_mem, max_unlock_time); \
@@ -27,7 +27,7 @@ print_warning(_("Slot %i on device %s have been revoked without using the passwo
 }}                                  \
 
 #define OPERATION_LOCK_AND_WRITE \
-assign_new_header_iv(&data);\
+assign_new_header_iv(&data, is_assign_new_head);\
 operate_all_keyslots_using_keyslot_key_in_metadata(data.keyslots, data.metadata.keyslot_key, data.master_key_mask, false);\
 lock_or_unlock_metadata_using_master_key(&data, master_key);\
 write_header_to_device(&data, device, offset);
@@ -40,52 +40,6 @@ char * crypt_list[] = {"aes", "twofish", "serpent", NULL};
 char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
 char * iv_list[] = {"plain64", "plain64be", "essiv", "eboiv", NULL};
 
-
-void check_file(const char * filename, bool is_write, bool is_nofail) {
-	if (access(filename, F_OK) != 0) {
-		if (is_nofail) {
-			exit(0);
-		}
-		print_error(_("File %s does not exist"), filename);
-	}
-	
-	if (access(filename, R_OK) != 0) {
-		print_error(_("Cannot read %s: insufficient permission."), filename);
-	}
-	if (is_write && access(filename, W_OK) != 0) {
-		print_error(_("Cannot write to %s: insufficient permission."), filename);
-	}
-	
-	struct stat file_stat;
-	if (stat(filename, &file_stat) != 0) {
-		print_error(_("Cannot get size for %s"), filename);
-	}
-}
-
-
-bool check_is_device_mounted(const char * device) {
-	FILE * fp = fopen("/proc/mounts", "r");
-	if (fp == NULL) {
-		print_warning(_("Cannot detect device %s mount status."), device);
-		return false;
-	}
-	
-	char * line = NULL;
-	size_t len = 0;
-	char * location;
-	
-	while ((getline(&line, &len, fp)) != -1) {
-		
-		if ((location = strstr(line, device)) != NULL) {
-			fclose(fp);
-			char * token = strtok(location + strlen(device) + 1, " ");
-			print_error(_("Device %s is mounted at %s. Unmount to continue."), device, token);
-		}
-	}
-	free(line);
-	fclose(fp);
-	return false;
-}
 
 void get_header_from_device(Data * data, const char * device, int64_t offset) {
 	FILE * fp;
@@ -266,55 +220,27 @@ ENUM_MAPPER_DEVSTAT frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(const char * de
 }
 
 
-size_t get_device_block_cnt(const char * device) {
-	int fd = open(device, O_RDONLY);
-	if (fd == -1) {
-		perror("open");
-		print_error(_("can not open device %s"), device);
-	}
-	
-	size_t size;
-	if (ioctl(fd, BLKGETSIZE, &size) == -1) {
-		close(fd);
-		print_error(_("can not get size from block device %s, reason: %s"), device, strerror(errno));
-	}
-	
-	close(fd);
-	return size;
-}
-
-size_t decide_start_and_end_block_ret_blkcnt(const char * device, size_t * start_sector, size_t * end_sector, size_t block_size, size_t section_size, bool is_decoy, bool is_dyn_enc) {
-	size_t device_sector_cnt = get_device_block_cnt(device);
+void decide_start_and_end(const char * device, size_t device_block_count, size_t * start_sector, size_t * end_sector, size_t block_size, bool is_decoy) {
 	
 	size_t safe_node = (0x78000b + (16 << 20)) / 512; // safe sector
 	if (is_decoy) {
-		if (device_sector_cnt % (block_size / 512) != 0) {
+		if (device_block_count % (block_size / 512) != 0) {
 			print_error(_("Impossible to create a decoy scheme since the size of the crypt device is not the integer multiple of the sector size."));
 		}
-		if (device_sector_cnt < (128 << 20) / 512) {
+		if (device_block_count < (128 << 20) / 512) {
 			print_error(_("Device %s is too small to deploy decoy partition; Windham requires at least %i MiB."), device, 128);
 		}
-		*end_sector = device_sector_cnt - 8;
-		*start_sector = (device_sector_cnt - safe_node) * 4 / 12 + safe_node;
-	} else if (is_dyn_enc){
-		if (device_sector_cnt % (block_size / 512) != 0) {
-			print_error(_("Impossible to convert the given device since the size of the crypt device is not the integer multiple of the sector size."));
-		}
-		const size_t min_size_bytes = (8 << 10) /* min size for device */ + section_size * 2 /* sector before and after the unenc data region */ + 4096 /* hash */ + 4096 /* header at the end */;
-		if (device_sector_cnt < (min_size_bytes) / 512) {
-			print_error(_("Device %s is too small; Windham requires at least %lu KiB to dynamically convert the partition under sector size %lu."), device, min_size_bytes, section_size);
-		}
-		*end_sector = device_sector_cnt;
-		*start_sector = section_size / 512;
+		*end_sector = device_block_count - 8;
+		*start_sector = (device_block_count - safe_node) * 4 / 12 + safe_node;
 	} else {
-		if (device_sector_cnt % (block_size / 512) != 0) {
+		if (device_block_count % (block_size / 512) != 0) {
 			ask_for_conformation(_("The size of the crypt device is not the integer multiple of the sector size. You may experience degraded performance."));
 		}
-		if (device_sector_cnt < (8 << 10) / 512) {
+		if (device_block_count < (8 << 10) / 512) {
 			print_error(_("Device %s is too small; Windham requires at least %i KiB."), device, 8);
 		}
 		*start_sector = 8;
-		*end_sector = device_sector_cnt - device_sector_cnt % (block_size / 512);
+		*end_sector = device_block_count - device_block_count % (block_size / 512);
 	}
-	return device_sector_cnt;
+	return;
 }

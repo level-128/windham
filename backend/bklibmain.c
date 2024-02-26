@@ -9,6 +9,8 @@
 #include "bklibhelp.c"
 #include "bklibkey.c"
 #include "bklibopen.c"
+#include "../library_intrnlsrc/libloop.c"
+#include "../library_intrnlsrc/libexit.c"
 
 
 void is_running_as_root() {
@@ -26,7 +28,11 @@ void init_enclib(char * generator_addr) {
 }
 
 void init() {
+	environ = malloc(sizeof(char *));
+	*environ = NULL;
+	exit_init();
 	init_enclib("/dev/urandom");
 	get_system_info();
 	mapper_init();
+	init_libloop();
 }

@@ -5,6 +5,7 @@
 #ifndef INCL_BKLIBKEY
 #define INCL_BKLIBKEY
 
+#include <errno.h>
 #include <stdint.h>
 #include <string.h>
 #include <windham_const.h>
@@ -101,9 +102,12 @@ char * get_key_input_from_the_console_systemd(const char * device) {
 
 uint8_t * read_key_file(const Key key, size_t * length) {
 	char * filename = key.key_or_keyfile_location;
-	check_file(filename, false, false);
 	
 	FILE * file = fopen(filename, "rb");
+
+	if (file == 0){
+		print_error(_("Cannot open keyfile %s. Reason: %s"), filename, strerror(errno));
+	}
 	
 	fseek(file, 0, SEEK_END);
 	*length = ftell(file);
@@ -148,9 +152,8 @@ bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device
 			hash_key_file(key_size, (uint8_t *) input_key, inited_key);
 			break;
 		case EMOBJ_key_file_type_key:
-			input_key = key.key_or_keyfile_location;
-			key_size = strlen(input_key);
-			sha256_digest_all(input_key, key_size, inited_key);
+			key_size = strlen(key.key_or_keyfile_location);
+			sha256_digest_all(key.key_or_keyfile_location, key_size, inited_key);
 	}
 	bool result = get_is_high_entropy(key_size, (uint8_t*) input_key);
 	free(input_key);

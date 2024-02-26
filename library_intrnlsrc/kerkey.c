@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <windham_const.h>
 
 #include <dlfcn.h>
@@ -24,7 +25,8 @@ typedef enum {
 	NMOBJ_KEY_ERR_NOKEY = -1,
 	NMOBJ_KEY_ERR_KEYREVOKED = -2,
 	NMOBJ_KEY_ERR_KEYEXPIRED = -3,
-	NMOBJ_KEY_ERR_KERNEL_KEYRING = -4
+	NMOBJ_KEY_ERR_KERNEL_KEYRING = -4, 
+	NMOBJ_KEY_ERR_KEYCTL_READ = -5
 } ENUM_mp_key;
 
 void kernel_keyring_init(){
@@ -84,7 +86,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMet
 		generate_UUID_from_bytes(uuid, name + strlen("windham:"));
 		
 		key_serial_t key_serial;
-		key_serial = p_add_key("logon", name, key, HASHLEN, KEY_SPEC_USER_KEYRING);
+		key_serial = p_add_key("user", name, key, HASHLEN, KEY_SPEC_USER_KEYRING);
 		
 		if (key_serial < 0) {
 			perror("add_key");
@@ -110,7 +112,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMet
  * @param[in] uuid The UUID of the key.
  * @return The serial number of the key or an error code if the key is not found or an error occurs.
  */
-ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
+ENUM_mp_key mapper_keyring_get_serial(const uint8_t uuid[16], uint8_t key[HASHLEN]) {
 	key_serial_t key_serial;
 	if (!is_kernel_keyring_exist) {
 		return NMOBJ_KEY_ERR_KERNEL_KEYRING;
@@ -119,7 +121,7 @@ ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
 	strcpy(name, "windham:");
 	generate_UUID_from_bytes(uuid, name + strlen("windham:"));
 	
-	key_serial = (key_serial_t) p_keyctl(KEYCTL_SEARCH, KEY_SPEC_USER_KEYRING, "logon", name, NULL, 0);
+	key_serial = (key_serial_t) p_keyctl(KEYCTL_SEARCH, KEY_SPEC_USER_KEYRING, "user", name, NULL, 0);
 	if (key_serial < 0) {
 		if (errno == ENOKEY) {
 			return NMOBJ_KEY_ERR_NOKEY;
@@ -132,6 +134,9 @@ ENUM_mp_key mapper_keyring_get_serial(uint8_t uuid[16]) {
 		}
 		perror("request_key");
 		exit(1);
+	}
+	if (p_keyctl(KEYCTL_READ, key_serial, key, HASHLEN) != HASHLEN){
+		return NMOBJ_KEY_ERR_KEYCTL_READ;
 	}
 	return NMOBJ_KEY_OK;
 }
