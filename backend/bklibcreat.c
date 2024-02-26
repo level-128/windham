@@ -121,7 +121,7 @@ void action_new_check_crypt_support_status(const char * str) {
  */
 void action_create(const char * device, const char * enc_type, const Key key, int target_slot, size_t target_memory, double target_time, size_t block_size, size_t section_size, bool is_decoy,
                    bool is_dyn_enc, bool is_no_detect_entropy){
-	CHECK_DEVICE_TOPOLOGY("/dev", parent,
+	CHECK_DEVICE_TOPOLOGY("", parent,
 	                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(mount_points_len, > 0, mount_points,
 			                      (_("Cannot create device %s, device has been mounted at %s. Unmount the device to continue"), device, mount_points[0]),
 			                      (_("Cannot create device %s, unmount the device to continue. Active mount points:"), device));

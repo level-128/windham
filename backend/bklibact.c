@@ -19,7 +19,7 @@ void action_close(const char * device) {
 			                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(parent_ret_len, > 1, parent,
 			                      (_("The associate device %s has multiple parents. This is likely because the partition mapping scheme has been modified since last setup. Windham can not close this device."), device),
 			                      (""));
-	)
+	);
 	remove_crypt_mapping(device);
 }
 

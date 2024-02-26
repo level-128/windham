@@ -10,9 +10,13 @@
 #include "srclib.c"
 
 #define CHECK_DEVICE_TOPOLOGY(device_path, node, CODE_EXEC_IF_RET) \
-   char * device_loc = malloc(strlen(device) + strlen(device_path"/") + 1); \
-   sprintf(device_loc, device_path"/%s", device); \
-                                                                   \
+   char * device_loc;                                                                \
+   if (strcmp(device_path, "") != 0){                                                                \
+      device_loc = malloc(strlen(device) + strlen(device_path"/") + 1); \
+      sprintf(device_loc, device_path"/%s", device); \
+   } else {                                                        \
+      device_loc = device_path;                                                                \
+	}                                                                \
    char ** parent = NULL;                                          \
    char ** child = NULL;\
    node = (char **) &device_loc; \
@@ -20,11 +24,13 @@
    size_t parent_ret_len, child_ret_len, mount_points_len = 0; \
 \
 int retval = check_device_topology(&parent, &child, &mount_points, &parent_ret_len, &child_ret_len, &mount_points_len); \
-free(device_loc); \
+if (strcmp(device_path, "") != 0){                                                                   \
+	free(device_loc);                                                  \
+}                                                                   \
 if (retval == 0){                                                  \
 CODE_EXEC_IF_RET                                                                   \
 }\
-check_device_topology_free(parent, mount_points, parent_ret_len, mount_points_len);
+check_device_topology_free(parent, mount_points, parent_ret_len, mount_points_len)
 
 
 #define CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(comp_var, CODE_CMP_COND, pri_arr, CODE_PRI_ONE_RETLEN, CODE_PRI_MUL_RETLEN) \

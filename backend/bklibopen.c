@@ -14,7 +14,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 	Dynenc_param dynenc_param;
 	uint8_t disk_key[HASHLEN];
 	
-	CHECK_DEVICE_TOPOLOGY("/dev", parent,
+	CHECK_DEVICE_TOPOLOGY("", parent,
 	                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(mount_points_len, > 0, mount_points,
 			                      (_("Cannot open device %s, device has been mounted at %s. Unmount the device to continue"), device, mount_points[0]),
 			                      (_("Cannot open device %s, unmount the device to continue. Active mount points:"), device));
