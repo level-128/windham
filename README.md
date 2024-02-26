@@ -20,7 +20,7 @@ You can Choose to:
 CMake. Most distros are supported.
 - Compile by your own. See [Compile Instructions](#compile-instructions) below.
 - ~~Download the binaries for X86_64 (Intel Haswell / AMD Bulldozer GEN4, aka AMD Excavator Family 15h, 
-or later.) under release (if available).~~ deprecated. Reason? see Q&A.
+or later.) under release (if available).~~ deprecated, does not exist for newer versions.
 
 &nbsp;
 
@@ -54,19 +54,22 @@ See: [How To Use?](/Document/how_to_use.md)
 
 ## Introduction to the Decoy Partition
 
+Windham supports Decoy Partition: a feature that provides encrypted partitions a high degree of plausible deniability. 
+
 ### What is Decoy Partition?
 
-A Decoy Partition is a FAT32 partition located at the same area with the encrypted Windham partition. The encrypted
-partition occupies the unused sector of the FAT32 partition. In a case where the user needs to deny the existence of the
-encrypted partition, which the cryptographically random header doesn't constitute a strong rebuttal of its existence, 
-Decoy Partition could be used. The decoy partition is smaller than the full space of the disk.
+A Decoy Partition is an Exfat partition located at the same area with the encrypted Windham partition. The encrypted
+partition occupies the unused sector of the Exfat partition. In a case where the user needs to deny the existence of the
+encrypted partition, while the cryptographically random header doesn't constitute a strong rebuttal of its existence, 
+Decoy Partition could be used to achieve a high degree of plausible deniability. The size of the decoy partition is much
+smaller than the full space of the disk.
 
 ### How to enable Decoy Partition?
 
 Use `windham New *your device* --decoy` to create a decoy partition along with the encrypted partition. To Open an
 encrypted partition which contains a Decoy Partition, open as if you were opening a partition without it. If you have
-deleted the decoy partition, auto-detection will not work. In this case, use argument `--decoy` (Except for `New` and
-`Close`) to force the program to recognize the given device has a Decoy Partition.
+deleted the Exfat above it, auto-detection will not work. In this case, use argument `--decoy` (Except for `New` and
+`Close`), forcing the program to recognize the given device as a Decoy Partition.
 
 ### Note for using Decoy Partition
 There is no protection to ensure the modification of the decoy partition will not overwrite the encrypted partition. In 
@@ -77,8 +80,8 @@ a case that a large amount of file needs to be deleted, reformatting the filesys
 # Compile instructions:
 
 Windham supports multiple architectures as long as the system is:
-- little-endian (Big-endian, e.g. s390x and ppc64be are not supported).
-- 64-bit (might work, but untested. on 32-bit system, it can't unlock partition that uses large RAM to derive its keys, making it almost useless).
+- little-endian (Big-endian systems, e.g. s390x and ppc64be are not supported).
+- 64-bit (might work, but untested on 32-bit systems. It can't unlock partition that uses large RAM to derive its keys, making it almost useless).
 - GNU operating system with POSIX-compliant kernel; strongly recommends the Linux kernel. Without the Linux kernel, only partition creation 
 and management is possible. Following the instruction below about how 
 to build and run Windham on GNU system with non-Linux kernel (mostly GNU/Windows NT, a.k.a. WSL1).
@@ -132,7 +135,7 @@ Compile windham using cmake: `cmake CMakeLists.txt` -> `make` -> `sudo make inst
 ### using `ccmake` to configure the compile options
 
 Install `ccmake`, then using `cmake CMakeLists.txt` -> `ccmake CMakeCache.txt` to open the `ccmake` frontend. You can use CMake's `-D` Option
-to specify each build option, but it is not a preferred way.
+to specify each build option, but it is not recommended.
 
 Under `ccmake`, you could configure each options conveniently. You might see a TUI interface like this:
 
@@ -160,14 +163,15 @@ Keys: [enter] Edit an entry [d] Delete an entry                              CMa
 ```
 which is self-explanatory. For some options, use left and right key to choose one option from the given list. Then `make` -> `make install` (optional).
 
-Note:
+During configuration, keep in mind:
 - `aarch64_compiler`, `riscv64_compiler` and `x86_64_compiler` must be defined with the `TARGET_ARCHITECTURE` if the `TARGET_ARCHITECTURE` is not native.
 - `COMPILIER_ENABLE_LTO` requires enough RAM. might not be an issue on your own PC, but might be on CI/CD servers with small RAM.
 - To change the default C compiler when the `TARGET_ARCHITECTURE` is native, press `t` and navigate to option `CMAKE_C_COMPILER`.
 - If your target does not support hardware AES extension (e.g. `AES-NI`, _Armv8 Cryptographic Extension_), `twofish-xts-plain64`
-is probably a good default encryption choice. 
+is probably a good default encryption choice, and it is much faster than AES on embedded systems. `plain64be` options makes almost no 
+difference under users' perspective. However, these options remains to maintain compatibility.
 
-## Compile on non-Linux GNU systems
+### Compile on non-Linux GNU systems
 
 Windham requires the kernel header to compile. However, there is a `include/linux_fs_include`, which contains the minimal content for the program to compile. 
 
