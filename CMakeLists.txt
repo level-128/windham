@@ -137,7 +137,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif ()
     add_definitions(-DDEFAULT_DISK_ENC_MODE="${WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMPILIER_OPT} -s")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMPILIER_OPT} -g")
     if (COMPILIER_ENABLE_LTO)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto -fwhole-program -fno-fat-lto-objects")
     endif()
