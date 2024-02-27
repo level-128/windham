@@ -1,0 +1,7 @@
+Bug:
+- "WARNING: Time quota could not be meet because... " when key entropy is high when windham New
+- sig fault when early error
+- level-128@debian:~/windham$ sudo windham Close enc1
+  posix_spawn: Bad address
+  WARNING: Failed to free loop device ERROR: Caught segmentation fault!
+  Backtrace information:

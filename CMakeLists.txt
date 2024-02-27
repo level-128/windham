@@ -137,7 +137,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif ()
     add_definitions(-DDEFAULT_DISK_ENC_MODE="${WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMPILIER_OPT} -g")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMPILIER_OPT} -g3")
     if (COMPILIER_ENABLE_LTO)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto -fwhole-program -fno-fat-lto-objects")
     endif()
@@ -196,7 +196,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Test")
     add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
     add_definitions(-DDEFAULT_DISK_ENC_MODE="aes-xts-plain64")
     include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -Wextra -g -O3") # ensure speed
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -Wextra -g3 -O3") # ensure speed
 
     add_executable(windham_test test/test.c  
         ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC} ${HUFFMAN_SRC} ${cJSON_SRC})
