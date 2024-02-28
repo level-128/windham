@@ -30,7 +30,6 @@ void init_enclib(char * generator_addr) {
 void init() {
 	environ = malloc(sizeof(char *));
 	*environ = NULL;
-	exit_init();
 	init_enclib("/dev/urandom");
 	get_system_info();
 	mapper_init();

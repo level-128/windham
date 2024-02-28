@@ -346,7 +346,7 @@ void set_master_key_to_slot(Key_slot * key_slot, const uint8_t inited_key[HASHLE
 	uint8_t new_hash[HASHLEN];
 	memcpy(new_hash, inited_key, HASHLEN);
 	fill_secure_random_bits((uint8_t *) key_slot, sizeof(Key_slot));
-	if (write_key_to_one_slot(key_slot, new_hash, target_mem_size, target_time) == NMOBJ_STEP_ERR_NOMEM) {
+	if (write_key_to_one_slot(key_slot, new_hash, target_mem_size, target_time) == NMOBJ_STEP_ERR_NOMEM && target_mem_size != 0) {
 		print_warning(_("Time quota could not be meet because of insufficient memory, may make the password less secure than the specified value."));
 	};
 //	print("set hashed password:");

@@ -445,6 +445,8 @@ noreturn void frontend_check_validity_and_execute(int action_num, const char * d
 
 
 int main(int argc, char * argv[argc]) {
+	exit_init();
+	
 	char currentPath[PATH_MAX];
 	char * absolutePath = realpath(argv[0], currentPath);
 	char * params[NMOBJ_target_SIZE] = {NULL}; // the number of required arguments.

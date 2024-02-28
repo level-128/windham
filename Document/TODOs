@@ -1,14 +1,3 @@
-Bug:
-- "WARNING: Time quota could not be meet because... " when high-entropy key under windham New
-
-- sig fault when early command parsing error before init()
-
-- `sudo windham Close enc1` when enc1 is loop dev after longjmp when clean
-  posix_spawn: Bad address
-  WARNING: Failed to free loop device ERROR: Caught segmentation fault!
-
-- ERROR: Failed to open file itself when check_file has loop==true without mount loop.
-
 Feature:
 
 - check --to= option before Open

@@ -41,49 +41,43 @@ char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
 char * iv_list[] = {"plain64", "plain64be", "essiv", "eboiv", NULL};
 
 
-void get_header_from_device(Data * data, const char * device, int64_t offset) {
-	FILE * fp;
-	size_t result;
+
+void operate_header_on_device(Data * data, const char * device, int64_t offset, bool is_read){
+	int fp;
+	ssize_t result;
 	
-	fp = fopen(device, "rb");
-	if (fp == NULL) {
-		print_error(_("Failed to open %s"), device);
+	fp = open(device, O_DSYNC | (is_read ? O_RDONLY : O_WRONLY));
+	if (fp == 0) {
+		print_error(_("Failed to open %s: %s"), device, strerror(errno));
 	}
 	
 	if (offset < 0) {
-		fseek(fp, offset, SEEK_END);
+		lseek(fp, offset, SEEK_END);
 	} else {
-		fseek(fp, 0, SEEK_SET);
+		lseek(fp, offset, SEEK_SET);
 	}
 	
-	result = fread(data, 1, sizeof(Data), fp);
-	if (result != sizeof(Data)) {
-		print_error(_("Failed to read %s"), device);
+	if (is_read){
+		result = read(fp, data, sizeof(Data));
+		if (result != sizeof(Data)) {
+			print_error(_("Failed to read %s: %s\""), device, strerror(errno));
+		}
+	} else {
+		result = write(fp, data, sizeof(Data));
+		if (result != sizeof(Data)) {
+			print_error(_("Failed to write %s: %s\""), device, strerror(errno));
+		}
 	}
-	fclose(fp);
+	close(fp);
 }
 
+
 void write_header_to_device(const Data * data, const char * device, int64_t offset) {
-	FILE * fp;
-	size_t result;
-	
-	fp = fopen(device, "wb"); // ensure that if 'device' is not a block device, empty the file.
-	if (fp == NULL) {
-		print_error(_("Failed to open %s"), device);
-	}
-	
-	if (offset < 0) {
-		fseek(fp, offset, SEEK_END);
-	} else {
-		fseek(fp, offset, SEEK_SET);
-	}
-	
-	result = fwrite(data, 1, sizeof(Data), fp);
-	if (result != sizeof(Data)) {
-		print_error(_("Failed to write %s"), device);
-	}
-	
-	fclose(fp);
+	operate_header_on_device((Data *) data, device, offset, false);
+}
+
+void get_header_from_device(Data * data, const char * device, int64_t offset) {
+	operate_header_on_device((Data *) data, device, offset, true);
 }
 
 

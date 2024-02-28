@@ -11,7 +11,7 @@
 
 
 void action_close(const char * device) {
-	bool is_free_loop = false;
+	char * loop_parent = NULL;
 	CHECK_DEVICE_TOPOLOGY("/dev/mapper", child,
 								       CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(mount_points_len, > 0, mount_points,
 			                      (_("Cannot close device %s, device has been mounted at %s. Unmount the device to continue"), device, mount_points[0]),
@@ -20,13 +20,14 @@ void action_close(const char * device) {
 			                      CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(parent_ret_len, > 1, parent,
 			                      (_("The associate device %s has multiple parents. This is likely because the partition mapping scheme has been modified since last setup. Windham can not close this device."), device),
 			                      ("")) else {
-											 is_free_loop = true;
+											 loop_parent = strdup(parent[0]);
 										 }
 	);
 	CHECK_DEVICE_TOPOLOGY_FREE(parent);
 	remove_crypt_mapping(device);
-	if (is_free_loop){
-		free_loop(parent[0]);
+	if (loop_parent){
+		free_loop(loop_parent);
+		free(loop_parent);
 	}
 }
 
