@@ -80,7 +80,6 @@ a case that a large amount of file needs to be deleted, reformatting the filesys
 # Compile instructions:
 
 Windham supports multiple architectures as long as the system is:
-- little-endian (Big-endian systems, e.g. s390x and ppc64be are not supported).
 - 64-bit (might work, but untested on 32-bit systems. It can't unlock partition that uses large RAM to derive its keys, making it almost useless).
 - GNU operating system with POSIX-compliant kernel; strongly recommends the Linux kernel. Without the Linux kernel, only partition creation 
 and management is possible. Following the instruction below about how 

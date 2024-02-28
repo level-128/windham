@@ -16,7 +16,7 @@
 #error "the program only supports platform with uint8_t defined"
 #endif
 
-#define VERSION "0.231128.3.0"
+#define VERSION "1.231128.3.0"
 
 #define _(STRING) gettext(STRING)
 
