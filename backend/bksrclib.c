@@ -1,8 +1,7 @@
 #pragma once
 
 #include <windham_const.h>
-
-#include <sys/stat.h>
+#include <blkid/blkid.h>
 
 #include "../library_intrnlsrc/srclib.c"
 #include "../library_intrnlsrc/enclib.c"
@@ -159,7 +158,7 @@ typedef enum{
 	NMOBJ_MAPPER_DEVSTAT_NORM
 } ENUM_MAPPER_DEVSTAT;
 
-ENUM_MAPPER_DEVSTAT detect_device_status(const char * device){
+ENUM_MAPPER_DEVSTAT detect_device_status(const char * device, bool is_decoy){
 	uint8_t content_head[16], content_end_head[16];
 	int fp = open(device, O_RDONLY);
 	if (fp == 0) {
@@ -173,42 +172,60 @@ ENUM_MAPPER_DEVSTAT detect_device_status(const char * device){
 	close(fp);
 	if (memcmp(content_end_head, head_converting, sizeof(head_converting)) == 0){
 		return NMOBJ_MAPPER_DEVSTAT_CONV;
-	} else if (memcmp(&content_head[3], "mkfs.fat", 8) == 0){
-		return NMOBJ_MAPPER_DEVSTAT_DECOY;
 	} else if (memcmp(content_head, head, sizeof(head)) == 0){
 		return NMOBJ_MAPPER_DEVSTAT_SUSP;
-	} else {
-		return NMOBJ_MAPPER_DEVSTAT_NORM;
 	}
+
+    if (is_decoy){
+        return NMOBJ_MAPPER_DEVSTAT_DECOY;
+    } else {
+        blkid_probe probe = blkid_new_probe_from_filename(device);
+        if (!probe) {
+            print_error(_("can not open device %s"), device);
+        }
+
+        if (blkid_do_probe(probe) != 0) {
+            blkid_free_probe(probe);
+            print_error(_("Filesystem probe failed for %s."), device);
+        }
+        const char *fstype = "";
+        size_t len;
+
+        if (blkid_probe_lookup_value(probe, "TYPE", &fstype, &len) == 0) {
+            print_error_no_exit(
+                    _("Device %s contains active %s filesystem. Cannot open %s. If the device contains a decoy partition, use \"--decoy\" to bypass filesystem check."),
+                    device, fstype, device);
+            blkid_free_probe(probe);
+            longjmp(windham_exit, NMOBJ_windham_exit_error);
+        }
+        blkid_free_probe(probe);
+        return NMOBJ_MAPPER_DEVSTAT_NORM;
+    }
 }
 
-ENUM_MAPPER_DEVSTAT frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(const char * device, Data * unini_data, size_t * unini_offset, bool * is_decoy) {
-	ENUM_MAPPER_DEVSTAT ret = detect_device_status(device);
+ENUM_MAPPER_DEVSTAT frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(const char * device, Data * unini_data, int64_t * unini_offset, bool is_decoy) {
+	ENUM_MAPPER_DEVSTAT ret = detect_device_status(device, is_decoy);
 	switch (ret) {
-		case NMOBJ_MAPPER_DEVSTAT_DECOY:
-			*unini_offset = -4096;
-			*is_decoy = true;
-			break;
 		case NMOBJ_MAPPER_DEVSTAT_SUSP:
 			*unini_offset = 0;
-			if (*is_decoy == true) {
+			if (is_decoy == true) {
 				print_error(_("Unable to set \"--decoy\" for suspended device."));
 			}
 			break;
 		case NMOBJ_MAPPER_DEVSTAT_CONV:
 			*unini_offset = -4096;
-			if (*is_decoy == true) {
+			if (is_decoy == true) {
 				print_error(_("Unable to set \"--decoy\" for device during conversion."));
 			}
 			break;
 		case NMOBJ_MAPPER_DEVSTAT_NORM:
-			if (*is_decoy) {
-				print_warning(_("Unlocking %s assuming decoy partition exits"), device);
-				*unini_offset = -4096;
-			} else {
-				*unini_offset = 0;
-			}
-	}
+            *unini_offset = 0;
+            break;
+        case NMOBJ_MAPPER_DEVSTAT_DECOY:
+            print_warning(_("Unlocking %s assuming decoy partition exits"), device);
+            *unini_offset = -4096;
+            break;
+    }
 	get_header_from_device(unini_data, device, *unini_offset);
 	return ret;
 }

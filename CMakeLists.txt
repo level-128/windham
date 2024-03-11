@@ -101,7 +101,7 @@ endif ()
 function(add_argon2_and_executables_for_arch arch)
         add_executable(windham${arch} frontend.c  
             ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC} ${HUFFMAN_SRC} ${cJSON_SRC})
-        target_link_libraries(windham${arch} ncurses m dl pthread)
+        target_link_libraries(windham${arch} ncurses m dl pthread blkid)
         if(NOT arch STREQUAL "")
             set_target_properties(windham${arch} PROPERTIES COMPILE_FLAGS "-march=${arch}")
         endif()
@@ -200,7 +200,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Test")
 
     add_executable(windham_test test/test.c  
         ${Blake3_SRC} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${PROGRESSBAR_SRC} ${HUFFMAN_SRC} ${cJSON_SRC})
-    target_link_libraries(windham_test ncurses m dl pthread)
+    target_link_libraries(windham_test ncurses m dl pthread blkid)
     set_target_properties(windham_test PROPERTIES COMPILE_FLAGS "-march=native")
     add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
     install(TARGETS windham_test RENAME windham_test)

@@ -181,7 +181,7 @@ void action_create(const char * device, const char * enc_type, const Key key, in
 		OPERATION_LOCK_AND_WRITE
 		
 		if (is_decoy) {
-			create_fat32_on_device(device);
+			create_exfat_on_device(device);
 		}
 	}
 };

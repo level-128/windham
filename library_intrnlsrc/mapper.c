@@ -25,17 +25,17 @@ bool is_device_mapper_available;
 #pragma GCC poison dm_task_create dm_task_set_name dm_task_set_ro dm_task_run dm_task_destroy dm_task_add_target dm_task_set_uuid
 
 
-void create_fat32_on_device(const char * device) {
+void create_exfat_on_device(const char * device) {
 	int exec_ret_val;
 	char * exec_dir[] = {"/sbin", "/usr/sbin", NULL};
-	if (exec_name("mkfs.vfat", exec_dir, NULL, NULL, &exec_ret_val, true, device, "-I", NULL) == false){
+	if (exec_name("mkfs.exfat", exec_dir, NULL, NULL, &exec_ret_val, true, device, NULL) == false){
 		if (errno == ENOENT){
-			print_error_no_exit(_("Failed to create FAT32 on %s, Make sure that mkfs has installed"), device);
+			print_error_no_exit(_("Failed to create exfat on %s, Make sure that mkfs.exfat has installed"), device);
 		} else {
-			print_error_no_exit(_("Failed to create FAT32 on %s."), device);
+			print_error_no_exit(_("Failed to create exfat on %s, reason: %s."), device, strerror(errno));
 		}
 	} else if (exec_ret_val != 0){
-		print_error_no_exit(_("Failed to create FAT32 on %s."), device);
+		print_error_no_exit(_("Failed to create exfat on %s."), device);
 	};
 }
 

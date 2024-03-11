@@ -33,5 +33,4 @@ void init() {
 	init_enclib("/dev/urandom");
 	get_system_info();
 	mapper_init();
-	init_libloop();
 }

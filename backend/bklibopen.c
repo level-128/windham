@@ -10,7 +10,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
                  PARAMS_FOR_KEY,
                  ARGFLG(is_dry_run, is_decoy, is_target_readonly, is_allow_discards, is_no_read_workqueue, is_no_write_workqueue, is_no_map_partition, is_nokeyring)){
 	Data data;
-	size_t offset;
+	int64_t offset;
 	Dynenc_param dynenc_param;
 	uint8_t disk_key[HASHLEN];
 	
@@ -31,7 +31,7 @@ void action_open(const char * device, const char * target_name, unsigned timeout
 		kernel_keyring_init();
 	}
 	
-	switch (frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy)) {
+	switch (frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, is_decoy)) {
 
 		// Case 1: Open a suspend partition
 		case NMOBJ_MAPPER_DEVSTAT_SUSP: {

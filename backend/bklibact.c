@@ -27,8 +27,8 @@ void action_close(const char * device) {
 
 int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t target_memory, double target_time, bool is_decoy, bool is_no_detect_entropy) {
 	Data data;
-	size_t offset;
-	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
+	int64_t offset;
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, is_decoy);
 	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
 		print_error(_("The header is suspended. Resume header to perform this operation."));
 	}
@@ -46,8 +46,8 @@ int action_addkey(const char * device, PARAMS_FOR_KEY, int target_slot, uint64_t
 
 int action_revokekey(const char * device, PARAMS_FOR_KEY, bool is_revoke_all, bool is_obliterate, bool is_decoy) {
 	Data data;
-	size_t offset;
-	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
+	int64_t offset;
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, is_decoy);
 	
 	if (is_revoke_all) {
 		for (int i = 0; i < KEY_SLOT_COUNT; i++) {
@@ -87,8 +87,8 @@ void action_backup(const char * device, const char * filename, PARAMS_FOR_KEY, b
 	}
 	
 	Data data;
-	size_t offset;
-	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
+	int64_t offset;
+	ENUM_MAPPER_DEVSTAT device_stat = frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, is_decoy);
 	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
 		print_error(_("The header is suspended. Resume header to perform this operation."));
 	}
@@ -112,16 +112,16 @@ void action_restore(const char * device, const char * filename, bool is_decoy) {
 	}
 	
 	Data data;
-	size_t offset;
-	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(filename, &data, &offset, &is_decoy);
+	int64_t offset;
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(filename, &data, &offset, is_decoy);
 	
 	write_header_to_device(&data, device, is_decoy ? -4096 : 0);
 }
 
 void action_suspend(const char * device, PARAMS_FOR_KEY, bool is_decoy) {
 	Data data;
-	size_t offset;
-	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
+	int64_t offset;
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, is_decoy);
 	
 	if (is_header_suspended(data)) {
 		print_error(_("The device %s is already suspended."), device);
@@ -137,8 +137,8 @@ void action_suspend(const char * device, PARAMS_FOR_KEY, bool is_decoy) {
 
 void action_resume(const char * device, PARAMS_FOR_KEY, bool is_decoy) {
 	Data data;
-	size_t offset;
-	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy);
+	int64_t offset;
+	frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, is_decoy);
 	
 	if (!is_header_suspended(data)) {
 		print_error(_("The device %s is already encrypted."), device);
