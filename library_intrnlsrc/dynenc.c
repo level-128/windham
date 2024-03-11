@@ -7,6 +7,7 @@
 #include <linux/fs.h>
 #include <ext2fs/ext2fs.h> // libext2fs-devel
 #include <libprogstats.h>
+#include <blkid/blkid.h>
 
 #include "enclib.c"
 
@@ -223,27 +224,40 @@ void shrink_disk(Dynenc_param param, const char * device) {
 	
 	printf(_("Shrinking the filesystem on %s from %lu sectors to %lu sectors...\n"), device, param.disk_size / 512, param.unenc_data_size / 512);
 	
-	if (exec_name("blkid", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, "-o", "value", "-s", "TYPE", device, NULL) == false) {
-		print_warning(_("Failed to identify the partition type, cannot run blkid."));
-	} else if (exec_ret_val != 0) {
-		print_warning(_("Failed to identify the partition type"));
-	} else if (strcmp(dup_stdout, "ext4\n") == 0) {
-		free(dup_stdout);
-		
-		// resize2fs /dev/sda1
-		char argsize[20];
-		sprintf(argsize, "%lus", param.unenc_data_size / 512);
-		if (exec_name("resize2fs", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, device, argsize, NULL) == false) {
-			print_warning(_("Failed to adjust the size of the partition, resize2fs does not exist."));
-		} else if (exec_ret_val != 0) {
-			print_warning(_("Failed to adjust the size of the partition, reason:\n%s"), dup_stdout);
+	blkid_probe probe = blkid_new_probe_from_filename(device);
+	if (!probe || blkid_do_probe(probe) != 0) {
+		print_warning(_("Failed to adjust the size of the partition, reason: Filesystem probe failed for %s."), device);
+		goto FAIL;
+	}
+	
+	const char *fstype = "";
+	size_t len;
+	
+	if (blkid_probe_lookup_value(probe, "TYPE", &fstype, &len) == 0) {
+		if (strcmp("ext4", fstype) == 0){
+			// resize2fs /dev/sda1
+			char argsize[20];
+			sprintf(argsize, "%lus", param.unenc_data_size / 512);
+			if (exec_name("resize2fs", exec_dir, &dup_stdout, &dup_stdout_len, &exec_ret_val, true, device, argsize, NULL) == false) {
+				print_warning(_("Failed to adjust the size of the partition, resize2fs does not exist."));
+				goto FAIL;
+			} else if (exec_ret_val != 0) {
+				print_warning(_("Failed to adjust the size of the partition, reason:\n%s"), dup_stdout);
+				goto FAIL;
+			} else {
+				printf(_(" Done\n"));
+				goto SUCCESS;
+			}
 		} else {
-			printf(_(" Done\n"));
-			free(dup_stdout);
-			return;
+			goto FAIL;
 		}
 	}
-	free(dup_stdout);
+	FAIL:
 	ask_for_conformation(_("Windham cannot shrink the given partition: %s. The partition need to be shrank to %lu sectors before proceed. You need to perform the shrinking manually before "
-	                     "continue."), device, param.unenc_data_size / 512);
+	                       "continue."), device, param.unenc_data_size / 512);
+	SUCCESS:
+	free(dup_stdout);
+	if (probe){
+		blkid_free_probe(probe);
+	}
 }

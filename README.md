@@ -121,13 +121,13 @@ Install additional required libraries:
 | Kernel Header                      | `linux-headers-$(uname -r)` | `kernel-devel`                        | `linux-headers` | 
 | GNU Gettext                        | `libgettextpo-dev`          | `gettext-runtime` and `gettext-tools` | `gettext`       |
 | ncurses                            | `libncurses-dev`            | `ncurses-devel`                       | `ncurses`       |
+| libblkid library                   | `libblkid-dev`              | `libblkid-devel`                      | `util-linux`    |
 
 Additional userspace programs (Optional, but functionality will be reduced if these userspace programs are absent)
 
 - `resize2fs`: userspace ext2/ext3/ext4 file system resizer (under `e2fsprogs`).
 - `mkfs.vfat`: ExFAT filesystem creation tool (under `dosfstools`).
 - `kpartx`: Create device maps from partition tables.
-- `blkid`: locate/print block device attributes (under `util-linux`)
 
 Compile windham using cmake: `cmake CMakeLists.txt` -> `make` -> `sudo make install`(optional). To configure 
 
