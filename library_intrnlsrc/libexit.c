@@ -43,6 +43,7 @@ void sigint_handler([[maybe_unused]] int signum){
 }
 
 void exit_init(){
+	init_libloop();
    signal(SIGSEGV, segfault_handler);
    signal(SIGINT, sigint_handler);
    int jmpval = setjmp(windham_exit);
