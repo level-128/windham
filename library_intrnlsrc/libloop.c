@@ -9,13 +9,13 @@
 
 #include "srclib.c"
 
-#define CHECK_DEVICE_TOPOLOGY(device_path, node, CODE_EXEC_IF_RET) \
+#define CHECK_DEVICE_TOPOLOGY(device, device_path, node, CODE_EXEC_IF_RET) \
    char * device_loc;                                                                \
    if (strcmp(device_path, "") != 0){                                                                \
       device_loc = malloc(strlen(device) + strlen(device_path"/") + 1); \
-      sprintf(device_loc, device_path"/%s", device); \
+      sprintf(device_loc, device_path"/%s", (device)); \
    } else {                                                        \
-      device_loc = (char *)device;                                                                \
+      device_loc = (char *)(device);                                                                \
 	}                                                                \
    char ** parent = NULL;                                          \
    char ** child = NULL;\

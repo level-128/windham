@@ -91,8 +91,8 @@ void get_system_info() {
 	FILE * meminfo = fopen("/proc/meminfo", "r");
 	if (meminfo == NULL) {
 		print_warning(_("Failed to read system information. Can not determine adequate memory size (or memory limit) for key derivation."));
-		sys_info.free_ram = ULLONG_MAX;
-		sys_info.free_swap = ULLONG_MAX;
+		sys_info.free_ram = ULONG_MAX;
+		sys_info.free_swap = ULONG_MAX;
 		return;
 	}
 	

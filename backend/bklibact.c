@@ -11,7 +11,7 @@
 
 
 void action_close(const char * device) {
-	CHECK_DEVICE_TOPOLOGY("/dev/mapper", child,
+	CHECK_DEVICE_TOPOLOGY(device, "/dev/mapper", child,
 								       CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(mount_points_len, > 0, mount_points,
 			                      (_("Cannot close device %s, device has been mounted at %s. Unmount the device to continue"), device, mount_points[0]),
 			                      (_("Cannot close device %s, unmount the device to continue. Active mount points:"), device));
