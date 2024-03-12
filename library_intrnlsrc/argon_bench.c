@@ -18,6 +18,7 @@
  * software. If not, they may be obtained at the above URLs.
  */
 #include <argon2B3.h>
+#include <blake3.h>
 
 #include "srclib.c"
 
@@ -51,6 +52,12 @@ noreturn void benchmark() {
 	memset(pwd_array, 0, inlen);
 	memset(salt_array, 1, inlen);
 	
+	uint8_t blake3_test[inlen];
+	blake3_hasher_long(blake3_test, inlen, pwd_array, inlen);
+	printf(_("\nBlake 3 test:\n"));
+	print_hex_array(inlen, blake3_test);
+	
+	
 	for (m_cost = (uint32_t) 1 << 16; m_cost <= (uint32_t) 1 << 22; m_cost *= 2) {
 		unsigned i;
 		for (i = 0; i < 4; ++i) {
@@ -64,9 +71,13 @@ noreturn void benchmark() {
 			start_time = clock();
 			start_cycles = rdtsc();
 			
-
-			argon2id_hash_raw(t_cost, m_cost, thread_n, pwd_array, inlen,
-									salt_array, inlen, out, outlen);
+			int result = argon2id_hash_raw(t_cost, m_cost, thread_n, pwd_array, inlen,
+			                               salt_array, inlen, out, outlen);
+			
+			if (result == ARGON2_MEMORY_ALLOCATION_ERROR){
+				printf(_("\nCannot benchmark using %d MiB: insufficient RAM.\n"), m_cost >> 10);
+				exit(0);
+			}
 			
 			stop_cycles = rdtsc();
 			stop_time = clock();

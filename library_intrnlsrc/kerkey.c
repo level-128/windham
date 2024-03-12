@@ -76,7 +76,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMet
 							 "architecture."), DEFAULT_DISK_ENC_MODE, metadata.enc_type);
 		is_ok_for_keyring = false;
 	} if (metadata.start_sector != 8){
-		print_warning(_("Cannot register the key into Linux Keyring service: The start sector is not the same as the default value (%u), got (%lu)."), 8, metadata.start_sector);
+		print_warning(_("Cannot register the key into Linux Keyring service: The start sector is not the same as the default value (%u), got (%llu)."), 8, metadata.start_sector);
 		is_ok_for_keyring = false;
 	}
 

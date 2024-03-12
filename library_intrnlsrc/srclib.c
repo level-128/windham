@@ -215,7 +215,7 @@ void p__print__(int argcount) {
 	for (int i = 0; i < argcount; i++) {
 		switch (argtype[i]) {
 			case T_INT: {
-				p__print_int((int64_t) arg_ptr[i]);
+				p__print_int((intptr_t) arg_ptr[i]);
 				break;
 			}
 			case T_CHAR: {
