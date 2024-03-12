@@ -32,7 +32,7 @@
  * You should have received a copy of both of these licenses along with this
  * software. If not, they may be obtained at the above URLs.
  */
-
+#define __Argon2_opt_disable__
 
 #include <stdint.h>
 #include <string.h>
@@ -222,30 +222,25 @@ static void next_addresses(block *address_block, block *input_block) {
 #if ((defined(__amd64__) || defined(__x86_64__)) && !defined(__Argon2_opt_disable__))
 #if defined(__AVX512F__)
     __m512i zero_block[ARGON2_512BIT_WORDS_IN_BLOCK];
-    __m512i zero2_block[ARGON2_512BIT_WORDS_IN_BLOCK];
 #elif defined(__AVX2__)
     __m256i zero_block[ARGON2_HWORDS_IN_BLOCK];
-    __m256i zero2_block[ARGON2_HWORDS_IN_BLOCK];
 #else
     __m128i zero_block[ARGON2_OWORDS_IN_BLOCK];
-    __m128i zero2_block[ARGON2_OWORDS_IN_BLOCK];
 #endif
 #else
 	uint8_t zero_block[ARGON2_BLOCK_SIZE];
-	uint8_t zero2_block[ARGON2_BLOCK_SIZE];
 #endif
 
     memset(zero_block, 0, sizeof(zero_block));
-    memset(zero2_block, 0, sizeof(zero2_block));
 
     /*Increasing index counter*/
     input_block->v[6]++;
 
     /*First iteration of G*/
-    fill_block(zero_block, input_block, address_block, 0);
+    fill_block((const block *) zero_block, input_block, address_block, 0);
 
     /*Second iteration of G*/
-    fill_block(zero2_block, address_block, address_block, 0);
+    fill_block((const block *) zero_block, address_block, address_block, 0);
 }
 
 

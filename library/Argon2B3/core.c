@@ -559,13 +559,12 @@ void fill_first_blocks(uint8_t * blockhash, const argon2_instance_t * instance) 
 
 // Modified:
 //  memory_for_metadata ← parallelism ∥ tagLength ∥ memorySizeKB ∥ iterations ∥ version ∥ hashType
-//	 ∥ Length(password) ∥ Length(salt) ∥ Length(key) ∥ Length(associatedData)
+//	 ∥ Length(password) ∥ Length(salt) ∥ Length(key) ∥ Length(associatedData) ∥ *24 bytes of 0*
 //
-//	 Padding memory_for_metadata to 64 bytes with 0
+//	 Padding <- length(salt) + length(associatedData) + length(key) % BLAKE3_BLOCK_LEN
+//  Padding <- 0 if Padding == 0, else 64 - Padding
 //
-//  memory_for_salt_sec_ad = salt ∥ key ∥ associatedData
-//
-//	 Padding memory_for_salt_sec_ad to the floor of 64 bytes with 0
+//  memory_for_salt_sec_ad = *`Padding` bytes of 0* ∥ salt ∥ associatedData ∥ key
 //
 //			H0 ← BLAKE3(memory_for_metadata ∥ memory_for_salt_sec_ad ∥ Password, 64)
 int initial_hash(uint8_t * blockhash, argon2_context * context,
@@ -598,15 +597,16 @@ int initial_hash(uint8_t * blockhash, argon2_context * context,
 	
 	
 	// alloc memory for salt, secret, and associated data, and floor to 64 bytes
-	uint8_t * memory_for_salt_sec_ad = calloc(1,
-	                                          (context->saltlen + context->secretlen + context->adlen + 63) / 64 * 64);
-	if (memory_for_salt_sec_ad == NULL) {
-		return ARGON2_MEMORY_ALLOCATION_ERROR;
-	}
+	size_t padding_before_memory_for_salt_sec_ad = (context->saltlen + context->secretlen + context->adlen) % BLAKE3_BLOCK_LEN;
+	padding_before_memory_for_salt_sec_ad = padding_before_memory_for_salt_sec_ad == 0 ? 0 : BLAKE3_BLOCK_LEN - padding_before_memory_for_salt_sec_ad;
 	
-	memcpy(memory_for_salt_sec_ad, context->salt, context->saltlen);
-	memcpy(memory_for_salt_sec_ad + context->saltlen, context->secret, context->secretlen);
-	memcpy(memory_for_salt_sec_ad + context->saltlen + context->secretlen, context->ad, context->adlen);
+	uint8_t zero_arr[BLAKE3_BLOCK_LEN] = {0};
+	
+	// Update
+	blake3_hasher_update(&BlakeHash, zero_arr, padding_before_memory_for_salt_sec_ad);
+	blake3_hasher_update(&BlakeHash, context->salt, context->saltlen);
+	blake3_hasher_update(&BlakeHash, context->ad, context->adlen);
+	blake3_hasher_update(&BlakeHash, context->secret, context->secretlen);
 	
 	if (context->secret != NULL) {
 		if (context->flags & ARGON2_FLAG_CLEAR_SECRET) {
@@ -614,9 +614,6 @@ int initial_hash(uint8_t * blockhash, argon2_context * context,
 			context->secretlen = 0;
 		}
 	}
-	
-	blake3_hasher_update(&BlakeHash, memory_for_salt_sec_ad, sizeof(memory_for_salt_sec_ad));
-	free(memory_for_salt_sec_ad);
 	
 	
 	// last, update the password hasher
@@ -631,7 +628,7 @@ int initial_hash(uint8_t * blockhash, argon2_context * context,
 	}
 	
 	blake3_hasher_finalize(&BlakeHash, blockhash, ARGON2_PREHASH_DIGEST_LENGTH);
-	
+	//  "1\273ֹ\273v\232\001\244\"\257\353\355\303\037zi\236k\251\314Igڌ\320\361\221s\006\306\341]\020\200\370\247\020\001\002\277r\352\361\361RyAt\203\250\323d6\216M\276\\\246\232\033ك6"
 	return ARGON2_OK;
 }
 
@@ -658,10 +655,7 @@ int initialize(argon2_instance_t * instance, argon2_context * context) {
 	/* Hashing all inputs */
 	// the result stores from the 65th byte of the blockhash, the 1-64th byte
 	// will be used in fill_first_blocks
-	result = initial_hash(blockhash + 64, context, instance->type);
-	if (result != ARGON2_OK) {
-		return result;
-	}
+	initial_hash(blockhash + 64, context, instance->type);
 
 #ifdef GENKAT
 	initial_kat(blockhash, context, instance->type);
@@ -670,7 +664,7 @@ int initialize(argon2_instance_t * instance, argon2_context * context) {
 	/* 3. Creating first blocks, we always have at least two blocks in a slice
 	 */
 	// set the first blockhash to 0 before hashing
-	memset(blockhash, 0, ARGON2_PREHASH_DIGEST_LENGTH);
+	memset(blockhash, 0, ARGON2_PREHASH_DIGEST_LENGTH); // ARGON2_PREHASH_DIGEST_LENGTH = 64
 	
 	// fill_first_blocks has changed in Argon2B3
 	fill_first_blocks(blockhash, instance);
