@@ -16,7 +16,7 @@
 #error "the program only supports platform with uint8_t defined"
 #endif
 
-#define VERSION "1.231128.3.0"
+#define VERSION "DEV"
 
 #define _(STRING) gettext(STRING)
 
@@ -86,8 +86,8 @@ typedef struct __attribute__((packed)) STR_data {
 	uint8_t head[16];
 	uint8_t uuid_and_salt[16];
 	uint8_t master_key_mask[HASHLEN];
-	Key_slot keyslots[KEY_SLOT_COUNT];
 	EncMetadata metadata;
+	Key_slot keyslots[KEY_SLOT_COUNT];
 	__attribute__((unused)) uint8_t AES_align[
 			(AES_BLOCKLEN - (sizeof(EncMetadata) % AES_BLOCKLEN)) % AES_BLOCKLEN];
 } Data;

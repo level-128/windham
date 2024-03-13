@@ -7,6 +7,8 @@ detect_distribution () {
         echo "fedora"
     elif grep -q "Arch\|Manjaro" /etc/os-release; then
         echo "arch"
+    elif grep -q "openSUSE" /etc/os-release; then
+        echo "suse"
     fi
 }
 distribution=$(detect_distribution)
@@ -16,13 +18,16 @@ echo "Starting package installation..."
 exec > /dev/null
 if [ "$distribution" = "debian" ]; then
     apt-get update
-    apt-get install -y cmake gcc libdevmapper-dev libkeyutils-dev libext2fs-dev linux-headers-$(uname -r) libgettextpo-dev libncurses-dev e2fsprogs dosfstools kpartx util-linux
+    apt-get install -y cmake gcc libdevmapper-dev libkeyutils-dev libext2fs-dev linux-headers-$(uname -r) libgettextpo-dev libncurses-dev libblkid-dev e2fsprogs dosfstools kpartx
 elif [ "$distribution" = "fedora" ]; then
     dnf update
-    dnf install -y cmake gcc device-mapper-devel keyutils-devel libext2fs-devel kernel-devel gettext-runtime gettext-tools ncurses-devel e2fsprogs dosfstools kpartx util-linux
+    dnf install -y cmake gcc device-mapper-devel keyutils-devel libext2fs-devel kernel-devel gettext-runtime gettext-tools ncurses-devel libblkid-devel e2fsprogs dosfstools kpartx
 elif [ "$distribution" = "arch" ]; then
     pacman -Sy
     pacman -S --noconfirm cmake gcc device-mapper keyutils e2fsprogs linux-headers gettext ncurses dosfstools kpartx util-linux
+elif [ "$$distribution" = "suse"]; then
+    zypper ref
+    zypper in -y cmake gcc device-mapper-devel keyutils-devel libext2fs-devel kernel-devel gettext-runtime gettext-tools ncurses-devel libblkid-devel e2fsprogs dosfstools kpartx
 else
     exec > /dev/tty
     echo "Unsupported distribution!"
