@@ -32,7 +32,6 @@
  * You should have received a copy of both of these licenses along with this
  * software. If not, they may be obtained at the above URLs.
  */
-#define __Argon2_opt_disable__
 
 #include <stdint.h>
 #include <string.h>

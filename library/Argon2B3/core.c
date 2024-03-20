@@ -559,10 +559,10 @@ void fill_first_blocks(uint8_t * blockhash, const argon2_instance_t * instance) 
 
 // Modified:
 //  memory_for_metadata ← parallelism ∥ tagLength ∥ memorySizeKB ∥ iterations ∥ version ∥ hashType
-//	 ∥ Length(password) ∥ Length(salt) ∥ Length(key) ∥ Length(associatedData) ∥ *24 bytes of 0*
+//	         ∥ Length(password) ∥ Length(salt) ∥ Length(key) ∥ Length(associatedData) ∥ *24 bytes of 0*
 //
 //	 Padding <- length(salt) + length(associatedData) + length(key) % BLAKE3_BLOCK_LEN
-//  Padding <- 0 if Padding == 0, else 64 - Padding
+//  Padding <- 0 if Padding == 0, else (64 - Padding)
 //
 //  memory_for_salt_sec_ad = *`Padding` bytes of 0* ∥ salt ∥ associatedData ∥ key
 //
@@ -628,7 +628,6 @@ int initial_hash(uint8_t * blockhash, argon2_context * context,
 	}
 	
 	blake3_hasher_finalize(&BlakeHash, blockhash, ARGON2_PREHASH_DIGEST_LENGTH);
-	//  "1\273ֹ\273v\232\001\244\"\257\353\355\303\037zi\236k\251\314Igڌ\320\361\221s\006\306\341]\020\200\370\247\020\001\002\277r\352\361\361RyAt\203\250\323d6\216M\276\\\246\232\033ك6"
 	return ARGON2_OK;
 }
 

@@ -14,6 +14,8 @@
  * You should have received a copy of both of these licenses along with this
  * software. If not, they may be obtained at the above URLs.
  */
+#define ARGON2_NO_THREADS // no threads
+
 
 #ifndef ARGON2_H
 #define ARGON2_H
