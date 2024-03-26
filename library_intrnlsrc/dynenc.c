@@ -225,7 +225,7 @@ void shrink_disk(Dynenc_param param, const char * device) {
 	printf(_("Shrinking the filesystem on %s from %lu sectors to %lu sectors...\n"), device, param.disk_size / 512, param.unenc_data_size / 512);
 	
 	blkid_probe probe = blkid_new_probe_from_filename(device);
-	if (!probe || blkid_do_probe(probe) != 0) {
+	if (!probe || blkid_do_probe(probe) == -1) {
 		print_warning(_("Failed to adjust the size of the partition, reason: Filesystem probe failed for %s."), device);
 		goto FAIL;
 	}

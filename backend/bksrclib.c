@@ -184,7 +184,7 @@ ENUM_MAPPER_DEVSTAT detect_device_status(const char * device, bool is_decoy){
             print_error(_("can not open device %s"), device);
         }
 
-        if (blkid_do_probe(probe) != 0) {
+        if (blkid_do_probe(probe) == -1) {
             blkid_free_probe(probe);
             print_error(_("Filesystem probe failed for %s."), device);
         }
