@@ -20,7 +20,6 @@ void is_running_as_root() {
 }
 
 void init_enclib(char * generator_addr) {
-	FLAG_clear_internal_memory = 0;
 	random_fd = fopen(generator_addr, "r");
 	if (random_fd == NULL) {
 		print_error(_("Failed to initialize random generator."));

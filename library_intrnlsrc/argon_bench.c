@@ -19,20 +19,21 @@
  */
 #include <argon2B3.h>
 #include <blake3.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <inttypes.h>
+#include <memory.h>
+#include <assert.h>
+#include <stdbool.h>
 
-#include "srclib.c"
+#define _(x) x
 
-#if defined(__amd64__) || defined(__x86_64__)
-static uint64_t rdtsc(void) {
-	uint64_t rax, rdx;
-	__asm__ __volatile__("rdtsc" : "=a"(rax), "=d"(rdx) : :);
-	return (rdx << 32) | rax;
-}
-#else
-static uint64_t rdtsc(void){return 0;};
-#endif
+uint8_t bench_result[][32]={
+		{(uintptr_t) NULL}};
 
-noreturn void benchmark() {
+
+int benchmark() {
 	printf(_("Start Argon2B3id benchmark:\n"));
 
 #define BENCH_OUTLEN 32
@@ -45,9 +46,8 @@ noreturn void benchmark() {
 #undef BENCH_INLEN
 #undef BENCH_OUTLEN
 	
-	uint32_t t_cost = 1;
-	uint32_t m_cost;
-	uint32_t thread_test[4] = {1, 2, 4, 8};
+	int t_cost = 1;
+	uint8_t thread_test[4] = {1, 2, 4, 8};
 	
 	memset(pwd_array, 0, inlen);
 	memset(salt_array, 1, inlen);
@@ -57,44 +57,42 @@ noreturn void benchmark() {
 	printf(_("\nBlake 3 test:\n"));
 	print_hex_array(inlen, blake3_test);
 	
-	
-	for (m_cost = (uint32_t) 1 << 16; m_cost <= (uint32_t) 1 << 22; m_cost *= 2) {
-		unsigned i;
-		for (i = 0; i < 4; ++i) {
-			uint32_t thread_n = thread_test[i];
+	bool is_comp_bench_result = true;
+	for (int i = 0; i <= 6; i += 1) {
+		for (uint32_t thread_test_i = 0; thread_test_i < sizeof(thread_test); thread_test_i++){
+			uint_fast32_t m_cost = 1 << (16 + i);
 			
 			clock_t start_time, stop_time;
-			uint64_t start_cycles, stop_cycles;
-			double cpb;
-			double mcycles;
-			
 			start_time = clock();
-			start_cycles = rdtsc();
 			
-			int result = argon2id_hash_raw(t_cost, m_cost, thread_n, pwd_array, inlen,
-			                               salt_array, inlen, out, outlen);
-			
-			if (result == ARGON2_MEMORY_ALLOCATION_ERROR){
-				printf(_("\nCannot benchmark using %d MiB: insufficient RAM.\n"), m_cost >> 10);
+			void * ctx_memory = malloc(argon2b3_get_ctx_memory_size(m_cost, thread_test[sizeof(thread_test) - 1]));
+			if (ctx_memory == NULL){
+				printf(_("\nCannot benchmark using %"PRIuFAST32" MiB: insufficient RAM.\n"), m_cost >> 10);
 				exit(0);
 			}
+			int result = argon2b3_hash(ctx_memory, t_cost, m_cost, thread_test[thread_test_i], pwd_array, inlen,
+			                           salt_array, inlen, out, outlen, Argon2B3_id);
 			
-			stop_cycles = rdtsc();
+			if (result == ARGON2B3_MEMORY_TOO_MUCH){
+				printf(_("\nCannot benchmark using %"PRIuFAST32" MiB: Address space exhausted under sub 64-bit platform.\n"), m_cost >> 10);
+			}
+			if (is_comp_bench_result){
+				if (bench_result[i * sizeof(thread_test) + thread_test_i][0]){
+					assert(memcmp(bench_result[i * sizeof(thread_test) + thread_test_i], out, outlen) == 0);
+				} else {
+					is_comp_bench_result = false;
+				}
+			}
+			
 			stop_time = clock();
 			
-			cpb = ((double) (stop_cycles - start_cycles) * thread_n) / (m_cost * 1024);
-			mcycles = (double) (stop_cycles - start_cycles) / (1UL << 20);
+			printf(_("\nResult: %d iterations, Memory cost: %"PRIuFAST32" MiB,  threads: %"PRIu32", time cost: %2.4f seconds * thread, Result: \n"), t_cost,
+			       m_cost >> 10, thread_test[thread_test_i], ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC));
 			
-			if (mcycles == 0){
-				printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, Result: \n"), t_cost,
-				       m_cost >> 10, thread_n, ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC));
-			} else {
-				printf(_("\nResult: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f seconds, %2.2f Cycles per byte, %2.2f "
-				         "Mcycles. Result: \n"), t_cost,
-				       m_cost >> 10, thread_n, ((double) (stop_time - start_time)) / (CLOCKS_PER_SEC), cpb, mcycles);
-			}
 			print_hex_array(outlen, out);
+			fflush(stdout);
 		}
+		
 	}
 	exit(0);
 }

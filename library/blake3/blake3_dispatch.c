@@ -116,7 +116,7 @@ static
   if (features != UNDEFINED) {
     return features;
   } else {
-#if defined(IS_X86)
+#if defined(IS_X86_64)
     uint32_t regs[4] = {0};
     uint32_t *eax = &regs[0], *ebx = &regs[1], *ecx = &regs[2], *edx = &regs[3];
     (void)edx;
@@ -166,7 +166,7 @@ void blake3_compress_in_place(uint32_t cv[8],
                               const uint8_t block[BLAKE3_BLOCK_LEN],
                               uint8_t block_len, uint64_t counter,
                               uint8_t flags) {
-#if defined(IS_X86_64) && !defined(__Argon2_opt_disable__)
+#if defined(IS_X86_64)
   const enum cpu_feature features = get_cpu_features();
   MAYBE_UNUSED(features);
 #if !defined(BLAKE3_NO_AVX512)
@@ -195,7 +195,7 @@ void blake3_compress_xof(const uint32_t cv[8],
                          const uint8_t block[BLAKE3_BLOCK_LEN],
                          uint8_t block_len, uint64_t counter, uint8_t flags,
                          uint8_t out[64]) {
-#if defined(IS_X86_64) && !defined(__Argon2_opt_disable__)
+#if defined(IS_X86_64)
   const enum cpu_feature features = get_cpu_features();
   MAYBE_UNUSED(features);
 #if !defined(BLAKE3_NO_AVX512)
@@ -224,7 +224,7 @@ void blake3_hash_many(const uint8_t *const *inputs, size_t num_inputs,
                       size_t blocks, const uint32_t key[8], uint64_t counter,
                       bool increment_counter, uint8_t flags,
                       uint8_t flags_start, uint8_t flags_end, uint8_t *out) {
-#if defined(IS_X86_64) && !defined(__Argon2_opt_disable__)
+#if defined(IS_X86_64)
   const enum cpu_feature features = get_cpu_features();
   MAYBE_UNUSED(features);
 #if !defined(BLAKE3_NO_AVX512)
@@ -274,7 +274,7 @@ void blake3_hash_many(const uint8_t *const *inputs, size_t num_inputs,
 
 // The dynamically detected SIMD degree of the current platform.
 size_t blake3_simd_degree(void) {
-#if defined(IS_X86) && !defined(__Argon2_opt_disable__)
+#if defined(IS_X86_64)
   const enum cpu_feature features = get_cpu_features();
   MAYBE_UNUSED(features);
 #if !defined(BLAKE3_NO_AVX512)

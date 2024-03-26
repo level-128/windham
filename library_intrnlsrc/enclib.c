@@ -67,11 +67,24 @@ static int argon2id_hash_calc(const uint8_t pwd[HASHLEN], uint_fast8_t len_exp_i
 	if (m_cost < BASE_MEM_COST) {
 		m_cost = BASE_MEM_COST;
 	}
-	int ret = argon2id_hash_raw(1, m_cost, PARALLELISM, pwd, HASHLEN, salt,
-	                            HASHLEN + len_exp_index * sizeof(uint8_t) * 4, hash, HASHLEN);
-	if (ret == ARGON2_MEMORY_ALLOCATION_ERROR) {
+	if (m_cost == BASE_MEM_COST){
+		uint8_t * ctx_memory[argon2b3_get_ctx_memory_size(BASE_MEM_COST, 1)];
+		argon2b3_hash(ctx_memory, 1, BASE_MEM_COST, PARALLELISM, pwd, HASHLEN, salt,
+		              HASHLEN + len_exp_index * sizeof(uint8_t) * 4, hash, HASHLEN, Argon2B3_id);
+	}
+	int ret = argon2b3_hash_alloced_locked_mem(1, m_cost, PARALLELISM, pwd, HASHLEN, salt,
+	                                           HASHLEN + len_exp_index * sizeof(uint8_t) * 4, hash, HASHLEN, Argon2B3_id);
+	if (ret == ARGON2B3_MEMORY_ALLOCATION_ERROR) {
 		return NMOBJ_STEP_ERR_NOMEM;
-	} else if (ret != ARGON2_OK) {
+	} else if (ret == ARGON2B3_MEMORY_LOCK_ERROR) { // no admin
+		int ret_ = argon2b3_hash_alloced(1, m_cost, PARALLELISM, pwd, HASHLEN, salt,
+		                                 HASHLEN + len_exp_index * sizeof(uint8_t) * 4, hash, HASHLEN, Argon2B3_id);
+		if (ret_ == ARGON2B3_MEMORY_ALLOCATION_ERROR){
+			return NMOBJ_STEP_ERR_NOMEM;
+		} else if (ret_ != ARGON2B3_OK) {
+			exit(ret);
+		}
+	} else if (ret != ARGON2B3_OK) {
 		exit(ret);
 	}
 	print("argon2id_hash_calc res:", hash[0], hash[1], hash[2], hash[3], "pwd: ", pwd[0], pwd[1], pwd[2], pwd[3]);
@@ -358,7 +371,7 @@ void set_master_key_to_slot(Key_slot * key_slot, const uint8_t inited_key[HASHLE
 void get_metadata_key_or_disk_key_from_master_key(const uint8_t master_key[HASHLEN], const uint8_t mask[HASHLEN], const uint8_t data$uuid_and_salt[16], uint8_t key[HASHLEN]) {
 	uint8_t inter_key[HASHLEN];
 	xor_with_len(HASHLEN, master_key, mask, inter_key);
-	argon2id_hash_raw(1, BASE_MEM_COST * 2, PARALLELISM, inter_key, HASHLEN, data$uuid_and_salt, 16, key, HASHLEN);
+	argon2b3_hash_alloced(1, BASE_MEM_COST * 2, PARALLELISM, inter_key, HASHLEN, data$uuid_and_salt, 16, key, HASHLEN, Argon2B3_id);
 }
 
 void convert_metadata_endianness_to_le(EncMetadata * data$metadata){

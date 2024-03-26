@@ -29,10 +29,10 @@
 * is less than the number of required characters (including the
 * terminating 0), then this function returns ARGON2_ENCODING_ERROR.
 *
-* on success, ARGON2_OK is returned.
+* on success, ARGON2B3_OK is returned.
 */
-int encode_string(char *dst, size_t dst_len, argon2_context *ctx,
-                  argon2_type type);
+int encode_string(char *dst, size_t dst_len, argon2B3_context *ctx,
+                  argon2B3_type type);
 
 /*
 * Decodes an Argon2B3 hash string into the provided structure 'ctx'.
@@ -44,9 +44,9 @@ int encode_string(char *dst, size_t dst_len, argon2_context *ctx,
 * Invalid input string causes an error. On success, the ctx is valid and all
 * fields have been initialized.
 *
-* Returned value is ARGON2_OK on success, other ARGON2_ codes on error.
+* Returned value is ARGON2B3_OK on success, other ARGON2_ codes on error.
 */
-int decode_string(argon2_context *ctx, const char *str, argon2_type type);
+int decode_string(argon2B3_context *ctx, const char *str, argon2B3_type type);
 
 /* Returns the length of the encoded byte stream with length len */
 size_t b64len(uint32_t len);

@@ -121,6 +121,13 @@ set(CMAKE_AR "gcc-ar")
 set(CMAKE_NM "gcc-nm")
 set(CMAKE_RANLIB "gcc-ranlib")
 
+if(NO_SIMD_OPTIMIZE)
+    add_definitions(-D__Argon2_opt_disable__=1)
+else()
+    add_definitions(-D__Argon2_opt_disable__=0)
+endif ()
+
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
     add_definitions(-DDEFAULT_DISK_ENC_MODE="aes-xts-plain64")
@@ -129,10 +136,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_argon2_and_executables_for_arch("x86-64-v2")
 
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    if(NO_SIMD_OPTIMIZE)
-        add_definitions(-D__Argon2_opt_disable__)
-    endif ()
-    if (NOT WIPE_MEMORY)
+    if (WIPE_MEMORY STREQUAL OFF)
         add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
     endif ()
     add_definitions(-DDEFAULT_DISK_ENC_MODE="${WINDHAM_DEFAULT_DISK_ENC_MODE}")
@@ -192,7 +196,6 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif()
 
 elseif(CMAKE_BUILD_TYPE STREQUAL "Test")
-
     add_definitions(-DARGON2_FLAG_CLEAR_MEMORY=0)
     add_definitions(-DDEFAULT_DISK_ENC_MODE="aes-xts-plain64")
     include_directories(${CMAKE_SOURCE_DIR}/include/linux_fs_include)

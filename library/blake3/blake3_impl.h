@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "blake3.h"
+#include "../include/blake3.h"
 
 // internal flags
 enum blake3_flags {
@@ -216,7 +216,7 @@ void blake3_hash_many_portable(const uint8_t *const *inputs, size_t num_inputs,
                                uint8_t flags, uint8_t flags_start,
                                uint8_t flags_end, uint8_t *out);
 
-#if defined(IS_X86)
+#if defined(IS_X86_64)
 #if !defined(BLAKE3_NO_SSE2)
 void blake3_compress_in_place_sse2(uint32_t cv[8],
                                    const uint8_t block[BLAKE3_BLOCK_LEN],
