@@ -110,7 +110,7 @@ function(add_argon2_and_executables_for_arch arch)
         endif()
         add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
         install(TARGETS windham${arch}
-                RUNTIME DESTINATION ${install_location})
+                RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
 endfunction()
 
 
