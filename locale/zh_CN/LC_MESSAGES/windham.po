@@ -1,0 +1,759 @@
+# Chinese translations for windham package.
+# Copyright (C) 2023 Weizheng Wang (level-128)
+# This file is distributed under the same license as the level package.
+# level-128 <level-128@gmx.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-17 03:44-0500\n"
+"PO-Revision-Date: 2023-10-16 02:24-0400\n"
+"Last-Translator: level-128\n"
+"Language-Team: Chinese (simplified)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Arguments should locate after <action> and <target>."
+msgstr ""
+
+msgid "<action> not recognized. type 'windham Help' to view help"
+msgstr ""
+
+#, c-format
+msgid "argument: %s is not valid under action: %s"
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Unlock options:\n"
+"\t--key <characters>: key input as argument, instead of asking in the "
+"terminal.\n"
+"\t--key-file <location>: key input as key file. The key file will be read as "
+"key (exclude EOF character). Option '--key' and '--key-file' and '--target-"
+"slot' are mutually exclusive\n"
+"\t--master-key <characters>: using master key to unlock.\n"
+"\t--unlock-slot <int>: choose the slot to unlock; Other slots are ignored.\n"
+"\t--max-unlock-memory <int>: total maximum available memory (KiB) available "
+"for decryption. \n"
+"\t--max-unlock-time <float>: the suggested max time (sec) for unlock.\n"
+"\t--verbose: print unlock progress per keyslot.\n"
+"\t--systemd-dialog: use systemd password input dialog; useful when "
+"integrating with systemd.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Common options:\n"
+"\t--no-admin: forfeit checking root privileges, may produces undefined "
+"behaviour. \n"
+"\t--yes: do not ask for explicit conformation to potential destructive "
+"operations.\n"
+"\t--help: print this message.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"usage: \"windham <action> <target>\"\n"
+"possible actions are:  'Open'  'Close'  'New'  'AddKey'  'RevokeKey' "
+"'Backup' 'Restore' 'Suspend' and 'Resume'\n"
+"\n"
+"Type \"windham Help <action>\" to view specific help text for each action.\n"
+"\n"
+"pre-compiled arguments. These arguments serve an informative purpose; "
+"changing them may render your device inaccessible.\n"
+msgstr ""
+
+#, c-format
+msgid "number of keyslots: %i\n"
+msgstr ""
+
+#, c-format
+msgid "Length of the hash (bit): %i\n"
+msgstr ""
+
+#, c-format
+msgid "Argon2id memory size exponential count: %i\n"
+msgstr ""
+
+#, c-format
+msgid "Argon2id base memory size (KiB): %i\n"
+msgstr ""
+
+#, c-format
+msgid "Argon2id parallelism: %i\n"
+msgstr ""
+
+#, c-format
+msgid "Default encryption target time: %i\n"
+msgstr ""
+
+#, c-format
+msgid "Default decryption target time (per slot): %i\n"
+msgstr ""
+
+#, c-format
+msgid "Default encryption type: %s\n"
+msgstr ""
+
+#, c-format
+msgid "Compiler: GCC %d.%d.%d\n"
+msgstr ""
+
+#, c-format
+msgid "Compile time: %s, %s"
+msgstr ""
+
+#, c-format
+msgid ""
+"    Copyright (C) 2023-  W. Wang (level-128)\n"
+"\n"
+"    This program is free software: you can redistribute it and/or modify\n"
+"    it under the terms of the GNU General Public License (version 3) as\n"
+"    published by the Free Software Foundation.\n"
+"\n"
+"    This program is distributed in the hope that it will be useful,\n"
+"    but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+"    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+"    GNU General Public License for more details.\n"
+"\n"
+"    You should have received a copy of the GNU General Public License\n"
+"    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"\tThere is also an \"Additional permissions\" applied from Article (7) when "
+"using, propagating and conveying the unmodified covered work. This "
+"\"additional permissions\" is legal binding, which grants additional "
+"permissions to the licensee. See license.md for details."
+msgstr ""
+
+#, c-format
+msgid ""
+"Open <target>: Unlock <target> and create a mapper (decrypted crypt device) "
+"under /dev/mapper/<location>. The key, by default, is read from the "
+"terminal.\n"
+"\n"
+"options:\n"
+"\t--to <location>: REQUIRED; the target location of the mapper. The mapper "
+"will be named as <location>, locate under /dev/mapper/<location>\n"
+"\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-"
+"prompt when open. Keys are stored in the Linux Kernel Key Retention service "
+"(keyring service).\n"
+"\t--decoy: Opening the device assuming that the decoy partition exists; "
+"otherwise, auto-detect.\n"
+"\t--dry-run: run without operating on the block device then print the master "
+"key and device parameters.\n"
+"\t--nokeyring: do not attempt to use keys in the Linux Kernel Key Retention "
+"service (keyring service).\n"
+"\t--readonly: Create read only mapper device.\n"
+"\t--allow-discards: Allow TRIM commands being sent to the crypt device.\n"
+"\t--no-read-workqueue: Process read requests synchronously instead of using "
+"a internal workqueue.\n"
+"\t--no-write-workqueue: Process write requests synchronously instead of "
+"using a internal workqueue.\n"
+msgstr ""
+
+#, c-format
+msgid "Close <target> close the encrypt block device.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"New <target>: create a windham header on the device and add a new key. DO "
+"NOT COPY THE HEADER FROM OTHER ENCRYPTED DEVICES, BECAUSE THEY COULD BE "
+"UNLOCKED USING THE SAME MASTER KEY. \n"
+"\n"
+"options:\n"
+"\t--key <characters>: key input as argument, instead of asking in the "
+"terminal.\n"
+"\t--key-file <location>: key input as key file. The key file will be read as "
+"key (exclude EOF character). Option '--key' and '--key-file' are mutually "
+"exclusive\n"
+"\t--target-slot <int>: choose the target slot to add a new key; the first "
+"empty slot will be chosen as default.\n"
+"\t--target-memory <int>: total maximum memory (KiB) available to use. \n"
+"\t--target-time <float>: the suggested total time (sec) for adding the first "
+"key. This is not a hard limit.\n"
+"\t--encrypt-type <string>: designate an encryption scheme for the new header "
+"instead of the default one. It is not recommended, nor necessary, to do so, "
+"unless you have a specific reason. the encryption scheme should obey the "
+"format: \"*cipher*-*chainmode*-*ivmode*\".\n"
+"\t--block-size <int>: designate the encryption sector size. Size must be "
+"512, 1024, 2048 or 4096.\n"
+"\t--decoy: Create a decoy FAT32 partition. The encrypted partition stores at "
+"the unallocated sector of the FAT32 filesystem.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"A list of supported encryption mode on your system is located at file \"/"
+"proc/crypto\". If the designated encryption scheme contains an unsupported, "
+"but valid, mode, which will trigger a warning, the partition cannot be "
+"opened using your system.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"AddKey <target>: Add a new key to the existing windham header. The new key "
+"will be asked after a successful unlock from the given key.\n"
+"\n"
+"options:\n"
+"\t--target-memory <int>: The total maximum memory (KiB) available to use. \n"
+"\t--target-time <float>: the suggested total time (sec) for adding a key. "
+"This is not a hard limit.\n"
+"\t--decoy: Opening the device assuming that the decoy partition exists; "
+"otherwise, auto-detect.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"RevokeKey <target>: remove a existing key from the header.\n"
+"\n"
+"options:\n"
+"\t--target-slot <int>: revoke the key inside the target slot. No password "
+"required.\n"
+"\t--all: revoke all slots; the device is inaccessible unless using master "
+"key to unlock.\n"
+"\t--decoy: Opening the device assuming that the decoy partition exists; "
+"otherwise, auto-detect.\n"
+"\t--obliterate: Wipe the header and destroy all data."
+msgstr ""
+
+#, c-format
+msgid ""
+"Backup <target>: Backup the header into a separate file.\n"
+"\n"
+"options:\n"
+"\t--to <location>: REQUIRED; the location of the file.\n"
+"\t--no-transform: backup the header as is. No key required. \n"
+"\t--restore: restore the header from a backup file.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Restore <target>: Restore the header from a file to the device.\n"
+"\n"
+"options:\n"
+"\t--to <location>: REQUIRED; the location of the file.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Suspend <target>: Make device identifiable and accessible without password. "
+"When Suspending, only 'Close' and 'RevokeKey' (With param '--all', '--"
+"obliterate' and '--target-slot') could be used.\n"
+"\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Resume <target>: unsuspend the device.\n"
+"\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Bench: Performing Argon2 benchmark\n"
+"\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Windham (%s) Copyright (C) 2023-  W. Wang (level-128)\n"
+"\n"
+"usage: \"windham <action> <target>\"\n"
+"For help, type 'windham Help' to view help for all possible actions\n"
+"\n"
+"This program comes with ABSOLUTELY NO WARRANTY; for details type 'Help --"
+"license'.\n"
+"This is free software, and you are welcome to redistribute it under certain "
+"conditions;\n"
+msgstr ""
+
+msgid "argument --key, --key-file and --master-key are mutually exclusive."
+msgstr ""
+
+msgid ""
+"argument --key, --key-file, --master-key and --target-slot are mutually "
+"exclusive under action: RevokeKey."
+msgstr ""
+
+msgid "argument --to is required under action: Open"
+msgstr ""
+
+msgid "argument --obliterate can only be use alone."
+msgstr ""
+
+msgid "argument --all, --obliterate or --target-slot are mutually exclusive."
+msgstr ""
+
+#, c-format
+msgid "error when parsing master key: invalid length"
+msgstr ""
+
+msgid ""
+"error when parsing master key: invalid character; only hexadecimal is "
+"accepted."
+msgstr ""
+
+#, c-format
+msgid "bad input for argument %s: not an integer"
+msgstr ""
+
+#, c-format
+msgid ""
+"bad input for argument %s: slot out of range. Slot count starts at 0, to %i"
+msgstr ""
+
+#, c-format
+msgid "bad input for argument %s: not an positive integer"
+msgstr ""
+
+msgid "bad input for argument --block-size: not 512, 1024, 2048 or 4096"
+msgstr ""
+
+msgid "<target> not provided. type 'windham Help' to view help"
+msgstr ""
+
+msgid "arguments should locate after <device>. "
+msgstr ""
+
+#, c-format
+msgid "Unknown option or missing parameter for %s"
+msgstr ""
+
+msgid ""
+"The program requires root permission. try adding 'sudo', or using argument "
+"'--no-admin' if the target is accessible without root permission"
+msgstr ""
+
+msgid "CONFORMATION REQUIRED: "
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Type \"%s\" to confirm."
+msgstr ""
+
+msgid "User has canceled the operation."
+msgstr ""
+
+msgid ""
+"Failed to read system information. Can not determine adequate memory size "
+"(or memory limit) for key derivation."
+msgstr ""
+
+#, c-format
+msgid "File %s does not exist"
+msgstr ""
+
+#, c-format
+msgid "Cannot read %s: insufficient permission."
+msgstr ""
+
+#, c-format
+msgid "Cannot write to %s: insufficient permission."
+msgstr ""
+
+#, c-format
+msgid "Cannot get size for %s"
+msgstr ""
+
+#, c-format
+msgid ""
+"The system is low on memory (< 30%%). It is recommended to designate a "
+"larger allowed memory to utilize the system swap space via parameter \"%s\"."
+msgstr ""
+
+msgid ""
+"using swap space for Key derivation function. This is potentially insecure "
+"because unencrypted swap space may provide hints to the master key."
+msgstr ""
+
+#, c-format
+msgid ""
+"The RAM and swap are not enough to perform the suggested encryption "
+"parameters. Adjusted the max RAM consumption for Key derivation function "
+"from %lu (KiB) to %lu (KiB). This may degrade security, continue?"
+msgstr ""
+
+#, c-format
+msgid ""
+"Adjusted the requested max RAM consumption from %lu (KiB) to %lu (KiB) "
+"because of insufficient memory. If your computer has less available memory "
+"than the computer who created the encryption target, you may not "
+"successfully decrypt this target. Consider adding more swap spaces as a "
+"workaround."
+msgstr ""
+
+#, c-format
+msgid "Password for %s:\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Again:\n"
+msgstr ""
+
+msgid "Passwords do not match."
+msgstr ""
+
+#, c-format
+msgid ""
+"the provided password is too short (%zu characters), which is not "
+"recommended. To bypass this restriction, use argument --key instead."
+msgstr ""
+
+msgid "not a chance! 😡"
+msgstr ""
+
+msgid ""
+"Cannot unlock the target probably due to incorrect key.\n"
+"\tIf you are certain that the key is indeed correct, because the memory "
+"limit has reached, try increasing the maximum memory limit using --max-"
+"unlock-memory. If the operation cannot be completed due to insufficient "
+"system memory, consider exporting the master key on a more computationally "
+"powerful device and then use the master key to unlock the target."
+msgstr ""
+
+msgid ""
+"Cannot unlock the target probably due to incorrect key.\n"
+"\tIf you are certain that the key is indeed correct, because the time limit "
+"has reached, try increasing the maximum time limit using --max-unlock-time."
+msgstr ""
+
+msgid ""
+"Please read carefully: You should not be seeing this error message. The "
+"occurrence of this error message means that the parameters for the key "
+"iteration function have grown to the maximum value by design. Unless your "
+"computer has tens of TBs of RAM and you have spent a considerable amount of "
+"time computing (if you really did so, then this would imply that the key you "
+"just provided is incorrect, which would be a false alarm), the appearance of "
+"this error message is abnormal. This may imply that: 1. There is a fatal "
+"flaw in the program, one that could directly compromise both its own "
+"security and that of the encrypted device. You should immediately stop using "
+"this program and report it to the developers; 2. The program has been "
+"tampered with by an attacker. As above, you should immediately stop using "
+"it. Redownload the program and verify its signature, and also please destroy "
+"the hard drives encrypted with the tampered program; 3. You come from a "
+"distant future, and you are using computational power that surpasses the era "
+"of the software. In any case, this also means that the software can no "
+"longer provide adequate security for the era in which you exist. I am sorry "
+"to inform you of the above."
+msgstr ""
+
+msgid ""
+"All key slots are full. Remove or revoke one or more keys to add a new key."
+msgstr ""
+
+#, c-format
+msgid "The given key is used at slot %i"
+msgstr ""
+
+#, c-format
+msgid ""
+"AddKey: choose your key format \n"
+"(1) input key from console;\n"
+"(2) use a key file\n"
+"Option: \n"
+msgstr ""
+
+msgid ""
+"Invalid argument. The encryption scheme should obey the format: \"*cipher*-"
+"*chainmode*-*ivmode*\""
+msgstr ""
+
+#, c-format
+msgid "Invalid argument. Unrecognized cipher \"%s\". "
+msgstr ""
+
+#, c-format
+msgid "Invalid argument. Unrecognized chainmode \"%s\". "
+msgstr ""
+
+#, c-format
+msgid "Invalid argument. Unrecognized ivmode \"%s\". "
+msgstr ""
+
+#, c-format
+msgid ""
+"The cipher %s you've requested might not be supported by your current "
+"system. Although you can create a header that employs this encryption "
+"scheme, your system might not be capable of unlocking it. This means you "
+"won't be able to access the encrypted device you've just created with this "
+"specific method on this system. You would need to locate a compatible "
+"system, recompile your kernel, or find the appropriate kernel module to "
+"access the device. Do you wish to proceed?"
+msgstr ""
+
+#, c-format
+msgid "Unlocking %s assuming decoy partition exits"
+msgstr ""
+
+msgid "The header is suspended. Resume header to perform this operation."
+msgstr ""
+
+msgid "This key has been revoked."
+msgstr ""
+
+msgid "Wrong master key."
+msgstr ""
+
+#, c-format
+msgid "Slot %i on device %s have been revoked without using the password."
+msgstr ""
+
+#, c-format
+msgid ""
+"Creating encrypt partition on device: %s, All content will be lost. Continue?"
+msgstr ""
+
+#, c-format
+msgid ""
+"Device %s is unlocked and suspended. Don't forget to close it using "
+"\"Resume\" when appropriate."
+msgstr ""
+
+#, c-format
+msgid ""
+"dry run complete. Device is unlocked and suspended, thus no key slot status "
+"could be provided\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Additional device parameters: \n"
+"UUID: %s\n"
+"Crypto algorithm: %s\n"
+"Start sector %lu\n"
+"End sector %lu\n"
+"Block size %hu\n"
+msgstr ""
+
+#, c-format
+msgid "Found kernel keyring key\n"
+msgstr ""
+
+#, c-format
+msgid "Unlocking %s to /dev/mapper/%s...\n"
+msgstr ""
+
+msgid "The stored key in kernel keyring subsystem has removed."
+msgstr ""
+
+msgid "The stored key in kernel keyring subsystem has expired."
+msgstr ""
+
+msgid ""
+"Kernel keyring subsystem cannot be loaded. Kernel keyring is not required "
+"but strongly recommended."
+msgstr ""
+
+msgid ""
+"key from the Decoy partition cannot be registered in Kernel Keyring service."
+msgstr ""
+
+#, c-format
+msgid "Registering the key into keyring with lifetime: %u sec.\n"
+msgstr ""
+
+#, c-format
+msgid "dry run complete. Slot %i opened with master key:\n"
+msgstr ""
+
+#, c-format
+msgid "key slot status:\n"
+msgstr ""
+
+#, c-format
+msgid "Slot %i has been revoked.\n"
+msgstr ""
+
+#, c-format
+msgid "Slot %i occupied with password; identifier: "
+msgstr ""
+
+#, c-format
+msgid "Slot %i is empty.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Device %s will not be accessible, even if holding the master key, unless "
+"backup has created. Continue?"
+msgstr ""
+
+#, c-format
+msgid ""
+"File %s exists. If you want to overwrite the file, you need to delete the "
+"file manually."
+msgstr ""
+
+#, c-format
+msgid "Restoring header to device: %s, All content will be lost. Continue?"
+msgstr ""
+
+#, c-format
+msgid "The device %s is already suspended."
+msgstr ""
+
+#, c-format
+msgid "The device %s is already encrypted."
+msgstr ""
+
+#, c-format
+msgid ""
+"Running inside a container (%s) is discouraged. Windham needs to interact "
+"with the Linux kernel, thus the isolation policy of the container may render "
+"the program malfunction."
+msgstr ""
+
+msgid ""
+"error loading libdevmapper.so, on-the-fly encryption cannot be supported. "
+"Please install 'libdevmapper' (under debian-based distro) or 'device-"
+"mapper' (under fedora/opensuse-based distro)"
+msgstr ""
+
+msgid ""
+"Linux Kernel Keyring subsystem support is missing. Security is deduced, and "
+"some features (\"--timeout\") might not be supported."
+msgstr ""
+
+#, c-format
+msgid ""
+"Cannot store the key into Linux Keyring service, reason: %s is not equal to "
+"the default value. Use command \"windham help\" to see a list of default "
+"values."
+msgstr ""
+
+#, c-format
+msgid "Failed to create FAT32 on %s vfork failed"
+msgstr ""
+
+#, c-format
+msgid "Failed to create FAT32 on %s, Make sure that mkfs has installed"
+msgstr ""
+
+#, c-format
+msgid "can not open device %s"
+msgstr ""
+
+#, c-format
+msgid "Failed to detect partition on %s"
+msgstr ""
+
+#, c-format
+msgid "Cannot detect device %s mount status."
+msgstr ""
+
+#, c-format
+msgid "Device %s is mounted at %s. Unmount to continue."
+msgstr ""
+
+#, c-format
+msgid "can not get size from block device %s, reason: %s"
+msgstr ""
+
+msgid ""
+"Cannot determine available encryption mode on the system. Please ensure that "
+"the kernel encryption subsystem is available."
+msgstr ""
+
+msgid ""
+"The size of the crypt device is not the integer multiple of the sector size. "
+"You may experience degraded performance."
+msgstr ""
+
+#, c-format
+msgid ""
+"Device %s is too small to deploy decoy partition; Windham requires at least "
+"%i MiB."
+msgstr ""
+
+#, c-format
+msgid "Device %s is too small; Windham requires at least %i MiB."
+msgstr ""
+
+#, c-format
+msgid "dm_task_run failed when remove mapping for device %s"
+msgstr ""
+
+#, c-format
+msgid "dm_task_create failed when mapping device %s"
+msgstr ""
+
+#, c-format
+msgid "dm_task_add_target crypt failed when mapping device %s"
+msgstr ""
+
+#, c-format
+msgid ""
+"p_dm_task_run failed when mapping crypt device %s. If this error occurs when "
+"trying to use kernel key for unlocking the crypt device, make sure your "
+"SELinux or AppArmour policiesare properly set. To stop using kernel "
+"keyrings, use \"--nokeyring\""
+msgstr ""
+
+#, c-format
+msgid "Failed to open %s"
+msgstr ""
+
+#, c-format
+msgid "Failed to read %s"
+msgstr ""
+
+#, c-format
+msgid "Failed to write %s"
+msgstr ""
+
+#, c-format
+msgid "Start Argon2B3id benchmark:\n"
+msgstr ""
+
+msgid "'windham Bench' only supports x86-64 (AMD64) architecture."
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Result: %d iterations, Memory cost: %d MiB, %d threads, time cost: %2.4f "
+"seconds, %2.2f Cycles per byte, %2.2f Mcycles. Result: \n"
+msgstr ""
+
+msgid "Failed to initialize random generator."
+msgstr ""
+
+msgid "IO error while reading random generator."
+msgstr ""
+
+msgid ""
+"Time quota could not be meet because of insufficient memory, may make the "
+"password less secure than the specified value."
+msgstr ""
+
+msgid "SUPPRESS_ERROR"
+msgstr ""
+
+msgid "ERROR"
+msgstr ""
+
+msgid "WARNING"
+msgstr ""
+
+#, c-format
+msgid "Unlock Progress for each keyslot:\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"\n"
+"Unlock complete. Slot %i unlocked\n"
+msgstr ""

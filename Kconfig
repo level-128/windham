@@ -1,0 +1,195 @@
+mainmenu "Project Configuration"
+comment "The host's architecture:"
+
+config HOST_ARCHITECTURE
+    string ""
+
+comment "You are not suppose to modify the option above, it's for informative purpose only."
+
+comment "Choose target architecture. native means local target."
+
+choice
+    prompt "Select target architecture."
+
+config TARGET_ARCHITECTURE_NATIVE
+    bool "native"
+
+config TARGET_ARCHITECTURE_AMD64
+    bool "x86_64"
+
+config TARGET_ARCHITECTURE_AARCH64
+    bool "aarch64"
+
+config TARGET_ARCHITECTURE_RISCV64
+    bool "riscv64"
+endchoice
+
+
+config TARGET_COMPILIER
+    depends on !TARGET_ARCHITECTURE_NATIVE
+    string "Target compiler."
+    default ""
+
+config COMPILIER_OPT
+    string "Compiler optimization parameter. Your own CMAKE_C_FLAGS will override this."
+    default "-O3"
+
+config COMPILIER_ENABLE_LTO
+    bool "Enable LTO optimization"
+    default y
+
+comment "Other settings:"
+
+menu "architecture dependent settings"
+
+config TARGET_SUB_ARCHITECTURE
+    string "-march=, leave empty to disable."
+    # default "native" if n
+    # default "rv64gc" if TARGET_ARCHITECTURE_RISCV64
+
+
+config TARGET_MTUNE
+    string "-mtune=, leave empty to disable."
+    # default "native" if n
+    # default "size" if TARGET_ARCHITECTURE_RISCV64
+
+
+config AARCH64_USE_NEON
+    depends on (TARGET_ARCHITECTURE_NATIVE && HOST_ARCHITECTURE = "aarch64") || TARGET_ARCHITECTURE_AARCH64
+    bool "Use aarch64 NEON extension"
+    default y
+
+config NO_SIMD_OPTIMIZE
+    depends on (TARGET_ARCHITECTURE_NATIVE && HOST_ARCHITECTURE = "x86_64") || TARGET_ARCHITECTURE_AMD64
+    bool "Disable x86_64 SIMD optimization, use portable C implementation instead"
+    default n
+
+config SIMD_OPTIMIZE_INTRIN
+    depends on ((TARGET_ARCHITECTURE_NATIVE && HOST_ARCHITECTURE = "x86_64") || TARGET_ARCHITECTURE_AMD64) && !NO_SIMD_OPTIMIZE
+    bool "Use C intrinsics rather than assembly for SIMD implementation."
+    default n
+
+config TARGET_ASM
+    depends on !SIMD_OPTIMIZE_INTRIN
+    string "Target assembler."
+    default ""
+
+config SIMD_DYNAMIC_DISPATCH
+    depends on ((TARGET_ARCHITECTURE_NATIVE && HOST_ARCHITECTURE = "x86_64") || TARGET_ARCHITECTURE_AMD64) && !NO_SIMD_OPTIMIZE
+    bool "Enable SIMD dynamic dispatch."
+    default y
+
+config USE_ALIGN_INT64_SYSCALL
+    depends on TARGET_ARCHITECTURE_NATIVE
+    bool "enable 32-bit syscall align (see help)"
+    default y
+    help
+        64-bit integer value will be aligned to the even register pair when performing syscall. Required for most 32-bit
+        systems. Will be ignored under 64-bit systems and ix86.
+
+
+endmenu
+
+
+menu "Submodule support"
+
+comment "0 = disable; 1 = enable; 2 = try run. \"try run\" means enable only if the current machine supports such feature."
+comment "\"try run\" is unavailable if the target architecture is not native."
+
+config MODULE_DM_MAPPER
+    int "device mapper submodule support."
+    range 0 2
+    default 1
+
+comment "!!! YOU CANNOT OPEN A PARTITION, ONLY PARTITION MANAGEMENT IS POSSIBLE. !!!"
+    depends on MODULE_DM_MAPPER = 0
+
+comment "!!! MAKE SURE THAT YOU KNOW WHAT YOU ARE DOING. !!!"
+    depends on MODULE_DM_MAPPER = 0 
+
+config MODULE_KEYRING
+    int "Kernel key retention service support"
+    range 0 2
+    default 2
+
+config MODULE_KAPRTX
+    int "post-unlock partition table discovery support"
+    range 0 2
+    default 1
+
+comment "Experimental features. "
+
+config MODULE_DYN_ENC
+    bool "dynamic conversion and in place encryption support. (Experimental)"
+    default n
+
+endmenu
+
+
+menu "Security settings"
+
+comment "Do not modify these options. Unless you are sure of what you are doing."
+
+config WIPE_MEMORY
+    bool "Wiping the memory after key operations"
+    default n
+
+config USE_SWAP
+    bool "Allowing utilizing swap space for key deviation."
+    default n
+
+comment "!!! Turning swap space on and wipe memory off will expose your key to the attacker. !!!"
+    depends on !WIPE_MEMORY && USE_SWAP
+comment "!!! Attacker can read your swap space to boost brute-force attack. !!!"
+    depends on !WIPE_MEMORY && USE_SWAP
+
+config WINDHAM_ALLOW_ATTACH
+    bool "Allow ptrace attach when CMAKE_BUILD_TYPE=Release"
+    default n
+
+config NO_ENFORCE_SPEC_MITIGATION
+    bool "Not enforcing speculation mitigation."
+    default n
+
+config NO_SECCOMP
+    bool "Disable seccomp(). (currently no-op)"
+    default n
+
+endmenu
+
+menu "Header format and encryption settings"
+
+comment "Modifying Windham header format and encrypt behavior. Some options are label with 'compatible',"
+comment "which means target build with preset settings is compatible with such format."
+
+config WINDHAM_DEFAULT_DISK_ENC_MODE
+    string "default encryption mode (compatible)."
+    default "aes-xts-plain64"
+
+
+config DEFAULT_BLOCK_SIZE
+    int "Default block size for partition (compatible), must be 2^n."
+    range 512 4096
+    default 4096
+
+config DEFAULT_TARGET_TIME
+    int "The default base time for encryption (compatible)"
+    range 1 10
+    default 2
+
+config DEFAULT_DISK_ENC_MEM_RATIO_CAP
+    int "The max capped memory for key derivation (ratio with system memory, %)"
+    range 1 99
+    default 30
+
+config MAX_UNLOCK_TIME_FACTOR
+    int "multiplier factor of the default base time for unlock (compatible)"
+    range 2 20
+    default 6
+
+config KEY_SLOT_COUNT
+    int "number of key slots in the windham partition. NOT COMPATIBLE"
+    range 1 12
+    default 6
+
+endmenu
