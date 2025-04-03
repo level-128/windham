@@ -1,63 +1,79 @@
 #pragma once
 
-#include <windham_const.h>
 
-#include "../library_intrnlsrc/libexit.c"
-#include "../library_intrnlsrc/libloop.c"
+#include "../libsrc/libexit.c"
+#include "../libsrc/libloop.c"
 #include "bklibact.c"
 #include "bklibcreat.c"
 #include "bklibhelp.c"
 #include "bklibkey.c"
 #include "bklibopen.c"
 
+#include "../include/windham_const.h"
 
-void is_running_as_root() {
+
+bool is_running_as_root() {
    if (getuid() != 0) {
-     if (setuid(0) == 0){
-       return;
-     }
-      print_error(_("The program requires root permission. try adding 'sudo', or using argument '--no-admin' if the target is accessible "
-                    "without root permission"));
+      if (setuid(0) == 0) {
+         return true;
+      }
+      return false;
    }
+   return true;
 }
 
 
 void set_oom_score_adj(int value) {
-    int fd = open("/proc/self/oom_score_adj", O_WRONLY);
-    if (fd == -1) {
-        perror("open");
-        return;
-    }
+   int fd = open("/proc/self/oom_score_adj", O_WRONLY);
+   if (fd == -1) {
+      perror("open");
+      return;
+   }
 
-    char value_str[12];
-    snprintf(value_str, sizeof(value_str), "%d", value);
+   char value_str[12];
+   snprintf(value_str, sizeof(value_str), "%d", value);
 
-    if (write(fd, value_str, strlen(value_str)) == -1) {
-        perror("write");
-        close(fd);
-        return;
-    }
+   if (write(fd, value_str, strlen(value_str)) == -1) {
+      // does nothing.
+      close(fd);
+      return;
+   }
 
-    close(fd);
+   close(fd);
 }
 
-void init() {
+void init(bool is_root) {
+#ifndef WINDHAM_ISOC
 
    const int speculation_stat = prctl(PR_GET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS);
    if (speculation_stat) { // if the CPU is affected by the speculation misfeature.
-      if (!(speculation_stat | PR_SPEC_DISABLE || speculation_stat | PR_SPEC_FORCE_DISABLE)) {
+      if (! (speculation_stat | PR_SPEC_DISABLE || speculation_stat | PR_SPEC_FORCE_DISABLE)) {
          const bool result = prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS, PR_SPEC_FORCE_DISABLE, 0, 0) ||
                              prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_INDIRECT_BRANCH, PR_SPEC_FORCE_DISABLE, 0, 0);
-         if (result) {
-#ifndef WINDHAM_NO_ENFORCE_SPEC_MITIGATION
-            if (errno == ENXIO) { // enforced by the kernel parameter
-               print_error(_("The build configeration requires Windham to enable speculation mitigation. However, the mitigation is "
-                             "disabled and enforced by the kernel parameter. Windham is unable to change this."));
+#if WINDHAM_SPEC_MITIGATION != -1
+         if (result != 0) {
+            if (errno == ENODEV) {
+               if (WINDHAM_SPEC_MITIGATION != 2) {
+                  print_warning(
+                     _("The build configuration requires Windham to enable speculation mitigation, "
+                        "and it detects that the system is affected by speculation thus mitigation is required. However, "
+                        "Windham has been reported that speculation mitigation is not supported under this system or "
+                        "kernel. Did you copied windham to a new system? Windham startup will be delayed for 20 seconds "
+                        "to address this issue. Please recompile Windham."));
+                  sleep(20);
+               }
+            } else {
+               // EPERM
+               if (WINDHAM_SPEC_MITIGATION != 2) {
+                  print_error(
+                     _("Cannot set speculation mitigation, because the build configuration requires Windham "
+                        "to enable speculation mitigation while Windham cannot enable it. Such result might caused by the "
+                        "process, which invokes windham, has chose to force disabling it. This is commonly a malicious "
+                        "behaviour. Windham refuses to run."));
+               }
             }
-            print_error(
-                  _("Can not set speculation mitigation. The build configeration requires Windham to enable speculation mitigation."));
-#endif
          }
+#endif
       }
    }
 
@@ -65,9 +81,9 @@ void init() {
    // Not dumpable and traceable
    prctl(PR_SET_DUMPABLE, 0);
 
-   char  buffer[256];
-   int   tracerPid = 0;
-   FILE *fp        = fopen("/proc/self/status", "r");
+   char   buffer[256];
+   int    tracerPid = 0;
+   FILE * fp        = fopen("/proc/self/status", "r");
 
    while (fgets(buffer, sizeof(buffer), fp)) {
       if (strncmp(buffer, "TracerPid:", 10) == 0) {
@@ -77,14 +93,23 @@ void init() {
    }
    fclose(fp);
    if (tracerPid > 0) {
-      print_error(_("This process have been traced. Other programs are able to gain full access to Windham. This could compromise the key. "
-                    "Windham refuses to run. To debug Windham, rebuild Windham with CMake \"Debug\" profile."));
+      print_error(
+         _("This process have been traced. Other programs are able to gain full access to Windham. This could compromise the key. "
+            "Windham refuses to run. To debug Windham, rebuild Windham with CMake \"Debug\" profile."));
    }
 #endif
    signal(SIGSEGV, segfault_handler);
    signal(SIGINT, sigint_handler);
 
-   set_oom_score_adj(-500);
+   if (is_root) {
+      set_oom_score_adj(-500);
+      mapper_init();
+   } else {
+      set_oom_score_adj(1000); // will definitely be killed in terms of memory scarce
+      is_device_mapper_available = false;
+   }
    get_system_info();
-   mapper_init();
+#else
+   is_device_mapper_available = false;
+#endif
 }

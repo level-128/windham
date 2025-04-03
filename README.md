@@ -5,6 +5,11 @@ Linux dm-crypt module.
 
 &nbsp;
 
+__NOTE: Windham is currently in early beta. Future versions, although unlikely, may introduce an incompatible on-disk 
+format update. It is strongly advised to keep the source after installing the binary.__
+
+&nbsp;
+
 # Supported features:
 
 - Transparent & on-the-fly disk (or partition) encryption.
@@ -138,7 +143,7 @@ Windham is designed to support operation in early user-space, such as decrypting
 Wait! before actually doing this, double check whether you are a Linux wizard. If you are not, which means ... oops, you haven't unlock this part yet. 
 
 ### Using the init daemon:
-This approach aligns with the behavior recommended by most GNU/Linux distributions. When using `windham Open TAB`, Windham will parse `/etc/windhamtab` file for operation. in this case, all operations are handled by Windham itself, making it compatible with multiple init systems. Using `windhamtab` file is recommended, and directly using commandline (e.g. `Windham Open /dev/sda ...`) is not encouraged.
+This approach aligns with the behavior recommended by most GNU/Linux distributions. When using `windham Open TAB`, Windham will parse `/etc/windhamtab` file for operation. in this case, all operations are handled by Windham itself, making it compatible with multiple init systems. Using `windhamtab` file is recommended, and directly using commandline (e.g. `Windham Open /dev/sda ...`) should be avoided.
 
 To proceed with this method, create a target for your init daemon with `exec=windham Open TAB`. This target should execute before the init process mounts the target partition.
 
@@ -194,29 +199,20 @@ preferred installation method with native architecture. If something failed, the
 
 Install required libraries:
 
-| Description                           | Debian-based                | Fedora-based / SUSE                   | Arch-based      |
-|---------------------------------------|-----------------------------|---------------------------------------|-----------------|
-| device mapper                         | `libdevmapper-dev`          | `device-mapper-devel`                 | `device-mapper` |
-| Kernel Header                         | `linux-headers-$(uname -r)` | `kernel-devel`                        | `linux-headers` | 
-| GNU Gettext                           | `libgettextpo-dev`          | `gettext-runtime`                     | `gettext`       |
-| libblkid library                      | `libblkid-dev`              | `libblkid-devel`                      | `util-linux`    |
-| Kernel key retention service [*1]      | `libkeyutils-dev`           | `keyutils-libs-devel`                 | `keyutils`      | 
+| Description                             | Debian-based                | Fedora-based / SUSE                   | Arch-based      |
+|-----------------------------------------|-----------------------------|---------------------------------------|-----------------|
+| device mapper                           | `libdevmapper-dev`          | `device-mapper-devel`                 | `device-mapper` |
+| Kernel Header                           | `linux-headers-$(uname -r)` | `kernel-devel`                        | `linux-headers` | 
+| GNU Gettext                             | `libgettextpo-dev`          | `gettext-runtime`                     | `gettext`       |
+| libblkid library                        | `libblkid-dev`              | `libblkid-devel`                      | `util-linux`    |
+| Kernel key retention service (optional) | `libkeyutils-dev`           | `keyutils-libs-devel`                 | `keyutils`      | 
 
 Additional and optional user-space programs:
 
-- `clevis` [*2]: a pluggable framework for automated decryption / encryption.
-- `partx` [*3]: userspace tool that tells the kernel about the presence and numbering of on-disk partitions.
+- `clevis`: a pluggable framework for automated decryption / encryption.
+- `partx`: userspace tool that tells the kernel about the presence and numbering of on-disk partitions.
 
-&nbsp; 
-
-_footnotes:_
-
-_[*1]: only if `Submodule support -> Kernel key retention service support` enabled and set to 1 or 2, 2 by default._
-
-_[*2]: Windham only exec `clevis` when processing `/etc/windhamtab`, and `CLEVIS=` filed appears in argument `<key>`. However, some command line options are designed to interact with clevis within shell._
-
-_[*3]: Windham never uses it, and Windham contains a built-in subset. However, this is mentioned in the help and error messages. You can use another tool or your GUI disk manager instead._
-
+All optional dependencies are strongly recommended. Windham can work without them, but some options will be unavailable.
 
 &nbsp;
 
@@ -225,13 +221,9 @@ _[*3]: Windham never uses it, and Windham contains a built-in subset. However, t
 ```shell
 cmake CMakeLists.txt -B build
 cd build
-make
-make install # Optional
+make -j
+make install # Optional, use if you want to install windham to /usr/sbin/
 ```
-
-&nbsp;
-
-To configure Windham, use `make menuconfig` before command `make`.
 
 &nbsp;
 
@@ -249,7 +241,7 @@ Oh, make sure that you have acknowledged [the code of conduct](CODE_OF_CONDUCT.m
 
 # License and Legal issues
 
-Copyright (C) 2023, 2024, 2025 W. Wang (level-128)
+Copyright (C) 2023, 2024, 2025 level-128
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

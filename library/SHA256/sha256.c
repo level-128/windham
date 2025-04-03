@@ -51,7 +51,7 @@
 
 #include <string.h>
 
-#include "sha256.h"
+#include "../../include/sha256.h"
 
 #ifndef lint
 __attribute__((unused)) static const char rcsid[] =

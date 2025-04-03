@@ -1,20 +1,22 @@
-#define _(STRING) gettext(STRING)
+
+
 #define IS_FRONTEND_ENTRY
 
+#include "include/windham_const.h"
+#include "library/include_all_libs.c"
 #include "main.c"
-#include <locale.h>
-#include <libintl.h>
-#include <windham_const.h>
 
+// if ISOC, disable gettext and locale, disable parsing init_str when running under PID1.
+#ifndef WINDHAM_ISOC
 #define INIT_STR				\
-  u8"/bin/sh\xffOpen\xffTAB"
+u8"/bin/sh\xffOpen\xffTAB"
 
 volatile const char init_str[256] __attribute__((section(".windhaminit"))) = u8"WINDHAMINIT:\xff" INIT_STR;
 
 void parse_and_call() {
   int argc = 0;
   char **argv = NULL;
-    
+
   size_t len = strlen((const char *)init_str + strlen("WINDHAMINIT:\xff"));
   char *copy = malloc(len + 1);
   memcpy(copy, (const char *)init_str + strlen("WINDHAMINIT:\xff"), len + 1);
@@ -25,10 +27,10 @@ void parse_and_call() {
       copy[i] = '\0';
     }
   }
-  argc++; 
+  argc++;
 
   argv = malloc(argc * sizeof(char *));
-    
+
   char *ptr = copy;
   for (int i = 0; i < argc; i++) {
     argv[i] = ptr;
@@ -42,6 +44,7 @@ void parse_and_call() {
   free(copy);
 }
 
+
 int main(int argc, char * argv[argc]) {
   is_pid1 = getpid() == 1;
 
@@ -54,7 +57,15 @@ int main(int argc, char * argv[argc]) {
   bindtextdomain("windham", "/usr/share/locale");
   textdomain("windham");
   tcgetattr(STDIN_FILENO, &oldt);
-	
+
   main_(argc, argv);
   return 0;
 }
+
+#else
+
+int main(int argc, char * argv[argc]) {
+  main_(argc, argv);
+  return 0;
+}
+#endif

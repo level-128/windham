@@ -1,21 +1,20 @@
-#include "windham_const.h"
-#include <getopt.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdnoreturn.h>
 #include <string.h>
 
+#include "include/windham_const.h"
+#include "include/getopt.h"
+
 // gettext only works when frontend.c as cmake target
-#ifndef _
+#ifndef IS_FRONTEND_ENTRY
 #define _(STRING) STRING
 #endif
 
 #define DEFAULT_EXEC_DIR "/etc/windham"
 
 #include "backend/bklibmain.c"
-#include "library_intrnlsrc/argon_bench.c"
-#include "library_intrnlsrc/libloop.c"
+#include "libsrc/argon_bench.c"
+#include "libsrc/libloop.c"
 
 
 enum {
@@ -33,6 +32,7 @@ enum {
   NMOBJ_encrypt_type,
   NMOBJ_block_size,
   NMOBJ_decoy_size,
+    NMOBJ_disk_file_size,
   NMOBJ_windhamtab_location,
   NMOBJ_windhamtab_pass,
   NMOBJ_key_stdin,
@@ -111,6 +111,7 @@ const struct option long_options[] = {
   {"encrypt-type", required_argument, &options[NMOBJ_encrypt_type], 1},
   {"block-size", required_argument, &options[NMOBJ_block_size], 1},
   {"decoy-size", required_argument, &options[NMOBJ_decoy_size], 1},
+  {"diskfile", required_argument, &options[NMOBJ_disk_file_size], 1},
   {"windhamtab-location", required_argument, &options[NMOBJ_windhamtab_location], 1},
   {"windhamtab-pass", required_argument, &options[NMOBJ_windhamtab_pass], 1},
 
@@ -167,7 +168,6 @@ const struct option long_options[] = {
   break;
 
 
-
 void frontend_check_invalid_param(int action_num) {
   switch (action_num){
   case NMOBJ_action_open:{
@@ -199,6 +199,7 @@ void frontend_check_invalid_param(int action_num) {
 	NMOBJ_block_size,
 	NMOBJ_is_no_detect_entropy,
 	NMOBJ_decoy_size,
+        NMOBJ_disk_file_size,
 	NMOBJ_is_anonymous_key,
 	CHECK_COMMON})
       }
@@ -239,8 +240,9 @@ void frontend_check_invalid_param(int action_num) {
     check_action({NMOBJ_target_decoy, CHECK_COMMON})
       }
   case NMOBJ_action_bench:{
-    check_action({})
+    check_action({CHECK_COMMON})
       }
+  default: ;
   }
 }
 
@@ -273,7 +275,7 @@ noreturn void frontend_no_input() {
 
 	   "This program comes with ABSOLUTELY NO WARRANTY; for details type 'Help --license'.\n"
 	   "This is free software, and you are welcome to redistribute it under certain conditions;\n"),
-	 VERSION);
+	 WINDHAM_VERSION);
   exit(0);
 }
 
@@ -336,11 +338,20 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
   uintmax_t timeout             = 0;
   uintmax_t block_size          = DEFAULT_BLOCK_SIZE;
   uintmax_t decoy_size          = 0;
+    uintmax_t disk_file_size          = 0;
   char *    windhamtab_location = NULL;
   char *    encrypt_type        = DEFAULT_DISK_ENC_MODE;
 
-
   frontend_check_invalid_param(action_num);
+   bool is_root = is_running_as_root();
+
+   if (! options[NMOBJ_is_noadmin]) {
+      if (is_root == false) {
+         print_error(_("The program requires root permission. try adding 'sudo', or using argument '--no-admin' if the target is accessible "
+                "without root permission"));
+      }
+   }
+
   // redirect the stdout to stderr for NMOBJ_gen_randkey
   if (options[NMOBJ_gen_randkey] == 1) {
     fflush(stdout);
@@ -413,9 +424,10 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
     decoy_size = parse_size(params[NMOBJ_decoy_size]);
   }
 
-  if (! options[NMOBJ_is_noadmin]) {
-    is_running_as_root();
-  }
+    if (options[NMOBJ_disk_file_size] == 1) {
+        disk_file_size = parse_size(params[NMOBJ_disk_file_size]);
+    }
+
 
   if (options[NMOBJ_windhamtab_location]) {
     windhamtab_location = params[NMOBJ_windhamtab_location];
@@ -429,20 +441,21 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 
 #ifdef IS_FRONTEND_ENTRY
   is_skip_conformation = options[NMOBJ_yes];
-  init();
+  init(is_root);
 #else
   is_skip_conformation = 1;
 #endif
 
 #ifndef CONFIG_USE_SWAP
   if (options[NMOBJ_is_allow_swap]) {
-    print_error(_("--allow-swap is disabled from the compile option. Recompile Windham to enable this feature."));
+    print_error(_("--allow-swap is disabled from the compile option. Recompile to enable this feature."));
   }
 #endif
 
   // Check invalid arguments
 
-#define $ent(_action_num, _warn_or_err, _msg, _options) if ((action_num == -1 || action_num == (NMOBJ_action_##_action_num)) && !(_options)) { \
+#define $ent(_action_num, _warn_or_err, _msg, _options) \
+   if ((action_num == -1 || action_num == (NMOBJ_action_##_action_num)) && !(_options)) { \
     if (strcmp(#_warn_or_err, "warn") == 0) {				\
       print_warning(_(_msg));						\
     } else if (strcmp(#_warn_or_err, "err") == 0) {			\
@@ -454,7 +467,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 #define $isval(_x, _options) (if ($is(_x) && (params[_x] _options)))
 #define $has(_cnt, ...) (_sum_values(__VA_ARGS__, NMOBJ_target_SIZE) <= _cnt)
 
-#include <valid_args.h>
+#include "include/valid_args.h"
 
 
 #undef $ent
@@ -482,7 +495,6 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		 max_unlock_level,
 		 options[NMOBJ_is_allow_swap],
 		 options[NMOBJ_target_decoy],
-		 BOOL_DEL_START,
 		 options[NMOBJ_target_dry_run],
 		 options[NMOBJ_target_readonly],
 		 options[NMOBJ_target_allow_discards],
@@ -491,8 +503,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		 options[NMOBJ_is_no_map_partition],
 		 options[NMOBJ_is_nokeyring],
 		 options[NMOBJ_is_nofail],
-		 options[NMOBJ_windhamtab_pass],
-		 BOOL_DEL_END);
+		 options[NMOBJ_windhamtab_pass]);
 
     break;
   case NMOBJ_action_close:
@@ -501,7 +512,12 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
     // loop frees inside it
     break;
   case NMOBJ_action_new:
-    init_device(device, false, false, options[NMOBJ_is_nofail], true);
+      if (options[NMOBJ_disk_file_size]) {
+          init_device(device, false, false, options[NMOBJ_is_nofail], true, disk_file_size, block_size);
+      } else {
+          init_device(device, false, false, options[NMOBJ_is_nofail], true, 0, 0);
+      }
+
     action_create(
 		  STR_device->name,
 		  encrypt_type,
@@ -516,7 +532,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		  options[NMOBJ_is_allow_swap]);
     break;
   case NMOBJ_action_addkey:
-    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy]);
+    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
     action_addkey(
 		  STR_device->name,
@@ -536,7 +552,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		  options[NMOBJ_is_anonymous_key]);
     break;
   case NMOBJ_action_delkey:
-    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy]);
+    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
     action_removekey(
 		     STR_device->name,
@@ -552,7 +568,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
     // TODO:
     break;
   case NMOBJ_action_backup:
-    init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy]);
+    init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
     action_backup(
 		  STR_device->name,
@@ -560,12 +576,12 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		  options[NMOBJ_target_decoy]);
     break;
   case NMOBJ_action_restore:
-    init_device(device, false, true, options[NMOBJ_is_nofail], true);
+    init_device(device, false, true, options[NMOBJ_is_nofail], true, 0, 0);
 
     action_restore(STR_device->name, params[NMOBJ_to], options[NMOBJ_target_decoy]);
     break;
   case NMOBJ_action_suspend:
-    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy]);
+    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
     action_suspend(
 		   STR_device->name,
@@ -578,7 +594,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		   options[NMOBJ_target_decoy]);
     break;
   case NMOBJ_action_resume:
-    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy]);
+    init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
     action_resume(
 		  STR_device->name,
 		  key,
@@ -590,7 +606,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		  options[NMOBJ_target_decoy]);
     break;
   case NMOBJ_action_destory:
-    init_device(device, false, false, options[NMOBJ_is_nofail], true);
+    init_device(device, false, false, options[NMOBJ_is_nofail], true, 0, 0);
     action_destory(STR_device->name, options[NMOBJ_target_decoy]);
     break;
   default:
@@ -644,11 +660,15 @@ int main_(int argc, char * argv[argc]) {
     opterr         = 0;
 
     memset(options, 0, sizeof(options)); // under testing, options needs to be cleared.
-    while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
-      if (opt == 0) {
-	params[long_index] = optarg;
+    while ((opt = getopt_long(argc, argv, "", long_options, &long_index)) != -1) {
+      if (opt == '?') {
+         print_error(_("Unknown option for %s"), argv[optind - 1]);
+      }
+	   else if (opt == ':') {
+	      print_error(_("missing parameter for %s"), argv[optind - 1]);
+
       } else {
-	print_error(_("Unknown option or missing parameter for %s"), argv[optind - 1]);
+         params[long_index] = optarg;
       }
     }
     if (options[NMOBJ_help]) {

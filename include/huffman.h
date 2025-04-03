@@ -50,7 +50,7 @@ extern unsigned long huffman_compress(const unsigned char *in,unsigned long inle
 extern unsigned long huffman_decompress(const unsigned char *in,unsigned long inlen,unsigned char *out,unsigned long outlen,void *huffheap);
 
 
-extern bool get_is_high_entropy(size_t size, uint8_t content[size]);
+extern bool get_is_high_entropy(size_t size, uint8_t content[]);
 
 #ifdef __cplusplus
 }

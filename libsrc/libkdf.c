@@ -1,0 +1,152 @@
+#include "../include/argon2.h"
+
+#include <sys/mman.h>
+#include <sys/sysinfo.h>
+
+
+#define MEM_ERR(x) (x == NMOBJ_Enclib_alloc_failed_policy_nolock || x == NMOBJ_Enclib_alloc_failed_no_free_mem)
+
+typedef enum {
+   NMOBJ_Enclib_calc_okay,
+   // okay
+   NMOBJ_Enclib_gen_okay_time_reached,
+   // okay
+   NMOBJ_Enclib_gen_okay_mem_reached,
+   // okay
+   NMOBJ_Enclib_gen_okay_level_reached,
+   // okay
+   NMOBJ_Enclib_calc_done,
+   // complete
+   NMOBJ_Enclib_calc_failed_no_time,
+   // no correct pw, no time
+   NMOBJ_Enclib_calc_failed_level_exceeded,
+   // no correct pw, > max_level
+   NMOBJ_Enclib_calc_failed_reached_max_mem,
+   // no correct pw, max mem reached
+   NMOBJ_Enclib_alloc_failed_policy_nolock,
+   // no correct pw, no mem, cannot use unlocked memory when is_allow_nolock == false
+   NMOBJ_Enclib_alloc_failed_lock_error,
+   // no correct pw, sys error, cannot lock memory
+   NMOBJ_Enclib_alloc_failed_no_free_mem,
+   // no correct pw, sys error, no memory
+} Kdf_step;
+
+#ifndef __STDC_NO_THREADS__
+
+#include <threads.h>
+
+thread_local Kdf_step Kdf_step_result;
+thread_local bool     is_allow_nolock;
+
+#else
+
+Kdf_step Kdf_step_result;
+bool is_allow_nolock;
+
+#endif
+
+int kdf_memalloc(uint8_t ** result, const size_t target_mem) {
+   if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE || is_allow_nolock == true) {
+      *result = malloc(target_mem);
+      if (*result == NULL) {
+         Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
+      }
+      return 1;
+   }
+
+   struct sysinfo info;
+
+   if (sysinfo(&info) != -1) {
+      size_t real_free_mem = info.freeram - info.totalram / 100 + 131072;
+
+      if (real_free_mem < target_mem) {
+         *result = NULL;
+         if (real_free_mem + info.freeswap < target_mem) {
+            Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
+         } else {
+            Kdf_step_result = NMOBJ_Enclib_alloc_failed_policy_nolock;
+         }
+         return 1;
+      }
+   }
+
+   const int prot  = PROT_READ | PROT_WRITE;
+   const int flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE;
+
+   *result = mmap(NULL, target_mem, prot, flags, -1, 0);
+   if (*result == MAP_FAILED) {
+      *result = NULL;
+      if (errno == ENOMEM) {
+         Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
+         return 1;
+      }
+   }
+   if (is_allow_nolock == false) {
+      if (mlock(*result, target_mem) == -1) {
+         if (errno == EAGAIN) { // no mem
+            munmap(*result, target_mem);
+            *result         = NULL;
+            Kdf_step_result = NMOBJ_Enclib_alloc_failed_policy_nolock;
+         } else if (errno == EPERM || errno == ENOMEM) {
+            //   ENOMEM: the caller had a nonzero
+            //   RLIMIT_MEMLOCK soft resource limit, but tried to lock more
+            //   memory than the limit permitted.  This limit is not
+            //   enforced if the process is privileged (CAP_IPC_LOCK).
+            //   EPERM: The caller is not privileged, but needs privilege
+            //   (CAP_IPC_LOCK) to perform the requested operation.
+            munmap(*result, target_mem);
+            *result         = NULL;
+            Kdf_step_result = NMOBJ_Enclib_alloc_failed_lock_error;
+         }
+         return 1;
+      }
+   }
+   return 1;
+}
+
+void kdf_memfree(uint8_t * result, const size_t target_mem) {
+   if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE || is_allow_nolock == true) {
+      free(result);
+   } else {
+      munmap(result, target_mem);
+   }
+}
+
+int kdf_hash(
+   const uint32_t t_cost,
+   const uint32_t m_cost,
+   const uint32_t parallelism,
+   const void *   pwd,
+   const size_t   pwdlen,
+   const void *   salt,
+   const size_t   saltlen,
+   void *         hash,
+   const size_t   hashlen,
+   bool           arg_is_allow_nolock) {
+   Kdf_step_result = NMOBJ_Enclib_calc_okay;
+   is_allow_nolock = arg_is_allow_nolock;
+
+   int result = argon2id_hash_raw(
+      t_cost,
+      m_cost,
+      parallelism,
+      pwd,
+      pwdlen,
+      salt,
+      saltlen,
+      hash,
+      hashlen,
+      kdf_memalloc,
+      kdf_memfree);
+
+   // ARGON2 errors are always negative, while NMOBJ_Enclib_xxxx are positive.
+   if (result == ARGON2_MEMORY_ALLOCATION_ERROR) {
+      result = Kdf_step_result;
+   } else if (result != ARGON2_OK) {
+      perror("Argon2 hash"); // not possible
+   } else {
+      result = NMOBJ_Enclib_calc_okay;
+   }
+
+   return result;
+}

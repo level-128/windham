@@ -1,14 +1,14 @@
 #pragma once
 
 #include <stdint.h>
-#include "../library_intrnlsrc/enclib.c"
-#include "../library_intrnlsrc/kerkey.c"
-#include "../library_intrnlsrc/libloop.c"
-#include "../library_intrnlsrc/mapper.c"
+#include "../libsrc/enclib.c"
+#include "../libsrc/kerkey.c"
+#include "../libsrc/libloop.c"
+#include "../libsrc/mapper.c"
 
 
 #define OPERATION_BACKEND_UNENCRYPT_HEADER                \
-    int ret_key_zone, ret_level; \
+    unsigned ret_key_zone, ret_level; \
     uint16_t ret_key_location;\
          get_master_key(data, master_key, key, device, max_unlock_mem, max_unlock_time, max_unlock_level, is_allow_nolock, \
 &ret_level, &ret_key_zone, &ret_key_location);                               \
@@ -177,7 +177,7 @@ ENUM_MAPPER_DEVSTAT detect_device_status(const char * device, bool is_decoy) {
    if (is_decoy) {
       return NMOBJ_MAPPER_DEVSTAT_DECOY;
    }
-  
+
    uint8_t   content_head[16];
    const int fp = open(device, O_RDONLY);
    if (fp == 0) {
@@ -185,7 +185,7 @@ ENUM_MAPPER_DEVSTAT detect_device_status(const char * device, bool is_decoy) {
    }
 
    if (read(fp, content_head, sizeof(content_head)) != sizeof(content_head)) {
-     perror("read");
+      perror("read");
    }
    close(fp);
 
@@ -239,29 +239,28 @@ int64_t get_new_header_range_and_offset_based_on_size(
    long long safe_node = (1 << 24) / 512; // safe sector
 
    int64_t return_val;
-   
-      if (device_block_count < (8 << 10) / 512) {
-         print_error(_("Device %s is too small; Windham requires at least %i KiB."), device, 8);
-      }
-      if ((int) block_size != STR_device->block_size && STR_device->block_size != 1) {
-         print_warning(
-            _("The device has blocksize of %i bytes, while Windham has been configured to use %zu bytes. This may decrease "
-               "performance. Use \"--block-size=%i\" when create to designate a hardware-matched block size."),
-            STR_device->block_size,
-            block_size,
-            STR_device->block_size);
-      }
+
+   if (device_block_count < (8 << 10) / 512) {
+      print_error(_("Device %s is too small; Windham requires at least %i KiB."), device, 8);
+   }
+   if ((int) block_size != STR_device->block_size && STR_device->block_size != 1) {
+      print_warning(
+         _("The device has blocksize of %i bytes, while Windham has been configured to use %zu bytes. This may decrease "
+            "performance. Use \"--block-size=%i\" when create to designate a hardware-matched block size."),
+         STR_device->block_size,
+         block_size,
+         STR_device->block_size);
+   }
 
 
-   
-      if (decoy_size != 0) {
+   if (decoy_size != 0) {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	print_error(_("decoy partition feature for big endian devices is currently missing."));
 #endif
-	decoy_size /= 512; // decoy size is in bytes;
-	if (decoy_size % (block_size / 512) != 0){
-	  print_warning(_("decoy size does not align with block size, auto shrinking decoy size to match."));
-	  decoy_size = decoy_size / (block_size / 512) * (block_size / 512);
+      decoy_size /= 512; // decoy size is in bytes;
+      if (decoy_size % (block_size / 512) != 0) {
+         print_warning(_("decoy size does not align with block size, auto shrinking decoy size to match."));
+         decoy_size = decoy_size / (block_size / 512) * (block_size / 512);
       }
 
       Read_GPT_header_return gpt_header_ret;
@@ -281,7 +280,7 @@ int64_t get_new_header_range_and_offset_based_on_size(
          }
 
          *end_sector   = (device_block_count - HEADER_AREA_IN_SECTOR) / (block_size / 512) * (block_size / 512) - 1;
-	 *start_sector = *end_sector - decoy_size;
+         *start_sector = *end_sector - decoy_size;
 
          return_val = -HEADER_AREA_IN_SECTOR * 512;
       } else {
@@ -294,9 +293,9 @@ int64_t get_new_header_range_and_offset_based_on_size(
          }
 
          *end_sector = (gpt_header_ret.lba_end + 1) // means device block count
-	   / (block_size / 512) * (block_size / 512) - 1 - HEADER_AREA_IN_SECTOR;
+                       / (block_size / 512) * (block_size / 512) - 1 - HEADER_AREA_IN_SECTOR;
 
-	 *start_sector = *end_sector - decoy_size;
+         *start_sector = *end_sector - decoy_size;
 
          uint8_t * uuid  = gpt_header_ret.uuid;
          uint8_t * uuid1 = gpt_header_ret.last_part.ent_uuid;
@@ -356,7 +355,7 @@ int64_t get_new_header_range_and_offset_based_on_size(
    } else {
       *start_sector = WINDHAM_FIRST_USEABLE_LGA;
       *end_sector   = device_block_count - device_block_count % (block_size / 512);
-      return_val = 0;
+      return_val    = 0;
    }
    return return_val;
 }

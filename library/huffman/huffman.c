@@ -5,7 +5,7 @@
  * This code is in the public domain and is distributed with NO WARRANTY.
  */
 
-#include <huffman.h>
+#include "../../include/huffman.h"
 
 struct _huffman_node
 {
@@ -256,7 +256,7 @@ int main(int argc,char **argv)
 #include <stdbool.h>
 
 
-bool get_is_high_entropy(size_t size, uint8_t content[size]){
+bool get_is_high_entropy(size_t size, uint8_t content[]){
   if (size < 24){
     return false;
   } else if (size > 1024){
