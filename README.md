@@ -40,7 +40,7 @@ The commands below will compile Windham under `./windham/dev`. Git, CMake, and a
 is required. such commands run on most modern shells across different operating systems.
 
 ```shell
-git clone https://level-128-git.com/level-128/windham.git --depth=1
+git clone https://github.com/level-128/windham.git --depth=1
 cd windham
 cmake -B build
 cd build
