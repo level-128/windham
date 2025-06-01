@@ -14,7 +14,7 @@
 
 #include "backend/bklibmain.c"
 #include "libsrc/argon_bench.c"
-#include "libsrc/libloop.c"
+#include "libplat/loopctl.c"
 
 
 enum {
@@ -32,7 +32,7 @@ enum {
   NMOBJ_encrypt_type,
   NMOBJ_block_size,
   NMOBJ_decoy_size,
-    NMOBJ_disk_file_size,
+   NMOBJ_disk_file_size,
   NMOBJ_windhamtab_location,
   NMOBJ_windhamtab_pass,
   NMOBJ_key_stdin,
@@ -261,6 +261,7 @@ int frontend_check_actions(const char * input) {
     print_error(_("Arguments should locate after <action> and <target>."));
   }
   print_error(_("<action> %s not recognized. type 'windham Help' to view help"), input);
+   exit(2);
 }
 
 
@@ -328,36 +329,40 @@ void init_key_obj_and_master_key(Key * key, uint8_t master_key[HASHLEN], char * 
 
 void frontend_check_validity_and_execute(int action_num, const char * device, char * params[]) {
   uint8_t   master_key[HASHLEN];
-  uintmax_t windhamtab_pass     = 0;
+  int       windhamtab_pass     = 0;
   uintmax_t target_mem          = SIZE_MAX;
   uintmax_t max_unlock_mem      = SIZE_MAX;
   double    target_time         = DEFAULT_TARGET_TIME;
   double    max_unlock_time     = DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR;
   uintmax_t target_level        = KEY_SLOT_EXP_MAX;
-  uintmax_t max_unlock_level    = KEY_SLOT_EXP_MAX;
+  int max_unlock_level    = KEY_SLOT_EXP_MAX;
   uintmax_t timeout             = 0;
   uintmax_t block_size          = DEFAULT_BLOCK_SIZE;
   uintmax_t decoy_size          = 0;
-    uintmax_t disk_file_size          = 0;
+  uintmax_t disk_file_size          = 0;
   char *    windhamtab_location = NULL;
   char *    encrypt_type        = DEFAULT_DISK_ENC_MODE;
 
   frontend_check_invalid_param(action_num);
    bool is_root = is_running_as_root();
 
+#ifdef IS_FRONTEND_ENTRY
    if (! options[NMOBJ_is_noadmin]) {
       if (is_root == false) {
          print_error(_("The program requires root permission. try adding 'sudo', or using argument '--no-admin' if the target is accessible "
                 "without root permission"));
       }
    }
+#endif
 
-  // redirect the stdout to stderr for NMOBJ_gen_randkey
+  // redirect the stdout to stderr for NMOBJ_gen_randkey. ISO C mode print to stdout withoud redirect.
+#ifndef WINDHAM_ISOC
   if (options[NMOBJ_gen_randkey] == 1) {
     fflush(stdout);
     stdout_fd = dup(STDOUT_FILENO);
     dup2(STDERR_FILENO, STDOUT_FILENO);
   }
+#endif
 
   char * end;
 
@@ -396,11 +401,16 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
     }
   }
   if (options[NMOBJ_max_unlock_level] == 1) {
-    max_unlock_level = strtoumax(params[NMOBJ_max_unlock_level], &end, 10);
-    if (*end != '\0' || max_unlock_level == 0) {
+     const long res = strtol(params[NMOBJ_max_unlock_level], &end, 10);
+
+    if (*end != '\0' || res < 0) {
       print_error(_("bad input for argument %s: not an positive non-zero integer"), "--max-unlock-level");
+    } else if (res > KEY_SLOT_EXP_MAX) {
+       print_error(_("Max unlock level exceeded possible value determined by format."));
     }
+     max_unlock_level = (int)res;
   }
+
   if (options[NMOBJ_unlock_timeout] == 1) {
     timeout = strtoumax(params[NMOBJ_unlock_timeout], &end, 10);
     if (*end != '\0') {
@@ -408,10 +418,13 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
     }
   }
   if (options[NMOBJ_windhamtab_pass] == 1) {
-    windhamtab_pass = strtoumax(params[NMOBJ_windhamtab_pass], &end, 10);
+    const long res = strtol(params[NMOBJ_windhamtab_pass], &end, 10);
     if (*end != '\0') {
       print_error(_("bad input for argument %s: not an positive integer"), "--windhamtab-pass");
+    } else if (res > INT_MAX || res < INT_MIN) {
+       print_error(_("bad input for argument %s: value out of range"), "--windhamtab-pass");
     }
+     windhamtab_pass = (int)res;
   }
   if (options[NMOBJ_block_size] == 1) {
     block_size = strtoull(params[NMOBJ_block_size], &end, 10);
@@ -615,13 +628,14 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
   windham_exit(0);
 }
 
-int main_(int argc, char * argv[argc]) {
-  STR_device = alloca(sizeof(Device));
-  environ    = alloca(sizeof(char *));
+int main_(int argc, char * argv[]) {
+  STR_device = malloc(sizeof(Device));
+  environ    = malloc(sizeof(char *));
   *environ   = NULL;
 
-  STR_device->block_count = 0;
-  STR_device->block_size  = 0;
+   // initialize STR_device
+  STR_device->block_count = -1;
+  STR_device->block_size  = -1;
   STR_device->is_loop     = false;
 
 
@@ -676,5 +690,7 @@ int main_(int argc, char * argv[argc]) {
     }
     frontend_check_validity_and_execute(action_num, argv[2], params);
   }
+   free(STR_device);
+   free(environ);
   return 0;
 }

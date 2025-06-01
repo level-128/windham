@@ -1,14 +1,31 @@
-#include <limits.h>
-#include <math.h>
-#include "../include/windham_const.h"
-
 #ifndef INCL_CHKHEAD
 #define INCL_CHKHEAD
 
-size_t count_ones(const unsigned char *data, size_t length) {
+#include <limits.h>
+#include <math.h>
+#include <assert.h>
+#include "../include/windham_const.h"
+
+
+int popcount64(uint64_t x) {
+#if (__STDC_VERSION__ >= 202311L)
+#include <stdbit.h>
+    return stdc_count_ones(x);
+#elif defined(__GNUC__)
+    return __builtin_popcountll(x);
+#else
+    x = x - ((x >> 1) & 0x5555555555555555ULL);
+    x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
+    x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
+    return (x * 0x0101010101010101ULL) >> 56;
+#endif
+}
+
+size_t count_ones(const uint8_t *data, size_t length) {
+    assert(length % sizeof(uint64_t) == 0); // should always true
     size_t total = 0;
     for (size_t i = 0; i < length; ++i) {
-        total += __builtin_popcount(data[i]);
+        total += popcount64(data[i]);
     }
     return total;
 }
@@ -64,7 +81,7 @@ static double inverse_normal_cdf(double p) {
     }
 }
 
-bool check_head(Data data) {
+bool check_head(Data * data) {
     double p = 1e-8;
     size_t N = (sizeof(Data) - offsetof(Data, master_key_mask)) * CHAR_BIT;
 
@@ -73,7 +90,8 @@ bool check_head(Data data) {
     double ratio_diff = z / (2 * sqrt(N));
 
     uint32_t count_of_1 = (N - ratio_diff * N) / 2;
-    return count_ones((unsigned char *)&data, N / CHAR_BIT) >= count_of_1;
+    size_t ones = count_ones((unsigned char *)data + offsetof(Data, master_key_mask), N / CHAR_BIT);
+    return ones >= count_of_1;
 }
 
 

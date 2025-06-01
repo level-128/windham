@@ -1,8 +1,8 @@
 #include <assert.h>
-#include <fcntl.h>
-#include <linux/fs.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <linux/fs.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -15,8 +15,8 @@
 #include "../include/windham_const.h"
 #include "../include/cJSON.h"
 
-#include "chkhead.c"
-#include "srclib.c"
+#include "../../libsrc/chkhead.c"
+#include "../../libsrc/srclib.c"
 
 #define CHECK_DEVICE_TOPOLOGY(device, device_path, node, CODE_EXEC_IF_RET) \
   char *device_loc;							\
@@ -59,9 +59,6 @@
   if (retval == 0) {							\
     check_device_topology_free(res, mount_points, res##_ret_len, mount_points_len); \
   }
-
-#ifndef INCL_LIBLOOP
-#define INCL_LIBLOOP
 
 
 char * get_mount_point(const char * path) {
@@ -199,9 +196,12 @@ void create_sparse_file(const char * path, size_t size) {
 }
 
 
+
+
 struct stat open_and_check_file(const char * filename, bool is_readonly, bool is_nofail, bool is_bypass_fs_check) {
    // STR_device.block_count and STR_device.block_size will be modified within this function
-   // unless filename is not block device, which block_count and block_size remain uninit. Under this
+   // unless filename is not block device, which block_count and block_size remain uninit (this is because
+   // under ISO C mode, it is impossible to detect block). Under this
    // case, the block_count and block_size will be set in function init_file_device, since right now
    // we donno whether the file will be mapped to loop.
 
@@ -226,7 +226,7 @@ struct stat open_and_check_file(const char * filename, bool is_readonly, bool is
          print_error(_("The target is on a read-only filesystem while Windham requires to modify it under this action."));
 
       case EACCES:
-         print_error(_("Permission denied. Are you root?"));
+         print_error(_("Permission denied for file %s. Are you root?"), filename);
 
       default:
          print_error(_("Cannot open target %s: %s"), filename, strerror(errno));
@@ -302,7 +302,7 @@ struct stat open_and_check_file(const char * filename, bool is_readonly, bool is
    }
 
 
-   if (check_head(*(Data *) data) == false) {
+   if (check_head((Data *) data) == false) {
       // probe filesystem when entropy not pass
       blkid_probe probe = blkid_new_probe();
       if (probe == NULL) {
@@ -328,8 +328,8 @@ struct stat open_and_check_file(const char * filename, bool is_readonly, bool is
             fstype);
       }
    END_PROBE:;
-      print_error(
-         _("Invalid target; expected Windham target. target %s does not pass entropy check. "
+      print_warning(
+         _("possibly invalid target; expected Windham target. target %s does not pass entropy check. "
             "Windham device has a random header and contains no pattern."),
          filename);
    }
@@ -385,7 +385,7 @@ bool init_file_device(const char * filename, bool is_map_block, bool is_readonly
       dup_stdout[dup_stdout_len - 1] = 0; // returns with /n
 
       STR_device->is_loop = true;
-      memcpy(STR_device->name, dup_stdout, dup_stdout_len);
+      strcpy(STR_device->name, dup_stdout);
 
       int fd = open(STR_device->name, O_RDONLY);
 
@@ -412,7 +412,6 @@ bool init_file_device(const char * filename, bool is_map_block, bool is_readonly
       // capped to DEFAULT_BLOCK_SIZE, since losetup will discard unfilled block.
       STR_device->block_count = st.st_size / DEFAULT_BLOCK_SIZE * (DEFAULT_BLOCK_SIZE / 512);
    }
-
    return (bool) S_ISBLK(st.st_mode);
 }
 
@@ -432,7 +431,7 @@ void init_device(
    STR_device->is_loop = false; // print_error will release loop before create
 
 
-   size_t max_filename_len = PATH_MAX + strlen("UUID=") - strlen("/dev/disk/by-partuuid/") - 1; // longest
+   size_t max_filename_len = FILENAME_MAX + strlen("UUID=") - strlen("/dev/disk/by-partuuid/"); // longest
    if (strlen(filename) > max_filename_len) {
       print_error(_("the <device> is too long. max length is %lu bytes"), max_filename_len);
    }
@@ -501,10 +500,8 @@ int check_device_topology(
    size_t * parent_ret_len,
    size_t * child_ret_len,
    size_t * mount_points_len) {
-#ifdef WINDHAM_USE_NULL_MALLOC
-  *parent_ret_len = *child_ret_len = *mount_points_len = 0;
-  return 1;
-#else
+
+
    assert(!(*parent && *child));
    assert(!*mount_points);
    char * exec_dir[]     = {"/bin", "/usr/bin", "/sbin", "/usr/sbin", NULL};
@@ -595,7 +592,6 @@ int check_device_topology(
    }
    cJSON_free(json);
    return 0;
-#endif
 }
 
 
@@ -609,5 +605,3 @@ void check_device_topology_free(char ** arr1, char ** arr2, size_t len_arr1, siz
    }
    free(arr2);
 }
-
-#endif

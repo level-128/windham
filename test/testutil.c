@@ -2,6 +2,8 @@
 // Created by level-128 on 5/11/24.
 //
 
+#pragma once
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -28,7 +30,11 @@ void execute_command_line(const char * command_line, const char * replace, int i
 	} else {
 		processed_input = strdup(temp_input);
 	}
-	printf("TEST: %s\n", processed_input);
+	if (is_error) {
+		printf("TESTERR: %s\n", processed_input);
+	} else {
+		printf("TEST: %s\n", processed_input);
+	}
 
 	argv[argc++] = strdup("windham");
 
@@ -44,14 +50,14 @@ void execute_command_line(const char * command_line, const char * replace, int i
 		if (is_error == 0) {
 			printf("DONE: %s\n", processed_input);
 		} else {
-			printf("TEST NPASS, no error for: %s\n", processed_input);
+			printf("!!! TEST NPASS, no error for: %s\n", processed_input);
 			exit(1);
 		}
 	} else {
 		if (is_error == 1) {
 			printf("DONE: %s\n", processed_input);
 		} else {
-			printf("TEST NPASS, error for: %s\n", processed_input);
+			printf("!!! TEST NPASS, error for: %s\n", processed_input);
 			exit(1);
 		}
 	}
@@ -61,4 +67,45 @@ void execute_command_line(const char * command_line, const char * replace, int i
 	}
 	free(temp_input);
 	free(processed_input);
+}
+
+void create_new_device(char * device) {
+	int my_device = open(device, O_RDWR | O_CREAT, 0777);
+	if (my_device < 0) {
+		perror(device);
+		__builtin_trap();
+	}
+	for (int i = 0; i < sizeof(Data); i+=8) {
+		size_t ibts = write(my_device, (unsigned char [8] ){170, 170, 170, 170, 170, 170, 170, 170},
+			8);
+		if (ibts != 8) {
+			__builtin_trap();
+		}
+	}
+	ftruncate(my_device, 8*1024*1024);
+	close(my_device);
+}
+
+void find_four_target(char * device) {
+	bool has_4_fe = false;
+	int fd = open(device, O_RDONLY);
+
+	unsigned char memory[sizeof(Data)];
+	read(fd, &memory, sizeof(Data));
+	close(fd);
+
+	for (size_t i = 0; i < sizeof(Data) - 3; ++i) {
+		if (memory[i]     == 170 &&
+			 memory[i + 1] == 170 &&
+			 memory[i + 2] == 170 &&
+			 memory[i + 3] == 170) {
+			const void *address = &memory[i];
+			printf("located 4 0xFEs at %p\n", address);
+			i += 4;
+			has_4_fe = true;
+			 }
+	}
+	if (has_4_fe) {
+		print_error("header has uninited region.");
+	}
 }

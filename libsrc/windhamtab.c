@@ -1,3 +1,10 @@
+#ifndef INCL_WINDHAMTAB
+#define INCL_WINDHAMTAB
+
+
+// not avaliable under ISO C
+#ifndef WINDHAM_ISOC
+
 #include "srclib.c"
 
 #include <ctype.h>
@@ -380,3 +387,6 @@ void append_entity(const char *windhamtab_location, const char *device, const ch
 /*   free_entities(entities, entity_count); */
 /*   return EXIT_SUCCESS; */
 /* } */
+#endif
+
+#endif

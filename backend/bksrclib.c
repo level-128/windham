@@ -1,10 +1,12 @@
 #pragma once
 
 #include <stdint.h>
+
 #include "../libsrc/enclib.c"
-#include "../libsrc/kerkey.c"
-#include "../libsrc/libloop.c"
 #include "../libsrc/mapper.c"
+
+#include "../libplat/headerio.c"
+#include "../libplat/keyctl.c"
 
 
 #define OPERATION_BACKEND_UNENCRYPT_HEADER                \
@@ -33,39 +35,6 @@ char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
 char * iv_list[]        = {"plain64", "plain64be", "essiv", "eboiv", NULL};
 
 
-void operate_header_on_device(Data * data, const char * device, int64_t offset, bool is_read) {
-   ssize_t result;
-   assert(offset % 4 == 0);
-   const int fp = open(
-      device,
-      O_DSYNC | (is_read
-                    ? O_RDONLY
-                    : O_WRONLY));
-   if (fp == 0) {
-      print_error(_("Failed to open %s: %s"), device, strerror(errno));
-   }
-
-   if (offset < 0) {
-      lseek(fp, offset, SEEK_END);
-   } else {
-      lseek(fp, offset, SEEK_SET);
-   }
-
-   if (is_read) {
-      result = read(fp, data, sizeof(Data));
-      if (result != sizeof(Data)) {
-         print_error(_("Failed to read %s: %s\""), device, strerror(errno));
-      }
-   } else {
-      result = write(fp, data, sizeof(Data));
-      if (result != sizeof(Data)) {
-         print_error(_("Failed to write %s: %s\""), device, strerror(errno));
-      }
-   }
-   close(fp);
-}
-
-
 void write_header_to_device(const Data * data, const char * device, const int64_t offset) {
    operate_header_on_device((Data *) data, device, offset, false);
 }
@@ -85,10 +54,6 @@ struct SystemInfo sys_info;
 
 
 void get_system_info() {
-#ifdef WINDHAM_USE_NULL_MALLOC
-   sys_info.free_ram  = ULONG_MAX;
-   sys_info.free_swap = ULONG_MAX;
-#else
    FILE * meminfo = fopen("/proc/meminfo", "r");
    if (meminfo == NULL) {
       print_warning(
@@ -121,7 +86,6 @@ void get_system_info() {
    sys_info.total_ram = memTotal;
 
    fclose(meminfo);
-#endif
 }
 
 
@@ -152,7 +116,7 @@ size_t check_target_mem(size_t target_mem, bool is_encrypt, bool is_allow_swap) 
                new_target_mem);
          } else {
             print_warning(
-               _("Adjusted the requested max RAM consumption from %lu (KiB) to %lu (KiB) because of insufficient memory. "
+               _("Adjusted the requested max RAM consumption from %zu (KiB) to %zu (KiB) because of insufficient memory. "
                   "If your computer has less available memory than the computer that creates the encryption target, you may not "
                   "successfully decrypt this target. Consider adding more "
                   "swap spaces as a workaround."),
@@ -173,56 +137,43 @@ typedef enum {
 } ENUM_MAPPER_DEVSTAT;
 
 
-ENUM_MAPPER_DEVSTAT detect_device_status(const char * device, bool is_decoy) {
-   if (is_decoy) {
-      return NMOBJ_MAPPER_DEVSTAT_DECOY;
-   }
-
-   uint8_t   content_head[16];
-   const int fp = open(device, O_RDONLY);
-   if (fp == 0) {
-      print_error(_("can not open device %s"), device);
-   }
-
-   if (read(fp, content_head, sizeof(content_head)) != sizeof(content_head)) {
-      perror("read");
-   }
-   close(fp);
-
-   if (memcmp(content_head, head, sizeof(head)) == 0) {
-      return NMOBJ_MAPPER_DEVSTAT_SUSP;
-   }
-
-   return NMOBJ_MAPPER_DEVSTAT_NORM;
-}
-
-
 ENUM_MAPPER_DEVSTAT locate_possible_header_location_and_type(
    const char * device,
    Data *       return_data,
    int64_t *    return_offset,
    const bool   is_decoy) {
-   const ENUM_MAPPER_DEVSTAT ret = detect_device_status(device, is_decoy);
-   switch (ret) {
-   case NMOBJ_MAPPER_DEVSTAT_SUSP:
 
-   /* fall through */
-   case NMOBJ_MAPPER_DEVSTAT_NORM:
-      *return_offset = 0;
-      break;
-   case NMOBJ_MAPPER_DEVSTAT_DECOY:
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-         print_error(_("decoy partition feature for big endian devices is currently missing."));
-#endif
-      print_warning(_("Unlocking %s assuming decoy partition exits"), device);
+   ENUM_MAPPER_DEVSTAT ret;
+
+   if (is_decoy) {
+      printf(_("Unlocking %s as decoy partition\n"), device);
+
       Read_GPT_header_return gpt_header_ret;
       if (read_GPT_header(device, &gpt_header_ret) == false) {
-         *return_offset = -HEADER_AREA_IN_SECTOR;
+         *return_offset = -(int64_t)HEADER_AREA_IN_SECTOR;
       } else {
          *return_offset = (gpt_header_ret.lba_end + 1 - HEADER_AREA_IN_SECTOR) * 512;
          printf(_("GPT partition table detected, locating metadata by GPT genometry.\n"));
       }
-      break;
+    ret = NMOBJ_MAPPER_DEVSTAT_DECOY;
+   } else {
+      uint8_t   content_head[16] = {0};
+     FILE * fp = fopen(device, "rb");
+      if (fp == 0) {
+         print_error(_("can not open device %s"), device);
+      }
+
+      if (fread(content_head, sizeof(content_head), 1, fp) != 1) {
+         perror("read");
+      }
+      fclose(fp);
+
+      if (memcmp(content_head, head, sizeof(head)) == 0) {
+         ret = NMOBJ_MAPPER_DEVSTAT_SUSP;
+      } else {
+         ret = NMOBJ_MAPPER_DEVSTAT_NORM;
+      }
+      *return_offset = 0;
    }
    get_header_from_device(return_data, device, *return_offset);
    return ret;
@@ -240,10 +191,10 @@ int64_t get_new_header_range_and_offset_based_on_size(
 
    int64_t return_val;
 
-   if (device_block_count < (8 << 10) / 512) {
+   if (device_block_count < (8 << 10) / 512 && device_block_count != -1) {
       print_error(_("Device %s is too small; Windham requires at least %i KiB."), device, 8);
    }
-   if ((int) block_size != STR_device->block_size && STR_device->block_size != 1) {
+   if ((int) block_size != STR_device->block_size && STR_device->block_size != -1) {
       print_warning(
          _("The device has blocksize of %i bytes, while Windham has been configured to use %zu bytes. This may decrease "
             "performance. Use \"--block-size=%i\" when create to designate a hardware-matched block size."),
@@ -254,9 +205,6 @@ int64_t get_new_header_range_and_offset_based_on_size(
 
 
    if (decoy_size != 0) {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	print_error(_("decoy partition feature for big endian devices is currently missing."));
-#endif
       decoy_size /= 512; // decoy size is in bytes;
       if (decoy_size % (block_size / 512) != 0) {
          print_warning(_("decoy size does not align with block size, auto shrinking decoy size to match."));
@@ -267,9 +215,9 @@ int64_t get_new_header_range_and_offset_based_on_size(
       if (read_GPT_header(device, &gpt_header_ret) == false) {
          printf(
             _(
-               "Decoy device does not contain GPT header. Solver has nothing to do. Placing the header at the last %ld logical "
+               "Decoy device does not contain GPT header. Solver has nothing to do. Placing the header at the last %"PRIu64" logical "
                "sectores.\n"),
-            HEADER_AREA_IN_SECTOR);
+            (uint64_t)HEADER_AREA_IN_SECTOR);
          long long lendiff = device_block_count
                              /* lba_end is the last useable block, not the border, so + 1. */
                              - (decoy_size + HEADER_AREA_IN_SECTOR);
@@ -282,7 +230,7 @@ int64_t get_new_header_range_and_offset_based_on_size(
          *end_sector   = (device_block_count - HEADER_AREA_IN_SECTOR) / (block_size / 512) * (block_size / 512) - 1;
          *start_sector = *end_sector - decoy_size;
 
-         return_val = -HEADER_AREA_IN_SECTOR * 512;
+         return_val = -(int64_t)(HEADER_AREA_IN_SECTOR * 512);
       } else {
          device_block_count = (gpt_header_ret.lba_end + 1) - gpt_header_ret.last_part.ent_lba_start;
          long long lendiff  = device_block_count - (decoy_size + HEADER_AREA_IN_SECTOR);
@@ -305,12 +253,12 @@ int64_t get_new_header_range_and_offset_based_on_size(
                "decoy partition Layout Format:\n"
                "\tUUID of the GPT device: %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n"
                "\tUUID of the last available GPT partition: %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n"
-               "\tlogical block range of the last GPT partition: %lu - %lu (inclusive)\n"
-               "\tLast available GPT sector (LBA end, inclusive): %lu\n"
-               "\twindham partition start sector: %lu\n"
-               "\twindham partition end sector: %lu\n"
-               "\tTotal usable size: %lu\n"
-               "\tMetadata block storage sector location: %lu\n\n"),
+               "\tlogical block range of the last GPT partition: %"PRIu64" - %"PRIu64" (inclusive)\n"
+               "\tLast available GPT sector (LBA end, inclusive): %"PRIu64"\n"
+               "\twindham partition start sector: %"PRIu64"\n"
+               "\twindham partition end sector: %"PRIu64"\n"
+               "\tTotal usable size: %"PRIu64"\n"
+               "\tMetadata block storage sector location: %"PRIu64"\n\n"),
             uuid[0],
             uuid[1],
             uuid[2],

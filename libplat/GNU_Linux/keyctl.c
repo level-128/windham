@@ -1,17 +1,10 @@
 #include <stdint.h>
-
-
 #include <dlfcn.h>
 #include <keyutils.h>
 
-#include "srclib.c"
-#include "../include/windham_const.h"
+#include "../../libsrc/srclib.c"
+#include "../../include/windham_const.h"
 
-bool is_kernel_keyring_exist;
-
-// data
-#ifndef INCL_KERKEY
-#define INCL_KERKEY
 
 key_serial_t (*p_add_key)(
    const char * type,
@@ -38,9 +31,6 @@ long (*p_keyctl_unlink)(key_serial_t id, key_serial_t ringid);
 
 
 void kernel_keyring_init() {
-#if defined(NO_KEYCTL) || defined(WINDHAM_ISOC)
-	is_kernel_keyring_exist = false;
-#else
    void * handle = dlopen("libkeyutils.so", RTLD_LAZY);
    if (handle == NULL) {
       is_kernel_keyring_exist = false;
@@ -57,9 +47,7 @@ void kernel_keyring_init() {
       p_keyctl                = dlsym(handle, "keyctl");
       p_keyctl_unlink         = dlsym(handle, "keyctl_unlink");
    }
-#endif
 }
-
 
 /**
  * @brief Adds a key to the Linux Keyring service.
@@ -226,5 +214,3 @@ bool mapper_keyring_get_disk_serial(const uint8_t uuid[16], uint8_t key[HASHLEN]
    }
    return true;
 }
-
-#endif

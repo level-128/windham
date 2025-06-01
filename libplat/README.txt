@@ -1,0 +1,1 @@
+platform dependent code should be placed under this folder

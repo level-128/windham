@@ -1,9 +1,5 @@
 #include "../include/argon2.h"
 
-#include <sys/mman.h>
-#include <sys/sysinfo.h>
-
-
 #define MEM_ERR(x) (x == NMOBJ_Enclib_alloc_failed_policy_nolock || x == NMOBJ_Enclib_alloc_failed_no_free_mem)
 
 typedef enum {
@@ -44,6 +40,11 @@ Kdf_step Kdf_step_result;
 bool is_allow_nolock;
 
 #endif
+
+#ifndef WINDHAM_ISOC
+
+#include <sys/mman.h>
+#include <sys/sysinfo.h>
 
 int kdf_memalloc(uint8_t ** result, const size_t target_mem) {
    if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE || is_allow_nolock == true) {
@@ -111,6 +112,20 @@ void kdf_memfree(uint8_t * result, const size_t target_mem) {
       munmap(result, target_mem);
    }
 }
+#else
+int kdf_memalloc(uint8_t ** result, const size_t target_mem) {
+   *result = malloc(target_mem);
+   if (*result == NULL) {
+      Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
+   }
+   return 1;
+}
+
+void kdf_memfree(uint8_t * result, const size_t target_mem) {
+   free(result);
+}
+
+#endif
 
 int kdf_hash(
    const uint32_t t_cost,

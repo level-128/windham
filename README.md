@@ -1,33 +1,56 @@
 # Windham
 
-Windham is free and open-source software for disk encryption, an implementation of its own specification, based on the
-Linux dm-crypt module.
+Windham is a libre software for disk encryption, an implementation of its own specification, based on the
+Linux kernel's dm-crypt module.
 
 &nbsp;
 
-__NOTE: Windham is currently in early beta. Future versions, although unlikely, may introduce an incompatible on-disk 
-format update. It is strongly advised to keep the source after installing the binary.__
+__NOTE: Windham is currently under active development. Future versions, although unlikely, may introduce an incompatible on-disk 
+format; use at your on risk!!!!.__
 
 &nbsp;
 
 # Supported features:
 
-- Transparent & on-the-fly disk (or partition) encryption.
-- Optional Plausible deniability: through Decoy Partition (stenography) and completely signature-less & mathematically random
-  header.
-- Tamper resistance: header scheme is designed to prevent malicious tampering.
-- Passphrases management: supports registering multiple passphrases (Up to 16); the unlock time is kept constant and does not depend on the number of passphrase registered.
-- Self-correlated metadata: Windham will entangle each change to multiple indirect regions to vastly reduce the usefulness of extracting information by comparing the partition header before and after each modification.
+- Transparent and on-the-fly disk (or partition) encryption.
+- Optional Plausible deniability: through Decoy Partition (stenography) and completely signature-less & cryptographically
+  random on-disk format. In another word, no one can 100% prove that a partition is encrypted using windham instead of garbage
+  random data.
+- Passphrases management: supports registering multiple passphrases, passfile and/or key (up to 16 in total)
+- Fast: thanks to its cryptographically random on-disk format, the unlock time does not depend on the number 
+  of passphrase registered; it is always as fast as only if one passphrase has been registered.
+- Tamper resistance: on-disk format is designed to prevent malicious tampering.
+- Self-correlated metadata: Windham will entangle each change to multiple indirect regions to vastly reduce the 
+  usefulness of extracting information by comparing the on-disk format before and after each modification.
+
+Windham combines the flexibility, functionality and security of cryptsetup plus LUKS/LUKS2; it also
+provides plausible deniability and hidden volume (under VeraCrypt's term) feature similar with VeraCrypt.
+it's ability to unlock using constant time when arbitrary number of passphrases has been registered surpasses all
+current storage encryption schemes.
 
 &nbsp;
 
+
 # How To install?
 
-You can Choose to:
+Windham requires an operating system that uses the Linux kernel.
+For these operating systems, such [Dependencies](#Dependencies-for-full-support) are required.
 
-- Download the repository and use the `auto-install.sh` script: `sudo sh auto-install.sh`, which will install all dependencies automatically then
-  build & install Windham. Most distros are supported.
-- Compile by your own. Refer [Compile Instructions](#Install-instructions) below.
+The commands below will compile Windham under `./windham/dev`. Git, CMake, and a ISO C11 compiler
+is required. such commands run on most modern shells across different operating systems.
+
+```shell
+git clone https://level-128-git.com/level-128/windham.git --depth=1
+cd windham
+cmake -B build
+cd build
+cmake --build .
+```
+
+Under operating systems that use Linux as kernel, the command above will default to `Release` build type, which builds
+a complete functional Windham under such platforms. **You need to install dependencies before building `Release` .** 
+For other platforms, only ISO C build type, which provides basic on-disk format management, is 
+available: [Supported platforms](#Supported-platforms). 
 
 &nbsp;
 
@@ -52,15 +75,66 @@ You can Choose to:
 
 &nbsp;
 
-- Action `Suspend` can suspend encryption -- recording the intermediate key to the header in plain text, granting everyone to access the encrypted partition. However, it is temper resistant as well. Passphrase and master key cannot be derive from it. Use `Resume` to undo suspend. **NOTE:** Action `Suspend` for cryptsetup and windham has different meaning: in cryptsetup, it means to hang all IOs to and from the block device.
-- Use `AddKey` and `DelKey` to add or remove key. Depending on your threat model, you might want to use `--rapid-add` if you don't think your adversary could access the device both before and after `--rapid-add`. If the adversary could, they will gain formidable advantage if they decide to brute-force the passphrase.
-Usually a encryption solution for cold storage does not need to defend for such adversary model. AddKey without `--rapid-add` does not have this venerability, but it is very slow when you already have multiple passphrases registered. 
+- Action `Suspend` can suspend encryption -- recording the intermediate key to the header in plain text, granting 
+  everyone to access the encrypted partition. It is temper resistant as well. Passphrase and master key cannot be 
+  derived from it. Use `Resume` to undo suspend. **NOTE:** Action `Suspend` for cryptsetup and windham has different 
+  meaning: in cryptsetup, it means to hang all IOs to and from the block device.
+- Use `AddKey` and `DelKey` to add or remove key. Depending on your threat model, you might want to use `--rapid-add` 
+  if you don't think your adversary could access the device both before and after `--rapid-add`. If the adversary could,
+  they will gain formidable advantage if they decide to brute-force the passphrase.
+  Usually an encryption solution for cold storage does not need to defend for such adversary model. AddKey without 
+  `--rapid-add` option (which is also the default) does not have this venerability, but it is very slow when you
+  already have multiple passphrases registered. 
+
+
 &nbsp;
----
+
+
+# Supported platforms:
+
+Windham has 2 feature support levels:
+
+1. Full support with Linux kernel 2.6+ (5.14+ kernel with kernel key retention service enabled
+   is recommended). No additional libc requirements.
+2. Basic mode with strict ISO C11 support. The following requirements must be satisfied for the target system:
+
+- 8-bit byte with 2's complement to encode signed integers; a byte order that is either Big or Little-endian.
+- The basic character set (defined as the representable characters in a single 8-bit byte) of the system must meet
+  the following requirements: it must include all the characters in the "C" locale of ISO C; a-z, A-Z, and 0-9 should
+  be encoded consecutively in the character set. (ASCII falls into this category)
+- The system must contain a hosted environment, or freestanding environment with `stdlib.h` `string.h` and
+  `stdio.h` implemented in the C library.
+- The system must have at least 492,000 bytes of free memory in heap (or could be dynamic allocated). 
+  464,000 bytes of 492,000 bytes must be continuous in the address space where Windham executes. Execution 
+  environment must provide at least `25,968 + sizeof(FILENAME_MAX) * 2` bytes of stack size when the control flow reaches
+  the `main` function for 64-bit platform. 32/16-bit platform has slightly lower stack size requirements.
+- __(Optional):__ ISO C threads implementation.
+
+Windham in ISO C mode cannot mount a partition, cannot correctly handle when running under pid1, cannot parse
+`/etc/windhamtab`, cannot search disks/devices uses UUID or device path. reading partition/disks directly solely 
+depends on the platform's libc implementation: If your platform requires platform-dependent interface to read 
+partition/disks instead of general file I/O, you are out of luck. Some minor features might also be missing.
+However, unlock and extracting master key, managing passphrases, suspending support are all present in basic mode.
+
+Nearly all modern consumer devices satisfy requirements for basic mode. Most 32-bit MCU or SoC with decent development 
+framework or community support also works. Virtual environments (e.g. WebAssembly) with compatible libc might work
+out-of-box (or with minor modifications to overcome file permissions). However, without an operating system or a 
+standardized baremetal framework (e.g. UEFI, FreeRTOS + FAT) that could handle file IO or providing an unlock backend 
+(TCG Opal, passing the key through kernel commandline...), running windham is technically possible but basically useless.
+
+For instructions about how to embed unlock backend for ISO C mode, see source file `libplat/ISOC/mapper.c`.
+
+&nbsp;
+
+# Additional guides:
+
+These guides are meant for Windham with full support.
 
 ## `/etc/windhamtab` support and cryptography module integration
 
-Windham supports `/etc/windhamtab` file which describes encrypted windham devices. This file is similar with systemd's `/etc/crypttab`, and Windham will read `/etc/windhamtab` when using `windham Open TAB`. Refer to the commit under `/etc/windhamtab` for details. To create and configure `windhamtab` file, following these steps:
+Windham supports `/etc/windhamtab` file which describes encrypted windham devices. This file is similar with systemd's 
+`/etc/crypttab`, and Windham will read `/etc/windhamtab` when using `windham Open TAB`. Refer to the commit under 
+`/etc/windhamtab` for details. To create and configure `windhamtab` file, following these steps:
 
 
 - First, run `windham Open TAB` to create a template windhamtab file (if it does not exist).
@@ -109,8 +183,9 @@ Use `windham New *your device* --decoy` to create a decoy partition along with t
 calculate whether the given size is feasible (e.g. the decoy partition cannot spawn across partition boundary defined by the partition table).
 
 It is strongly recommend to overwrite your device with random data before deploying decoy partition and identifiable partitions: `sudo dd if=/dev/urandom of=/dev/<your device>, bs=16M`.
-The confidentially of the decoy partition is build upon security through obscurity, skipping the random overwrite degrades a decoy partition, in terms of plausible deniability when facing an experienced attacker, to a normal windham partition. Well, this may be okay if you just want to hide your files from somebody else (like your family members... , which you
-shouldn't do this in a moral perspective, but I'm not gonna blame you for this).
+The confidentially of the decoy partition is build upon security through obscurity, skipping the random overwrite degrades a decoy partition, 
+in terms of plausible deniability when facing an experienced attacker, to a normal windham partition. Well, this may be okay if you just want
+to hide your files from somebody else (like your family members who regularly using your PC...).
 
 ### Note for using Decoy Partition
 
@@ -121,6 +196,10 @@ If your device contains a GPT partition table (normally it does), things becomes
 them by locating header for the decoy partition just before the backup. Windham will actively probe for the GPT layout and decide the location for decoy partition header, 
 thus ensure that the GPT structure will never get corrupted. Location of the decoy partition header, thanks to the reason above, depends on the specific GPT structure created by
 your partition software.
+
+Most partition software will align your partition to 1MiB boundary, while Windham header is significantly smaller than 1MiB. Which means
+it is very likely any modification or creation made to GPT partition will not overwrite the header. But please don't take
+this as guarantee.
 
 **If you remove or create the GPT partition after the creation of the decoy partition, windham may not locate the original decoy partition header, or, more likely, the
 modification caused by removing or creating the GPT partition overwrites it.** well, the only thing you can do, then, is to gracefully say goodbye to your data.
@@ -140,7 +219,7 @@ return its data as it is when reading a discarded sector, and swapping occurs ve
 
 Windham is designed to support operation in early user-space, such as decrypting your partitions (e.g., an encrypted root directory). There are two recommended methods to achieve this:
 
-Wait! before actually doing this, double check whether you are a Linux wizard. If you are not, which means ... oops, you haven't unlock this part yet. 
+Wait! before actually doing this, double check whether you are a GNU/Linux wizard. If you are not, which means ... oops, you haven't unlock this part yet. 
 
 ### Using the init daemon:
 This approach aligns with the behavior recommended by most GNU/Linux distributions. When using `windham Open TAB`, Windham will parse `/etc/windhamtab` file for operation. in this case, all operations are handled by Windham itself, making it compatible with multiple init systems. Using `windhamtab` file is recommended, and directly using commandline (e.g. `Windham Open /dev/sda ...`) should be avoided.
@@ -171,33 +250,18 @@ hexedit /windham/bin/location
 
 each element must be separated by `0xff`, string must end with `0x00` and it should be no longer than 255 chars. all messages will be printed to kernel `dmesg`. To run `windham` as pid1, use `init=` kernel parameter when boot. instead of reading `/etc/windhamtab`, performing a single Open action might be preferable for embedded systems.
 
-If the command fails when windham is running as pid1, the program will exit, which will panic the kernel since the init has died: `Kernel panic - not syncing - Attempted to kill init!`. This behavior is expected; if not, use option `--nofail`, which does nothing when fail.
+If the command fails when windham is running as pid1, the program will exit, which will panic the kernel since the init 
+has died: `Kernel panic - not syncing - Attempted to kill init!`. This behavior is expected; if not, 
+use option `--nofail`, which does nothing when fail and start `exec` to the given executable.
 
 &nbsp;
 
-# Install instructions:
 
 
-## Auto-compile using `auto-install.sh`
+# Dependencies for full support:
 
-Run `auto-install.sh` at the root directory of the source code:
-
-```shell
-git clone https://level-128-git.com/level-128/windham.git --depth=1
-cd windham
-sudo sh auto-install.sh
-```
-
-`auto-install.sh` will install all dependencies automatically and build Windham using CMake. Most distros are supported. This is the  
-preferred installation method with native architecture. If something failed, then:
-
-## Install dependencies
-
-`cmake` `make` and `gcc` (with `gas`, usually bundled with GCC) are required to build Windham (windham uses `kconfig` so you can't use ninja). 
-
-**All tests are performed using glibc + GCC only.**
-
-Install required libraries:
+Windham with full support requires a GCC-like compilers that is compatible with GNU style `__attribute__` and 
+language extensions. It works under Clang, should work under Zig CC (untested).
 
 | Description                             | Debian-based                | Fedora-based / SUSE                   | Arch-based      |
 |-----------------------------------------|-----------------------------|---------------------------------------|-----------------|
@@ -207,23 +271,10 @@ Install required libraries:
 | libblkid library                        | `libblkid-dev`              | `libblkid-devel`                      | `util-linux`    |
 | Kernel key retention service (optional) | `libkeyutils-dev`           | `keyutils-libs-devel`                 | `keyutils`      | 
 
-Additional and optional user-space programs:
+Additional and optional user-space programs; Windham can work without them, but some options will be unavailable:
 
 - `clevis`: a pluggable framework for automated decryption / encryption.
 - `partx`: userspace tool that tells the kernel about the presence and numbering of on-disk partitions.
-
-All optional dependencies are strongly recommended. Windham can work without them, but some options will be unavailable.
-
-&nbsp;
-
-## Build:
-
-```shell
-cmake CMakeLists.txt -B build
-cd build
-make -j
-make install # Optional, use if you want to install windham to /usr/sbin/
-```
 
 &nbsp;
 
@@ -232,10 +283,11 @@ make install # Optional, use if you want to install windham to /usr/sbin/
 
 :) Contributions are highly welcome :)
 
-
+Windham is not attachable by debugger under cmake `Release` build type. you should use `Debug` build type. GNU operating
+system is the primary development platform, and it is also recommended because Windham uses glibc extensions to print 
+stack traces under crash.
 
 Oh, make sure that you have acknowledged [the code of conduct](CODE_OF_CONDUCT.md).
-
 
 &nbsp;
 
@@ -252,7 +304,7 @@ The early version of this program has granted "Additional permissions" applied f
 and conveying the
 unmodified covered work. The "Additional permissions" have been removed from version 0.231128 (released at Nov 28, 2023).
 
-Since version 1.241231, License has been changed from GPLv3 only to GPLv3 or later.
+Since version 1.241231 (released at Dev 31, 2024), License has been changed from GPLv3 only to GPLv3 or later.
 
 This software contains 3rd party free software. See [licensing information](library/license.md).
 

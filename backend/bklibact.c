@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <threads.h>
 
 #include "../libsrc/mapper.c"
 #include "../libsrc/srclib.c"
@@ -133,6 +134,7 @@ int action_addkey(
          is_allow_nolock,
          &ret_target_level);
       // print the new_key_uint8 to the real stdout
+#ifndef WINDHAM_ISOC
       for (size_t i = 0; i < HASHLEN; ++i) {
          char print_buf[4];
          sprintf(print_buf, "%02x ", new_key_uint8[i]);
@@ -142,6 +144,11 @@ int action_addkey(
             windham_exit(1);
          };
       }
+#else // Under ISO C, output is not redirect to stderr. print the key to the terminal.
+   printf(_("Random generated Key: "));
+      print_hex_array(HASHLEN, new_key_uint8);
+      printf(_("Copy the key to somewhere else and clear this terminal."));
+#endif
    }
 
    OPERATION_LOCK_AND_WRITE
@@ -211,7 +218,7 @@ void action_removekey(
       printf(_("The provided key is already stored anonymously. Nothing to do.\n"));
       windham_exit(0);
    } else {
-      __builtin_trap();
+      exit(2);
    }
 LOCK_AND_WRITE:;
    OPERATION_LOCK_AND_WRITE
@@ -219,10 +226,11 @@ LOCK_AND_WRITE:;
 
 
 void action_backup(const char * device, const char * filename, const bool is_decoy) {
+#ifndef WINDHAM_ISOC // access not avaliable
    if (access(filename, F_OK) != -1) {
       print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
    }
-
+#endif
    Data                data;
    int64_t             offset;
    ENUM_MAPPER_DEVSTAT device_stat = locate_possible_header_location_and_type(device, &data, &offset, is_decoy);
@@ -350,21 +358,63 @@ void action_destory(const char * device, bool is_decoy) {
    }
    ask_for_conformation("");
 
-   int fd = open(device, O_RDWR);
-   for (int i = 0; i < 3; i ++) {
-      fill_secure_random_bits((uint8_t *) &data, sizeof(Data));
-      lseek(fd, SEEK_SET, 0);
-      if (write(fd, &data, sizeof(Data)) != sizeof(Data)) {
-         if (errno == ENOSPC) {
-            print_error(_("No free space. Copy on Write or de-dup filesystem?"));
-         } else if (errno == EIO) {
-            print_warning(_("IO error while wiping the header during attempt %i, bad physical device?"), i);
-         } else if (errno == EINTR) {
-            i --;
+   // wipe the disk
+   FILE* fp = fopen(device, "r+b");
+   if (!fp) {
+      print_error(_("Failed to wipe device: %s"), strerror(errno));
+   }
+   setvbuf(fp, NULL, _IONBF, 0);
+
+
+   for (int i = 0; i < 3; i++) {
+      fill_secure_random_bits((uint8_t*)&data, sizeof(Data));
+
+      if (fseek(fp, 0, SEEK_SET) != 0) {
+         perror("fseek failed");
+         exit(2);
+      }
+
+      size_t written = fwrite(&data, sizeof(Data), 1, fp);
+      if (written != 1) {
+         if (ferror(fp)) {
+            print_error(_("Failed to write device during wipe: %s"), strerror(errno));
          }
       }
-      fsync(fd);
+
+      if (fflush(fp) != 0) {
+         perror("fflush failed");
+         exit(2);
+      }
+
+      // sync the disk.
+#ifndef WINDHAM_ISOC
+      sync();
+#endif
+
+      // depends on target.
+#ifndef WINDHAM_ISOC
       sleep(1);
+#elifdef __STDC_NO_THREADS__
+      struct timespec start, current;
+
+      if (timespec_get(&start, TIME_UTC) != TIME_UTC) {
+         perror("Failed to get start time");
+         return;
+      }
+
+      do {
+         if (timespec_get(&current, TIME_UTC) != TIME_UTC) {
+            perror("Failed to get current time");
+            return;
+         }
+         int64_t elapsed_ns = (current.tv_sec - start.tv_sec) * 1000000000LL;
+         elapsed_ns += (current.tv_nsec - start.tv_nsec);
+
+      } while (elapsed_ns < 1000000000LL);
+#else
+      thrd_sleep(&(struct timespec){.tv_sec=1}, NULL);
+#endif
    }
-   close(fd);
+
+   fclose(fp);
 }

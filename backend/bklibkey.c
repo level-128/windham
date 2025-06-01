@@ -89,6 +89,8 @@ bool master_key_to_byte_array(const char * hex_string, uint8_t byte_array[HASHLE
 int wcwidth(wchar_t c);
 
 int get_char_display_width(const char * mbchar) {
+   // This function is possible only under POSIX context.
+#ifndef WINDHAM_ISOC
    wchar_t wch;
 
    int len = mbtowc(&wch, mbchar, MB_CUR_MAX);
@@ -103,6 +105,9 @@ int get_char_display_width(const char * mbchar) {
    }
 
    return width;
+#else
+   return 1;
+#endif
 }
 
 int bklibkey_check_hex(int ch) {
@@ -288,6 +293,7 @@ void get_key_input_from_the_console(const char * device, char password[MAX_PASSW
 
 
 void get_key_input_from_the_console_systemd(const char * device, char password[MAX_PASSWORD_INPUT_LEN]) {
+#ifndef WINDHAM_ISOC
    int    exec_ret_val;
    char * dup_stdout = NULL;
    char * exec_dir[] = {"/bin", "/usr/bin", "/sbin", "/usr/sbin", NULL};
@@ -319,31 +325,43 @@ void get_key_input_from_the_console_systemd(const char * device, char password[M
    dup_stdout[dup_stdout_len - 1] = '\x00';
    strncpy(password, dup_stdout, MAX_PASSWORD_INPUT_LEN);
    free(dup_stdout);
+#else
+   exit(2);
+#endif
 }
 
 
 void read_key_file(const Key key, uint8_t inited_key[HASHLEN]) {
-   char *     filename = key.key_or_keyfile_location;
-   uint8_t *  buffer[1024];
+   const char *filename = key.key_or_keyfile_location;
+   uint8_t buffer[1024];
    SHA256_CTX sha_256_ctx;
-   size_t     bytes_read;
+   size_t bytes_read;
 
-   int file = open(filename, O_RDONLY);
-   if (file < 0) {
+   FILE *fp = fopen(filename, "rb");
+   if (fp == NULL) {
       print_error(_("Cannot open keyfile %s. Reason: %s"), filename, strerror(errno));
    }
 
    sha256_init(&sha_256_ctx);
 
-   while ((bytes_read = read(file, buffer, 1024)) > 0) {
-      sha256_update(&sha_256_ctx, buffer, bytes_read);
+   while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp))) {
+       sha256_update(&sha_256_ctx, buffer, bytes_read);
    }
+
+   // exit due to error
+   if (ferror(fp)) {
+       print_error(_("Error reading keyfile %s: %s"), filename, strerror(errno));
+       fclose(fp);
+       return;
+   }
+
    sha256_final(&sha_256_ctx, inited_key);
-   close(file);
+   fclose(fp);
 }
 
 
 void read_key_stdin(uint8_t inited_key[HASHLEN]) {
+#ifndef WINDHAM_ISOC
    char buffer[1024];
 
    int fd = open("/dev/stdin", O_RDONLY);
@@ -364,7 +382,10 @@ void read_key_stdin(uint8_t inited_key[HASHLEN]) {
    close(fd);
    if (master_key_to_byte_array(buffer, inited_key) == false) {
       print_error(_("error when parsing key: invalid length"));
-   };
+   }
+#else
+print_error(_("--keystdin is not available under ISO C."))
+#endif
 }
 
 
@@ -399,7 +420,7 @@ bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device
       memcpy(inited_key, key.key_or_keyfile_location, HASHLEN);
       return true;
    default:
-      __builtin_trap();
+      exit(2);
    }
    const bool result = get_is_high_entropy(key_size, (uint8_t *) password);
    return result;
@@ -424,19 +445,26 @@ void action_addkey_interactive_prepare_key(Key * new_key) {
          interactive_ask_new_key_test_key = NULL;
       }
    } else if (option == 2) {
-      char * file_location = NULL;
-      size_t n             = 0;
+      char file_location[FILENAME_MAX + 1];
+      size_t len             = 0;
       printf("Key file location:");
-      ssize_t len = getline(&file_location, &n, stdin);
-      if (len == -1) {
-         print_error(_("input error; %s"), strerror(errno));
-      } else if (len < 2) {
-         print_error(_("empty keyfile input."));
+      if (fgets(file_location, sizeof(file_location), stdin) != NULL) {
+         len = strlen(file_location);
+         if (len == FILENAME_MAX && file_location[FILENAME_MAX - 1] != '\n') {
+            print_error(_("Input file location too long."));
+         }
+         if (len == 1) {
+            print_error(_("input file location is empty."));
+         }
+         file_location[len - 1] = '\0';
+
+      } else {
+         print_error(_("Error file name input."));
       }
-      if (file_location[len - 1] == '\n') {
-         file_location[len - 1] = '\x00';
-      }
-      new_key->key_or_keyfile_location = file_location;
+      // we know len, use memcpy which is faster than strdup, plus strdup is optional.
+      char * file_location_str = malloc(len);
+      memcpy(file_location_str, file_location, len);
+      new_key->key_or_keyfile_location = file_location_str;
       new_key->key_type                = NMOBJ_key_file_type_file;
    }
 }

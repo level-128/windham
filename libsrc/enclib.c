@@ -2,19 +2,18 @@
 #define INCL_ENCLIB
 
 
-#include <endian.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
-#include <sys/random.h>
+#include <threads.h>
 
+#include "endian.c"
 #include "../include/windham_const.h"
 #include "../include/aes.h"
 #include "../include/sha256.h"
 #include "libkdf.c"
 #include "srclib.c"
-#include <threads.h>
+
 
 
 uint64_t bounds[][2] = {
@@ -48,11 +47,12 @@ uint64_t bounds[][2] = {
 
 const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
 
-void fill_secure_random_bits(uint8_t * address, size_t size) {
-   ssize_t size_filled;
 
+#ifndef WINDHAM_ISOC
+#include <sys/random.h>
+void fill_secure_random_bits(uint8_t * address, const size_t size) {
 FILL_BY_GETRANDOM:
-   size_filled = getrandom(address, size, 0);
+   ssize_t size_filled = getrandom(address, size, 0);
    if (size_filled != (long) size) {
       if (errno == EINTR) { // interrupted by signal
          goto FILL_BY_GETRANDOM;
@@ -61,7 +61,23 @@ FILL_BY_GETRANDOM:
       windham_exit(1);
    }
 }
-
+#else
+void fill_secure_random_bits(uint8_t * address, size_t size) {
+   unsigned bits = 0;
+   if (RAND_MAX > 0xffff) {
+      bits = 2;
+   } else {
+      bits = 1;
+   }
+   for (size_t i = 0; i < size; i+=bits) {
+      unsigned randnum = (unsigned) rand();
+      address[i] = randnum & 0xff;
+      if (bits == 2) {
+         address[i+1] = (randnum >> 8) & 0xff;
+      }
+   }
+}
+#endif
 
 extern inline bool is_header_suspended(const Data encrypted_header) {
    return memcmp(encrypted_header.head, head, 16) == 0;
@@ -318,7 +334,7 @@ int read_key_from_data(
 
    struct timespec start, current;
    double          elapsed_time = 0.0;
-   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+   timespec_get(&start, TIME_UTC);
 
    for (int i = 0; i < KEY_SLOT_EXP_MAX; i ++) {
       if (i == max_level) {
@@ -330,7 +346,7 @@ int read_key_from_data(
          return NMOBJ_Enclib_calc_failed_reached_max_mem;
       }
 
-      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &current);
+      timespec_get(&current, TIME_UTC);
       elapsed_time = (current.tv_sec - start.tv_sec) +
                      (current.tv_nsec - start.tv_nsec) / 1e9;
       if (elapsed_time > target_time * 2) {
@@ -357,7 +373,8 @@ int read_key_from_data(
          return result;
       }
    }
-   __builtin_unreachable();
+   // Unreachable
+   WINDHAM_UNREACHABLE
 }
 
 int generate_key_slot_key_mask(
@@ -650,7 +667,7 @@ void suspend_encryption(Data * encrypted_header, const uint8_t master_key[HASHLE
    AES_CBC_decrypt_buffer(
       &ctx,
       (uint8_t *) &encrypted_header->metadata,
-      (intptr_t) encrypted_header->metadata.WINDHAM_METADATA_ENC_BORDER - (intptr_t) &encrypted_header->metadata);
+      offsetof(EncMetadata, WINDHAM_METADATA_ENC_BORDER));
 
    xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
    convert_metadata_endianness_to_h(&encrypted_header->metadata);
@@ -661,12 +678,12 @@ bool resume_encryption(
    Data *  encrypted_header,
    uint8_t master_key[HASHLEN]) {
    uint8_t        key[HASHLEN];
-   struct AES_ctx ctx;
 
    // untag header as suspended.
    fill_secure_random_bits(encrypted_header->head, sizeof(encrypted_header->head));
 
    xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
+
    convert_metadata_endianness_to_le(&encrypted_header->metadata);
 
    get_metadata_key_or_disk_key_from_master_key(
@@ -675,27 +692,26 @@ bool resume_encryption(
       encrypted_header->uuid_and_salt,
       key);
 
+   struct AES_ctx ctx;
    AES_init_ctx_iv(&ctx, key, encrypted_header->master_key_mask);
    AES_CBC_encrypt_buffer(
       &ctx,
       (uint8_t *) &encrypted_header->metadata,
-      // first element
-      (intptr_t) encrypted_header->metadata.keyslot_key - (intptr_t) encrypted_header->metadata.disk_key_mask);
+      offsetof(EncMetadata, WINDHAM_METADATA_ENC_BORDER));
 
-#define ENCRYPTED_HEADER_METADATA_SIZE \
-		(sizeof(encrypted_header->metadata) + alignof(encrypted_header->keypool) - 1) / \
-	alignof(encrypted_header->keypool) * alignof(encrypted_header->keypool)
+   static_assert(offsetof(EncMetadata, WINDHAM_METADATA_ENC_BORDER) % AES_BLOCKLEN == 0, "");
 
-   uint8_t metadata_cpy_decrypted[ENCRYPTED_HEADER_METADATA_SIZE];
+   uint8_t * metadata_cpy_encrypted = malloc(sizeof(EncMetadata));
 
-   memcpy(&metadata_cpy_decrypted, &encrypted_header->metadata, ENCRYPTED_HEADER_METADATA_SIZE);
+   memcpy(metadata_cpy_encrypted, &encrypted_header->metadata, sizeof(EncMetadata));
 
    if (unlock_metadata_using_master_key(encrypted_header, master_key) == false) {
+      free(metadata_cpy_encrypted);
       return false;
    }
-   memcpy(&encrypted_header->metadata, &metadata_cpy_decrypted, ENCRYPTED_HEADER_METADATA_SIZE);
+   memcpy(&encrypted_header->metadata, metadata_cpy_encrypted, sizeof(EncMetadata));
+   free(metadata_cpy_encrypted);
    return true;
-#undef ENCRYPTED_HEADER_METADATA_SIZE
 }
 
 #endif // #ifndef INCL_ENCLIB

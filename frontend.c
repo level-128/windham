@@ -1,6 +1,6 @@
-
-
 #define IS_FRONTEND_ENTRY
+
+#include <locale.h>
 
 #include "include/windham_const.h"
 #include "library/include_all_libs.c"
@@ -64,7 +64,16 @@ int main(int argc, char * argv[argc]) {
 
 #else
 
-int main(int argc, char * argv[argc]) {
+int main(int argc, char * argv[]) {
+  // detect shell
+  // if it is available, we can infer that the terminal should be able to handle color output.
+  // this is not good, I know, but we are on ISO C.
+  is_has_system_env = system(NULL) != 0;
+
+  // disable inout buffer.
+  // will not work on most systems, but we have nothing to do under ISO C
+  setvbuf(stdin, NULL, _IONBF, 0);
+
   main_(argc, argv);
   return 0;
 }

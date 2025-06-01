@@ -1,18 +1,22 @@
-#pragma once
+#ifndef INCL_LIBEXIT
+#define INCL_LIBEXIT
 
 #include <stdlib.h>
+
+#ifndef WINDHAM_ISOC
 #include <execinfo.h>
 #include <sys/prctl.h>
 #include <sys/ptrace.h>
+#endif
 
 #include "../include/windham_const.h"
-#include "libloop.c"
+#include "../libplat/loopctl.c"
 #include "srclib.c"
 
 
 void windham_exit(int exitno) {
-   fin_device();
 #if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
+   fin_device();
    if (is_pid1) {
       if (exitno == EXIT_SUCCESS) {
          printk("Exiting windham, exec %s", init_process);
@@ -26,10 +30,13 @@ void windham_exit(int exitno) {
       exit(exitno);
    }
 
-#elif !defined(IS_FRONTEND_ENTRY)
+#elif !defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
+   fin_device();
   if (exitno != EXIT_SUCCESS) {
     longjmp(exit_jmp, 1);
   }
+#elif defined(WINDHAM_ISOC)
+   exit(exitno);
 #endif
 }
 
@@ -86,5 +93,7 @@ void sigint_handler(__attribute__((unused)) int signum) {
    print_error(_("Interrupt signal captured, exiting..."));
    windham_exit(1);
 }
+
+#endif
 
 #endif

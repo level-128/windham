@@ -3,8 +3,8 @@
 #include <limits.h>
 #include "../libsrc/srclib.c"
 
-
 void frontend_print_unlock_args() {
+
    printf(
       _("\nUnlock options:\n"
       "\t--key <characters>: password input as argument instead of asking in the terminal interactively.\n"
@@ -13,22 +13,16 @@ void frontend_print_unlock_args() {
       "\t--keystdin: read key from standard input. the key format must be 32-byte bit stream encoded using hexadecimal format. "
       "spaces are ignored. Useful when intergrating with Clevis\n"
       "\t--master-key <characters>: use master key to unlock.\n"
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	   "\t--decoy: OPTION UNAVAILABLE, big endian devices currently does not support decoy partition."
-#else
       "\t--decoy: Open a decoy device.\n"
-#endif
       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock, \"-\" for unlimited.\n"
       "\t--max-unlock-level <int>: the target derivation level for decryption.\n"
-#ifdef CONFIG_USE_SWAP
 	   "\t--allow-swap: Use swap space to derivate if needed. However swap deduces security.\n"
-#else
-      "\t--allow-swap: OPTION UNAVAILABLE, not enabled during build.\n"
-#endif
       "\t--systemd-dialog: use systemd password dialog.\n")
-   )
-   ;
+      );
+#ifndef CONFIG_USE_SWAP
+   print_warning(_("--allow-swap disabled by compile configuration."));
+#endif
 }
 
 
@@ -110,8 +104,8 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\tnumber of keyslots: %i\n"), KEY_SLOT_COUNT);
       printf(_("\tLength of the final encryption key (bits): %i\n"), HASHLEN * CHAR_BIT);
       printf(_("\tDefault block size: %d\n"), DEFAULT_BLOCK_SIZE);
-      printf(_("\tFinal Header logical sector (header size / 512b): %lu\n"), RAW_HEADER_AREA_IN_SECTOR);
-      printf(_("\tPreset data start logical sector: %lu\n"), WINDHAM_FIRST_USEABLE_LGA);
+      printf(_("\tFinal Header logical sector (header size / 512b): %"PRIu64"\n"), (uint64_t)RAW_HEADER_AREA_IN_SECTOR);
+      printf(_("\tPreset data start logical sector: %"PRIu64"\n"), (uint64_t)WINDHAM_FIRST_USEABLE_LGA);
       printf(_("\tArgon2B3 memory size exponential count: %i\n"), KEY_SLOT_EXP_MAX);
       printf(_("\tArgon2B3 base memory size (KiB): %i\n"), BASE_MEM_COST);
       printf(_("\tArgon2B3 parallelism: %i\n"), PARALLELISM);

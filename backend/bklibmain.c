@@ -2,7 +2,7 @@
 
 
 #include "../libsrc/libexit.c"
-#include "../libsrc/libloop.c"
+#include "../libplat/loopctl.c"
 #include "bklibact.c"
 #include "bklibcreat.c"
 #include "bklibhelp.c"
@@ -13,6 +13,7 @@
 
 
 bool is_running_as_root() {
+#ifndef WINDHAM_ISOC
    if (getuid() != 0) {
       if (setuid(0) == 0) {
          return true;
@@ -20,9 +21,13 @@ bool is_running_as_root() {
       return false;
    }
    return true;
+#else
+   return true;
+#endif
 }
 
 
+#ifndef WINDHAM_ISOC
 void set_oom_score_adj(int value) {
    int fd = open("/proc/self/oom_score_adj", O_WRONLY);
    if (fd == -1) {
@@ -43,8 +48,6 @@ void set_oom_score_adj(int value) {
 }
 
 void init(bool is_root) {
-#ifndef WINDHAM_ISOC
-
    const int speculation_stat = prctl(PR_GET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS);
    if (speculation_stat) { // if the CPU is affected by the speculation misfeature.
       if (! (speculation_stat | PR_SPEC_DISABLE || speculation_stat | PR_SPEC_FORCE_DISABLE)) {
@@ -109,7 +112,13 @@ void init(bool is_root) {
       is_device_mapper_available = false;
    }
    get_system_info();
-#else
-   is_device_mapper_available = false;
-#endif
 }
+
+#else
+
+void init(bool is_root) {
+   is_device_mapper_available = false;
+}
+#endif
+
+

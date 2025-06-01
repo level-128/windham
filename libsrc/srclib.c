@@ -2,18 +2,19 @@
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
-
-#include <spawn.h>
 #include <stdarg.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
 #include <time.h>
-#include <unistd.h>
 
 #include "../include/windham_const.h"
+
+#ifndef WINDHAM_ISOC
+#include <spawn.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 
 #define var_(x) __temp_var_at_line##x
@@ -32,7 +33,7 @@
     memcpy(&(x), tmp_var, sizeof(x));		\
   } while (0)
 
-
+#ifndef WINDHAM_ISOC
 #define print_error(...)			\
   if (is_pid1){					\
     printk("ERROR: \n");			\
@@ -65,6 +66,28 @@
   printf(__VA_ARGS__);				\
   printf("\033[0m\n");
 
+#else
+
+#define print_error(...)			\
+printf(_("ERROR: \n"));		\
+printf(__VA_ARGS__);				\
+printf("\n");				\
+windham_exit(1);
+
+
+#define print_error_no_exit(...)		\
+printf(_("ERROR: \n"));	\
+printf(__VA_ARGS__);			\
+printf("\n");			\
+
+
+#define print_warning(...)			\
+printf(_("WARNING: \n"));	\
+printf(__VA_ARGS__);				\
+printf("\n");
+
+#endif
+
 bool print_debug_enable;
 
 #define print_debug(...)			\
@@ -78,7 +101,7 @@ bool print_debug_enable;
   printf(__func__);				\
   printf(__VA_ARGS__);
 
-
+#ifndef WINDHAM_ISOC
 #define printk(...)							\
   do {									\
     int fd = open("/dev/kmsg", O_WRONLY | O_CLOEXEC);			\
@@ -91,11 +114,15 @@ bool print_debug_enable;
     }									\
     close(fd);								\
   } while(0)
+#else
+#define printk(...) do {\
+exit(2); \
+} while(0)
+#endif
 
+void xor_with_len(size_t length, const uint8_t a[], const uint8_t b[], uint8_t c[]);
 
-void xor_with_len(size_t length, const uint8_t a[length], const uint8_t b[length], uint8_t c[length]);
-
-void print_hex_array(size_t length, const uint8_t arr[length]);
+void print_hex_array(size_t length, const uint8_t arr[]);
 
 int64_t is_in_list(const char * item, char * list[]);
 
@@ -189,7 +216,7 @@ typedef enum {
    NMOBJ_exec_name_dup_stderr_only = 4
 } Exec_name_flags;
 
-
+#ifndef WINDHAM_ISOC
 bool exec_name(
    char *    exec_name,
    char *    exec_dir[],
@@ -336,16 +363,21 @@ bool exec_name(
 
    return ret;
 }
+#else
+bool exec_name(char * _, ...) {
+   exit(2);
+}
+#endif
 
 
-void xor_with_len(const size_t length, const uint8_t a[length], const uint8_t b[length], uint8_t c[length]) {
+void xor_with_len(const size_t length, const uint8_t a[], const uint8_t b[], uint8_t c[]) {
    for (size_t i = 0; i < length; i ++) {
       c[i] = a[i] ^ b[i];
    }
 }
 
 
-void print_hex_array(const size_t length, const uint8_t arr[length]) {
+void print_hex_array(const size_t length, const uint8_t arr[]) {
    for (size_t i = 0; i < length; ++i) {
       printf("%02x ", arr[i]);
    }
@@ -366,13 +398,6 @@ static bool is_string_startwith(const char * string, const char * target) {
    const size_t string_len = strlen(string);
    const size_t target_len = strlen(target);
    return string_len >= target_len && memcmp(string, target, target_len) == 0;
-}
-
-
-__attribute__((unused)) void print_list(char * list[]) {
-   for (int i = 0; list[i]; i ++) {
-      printf(" \"%s\"", list[i]);
-   }
 }
 
 
@@ -531,16 +556,16 @@ void split_on_first_dot(const char * str, char * before, char * after) {
 }
 
 
-uint64_t parse_size(char * input) {
-   if (input == NULL || input[0] == (char) 0) {
+uint64_t parse_size(const char * size_str) {
+   if (size_str == NULL || size_str[0] == (char) 0) {
       print_error(_("invalid size input"));
    }
 
-   input        = strdup(input);
+   char * input = strdup(size_str);
    char unit[4] = {0};
    extract_non_digits_unit(input, unit, 4);
-   char integer_part_str[strlen(STRINGIFY(UINT64_MAX)) + 1];
-   char decimal_part_str[strlen(STRINGIFY(UINT64_MAX)) + 2 + 1];
+   char integer_part_str[sizeof("18446744073709551615")]; // uint64_t max
+   char decimal_part_str[sizeof("18446744073709551615") + 2];
    strcpy(decimal_part_str, "0.");
    split_on_first_dot(input, integer_part_str, decimal_part_str + 2);
 
@@ -599,6 +624,8 @@ uint64_t parse_size(char * input) {
          _("Invalid input. Input without unit = bytes; supported units are: SEC(512 bytes) K M G T P and E, or Ki Mi Gi Ti Pi and "
             "Ei for IEC units. Postfix \"B\" is optional. "));
    }
+
+   free(input);
 
    uint64_t bytes         = integer_part * base_multiplier;
    uint64_t decimal_bytes = (uint64_t) (decimal_part * decimal_multiplier); // round down

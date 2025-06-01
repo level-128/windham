@@ -1,15 +1,23 @@
 #ifndef WINDHAM_INCL_WINDHAM_CONST_H
 #define WINDHAM_INCL_WINDHAM_CONST_H
 
-#ifndef WINDHAM_VERSION
-#define WINDHAM_VERSION "unknown"
-#endif
-
 #include <stdio.h>
 #include <setjmp.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdalign.h>
+#include <errno.h>
+
+#include "aes.h"
+
+#ifndef WINDHAM_VERSION
+#define WINDHAM_VERSION "unknown"
+#endif
+
+
+/*
+ * ---------- Define for ISO C compatibility ----------
+*/
 
 #ifndef CMAKE_VERSION
 #define WINDHAM_ISOC
@@ -17,19 +25,22 @@
 
 #if (__STDC_VERSION__ >= 202311L)
 #define WINDHAM_ATTRIBUTE(x) [[x]] // attribute syntax in C23
+#define WINDHAM_UNREACHABLE unreachable();
 #elif defined(__GNUC__)
 #define WINDHAM_ATTRIBUTE(x) __attribute__((x)) // attribute syntax in GCC / Clang
+#define WINDHAM_UNREACHABLE __builtin_unreachable();
+#define maybe_unused unused
 #else
 #define WINDHAM_ATTRIBUTE(x)
+#define WINDHAM_UNREACHABLE \
+  assert(("unreachable code reached", false)); \
+  exit(2);
 #endif
 
 
-#ifndef WINDHAM_CMAKE_ENTRY
-#define WINDHAM_STRICT_ISOC
-#endif
-
-
-// defined const
+/*
+ * ---------- Define consts ----------
+*/
 // Some consts are defined in CMake, these are:
 #ifndef DEFAULT_TARGET_TIME
 #define DEFAULT_TARGET_TIME 1
@@ -63,9 +74,8 @@
 #define ARGON2_CLEAR_INTERNAL_MEMORY 0
 #endif
 
-// end defined const.
 
-
+// those are constants, not defined by cmake
 #define KEY_SLOT_COUNT 16
 #define HASHLEN 32
 #define KEY_SLOT_EXP_MAX 20
@@ -79,6 +89,7 @@
  * ---------- Define common structs and data ----------
 */
 
+// GNU gettext
 #ifndef WINDHAM_ISOC
 #include <locale.h>
 #include <libintl.h>
@@ -89,12 +100,16 @@
 #define _(STRING) STRING
 #endif
 
-#include "aes.h"
 
-// only used for test framework.
+// jump back to test when running unit test
 #ifndef IS_FRONTEND_ENTRY
 #warning "Test target"
+
+#define _(STRING) STRING
+
 jmp_buf exit_jmp;
+
+// backup terminal config.
 #elif !defined(WINDHAM_ISOC)
 // backup terminal config when interacting
 struct termios oldt;
@@ -107,14 +122,16 @@ int stdout_fd;
 
 // is running at pid1
 bool is_pid1;
+bool is_has_system_env;
 
 void windham_exit(int exitno);
 
 
+// struct for describe the device after init_device.
 typedef struct {
-  char name[FILENAME_MAX];
-  long block_count;
-  int  block_size;
+  char name[FILENAME_MAX + 1];
+  int64_t block_count; // -1 means unknown
+  int  block_size; // -1 means unknown
   bool is_loop;
   bool is_block;
 } Device;
@@ -122,9 +139,9 @@ typedef struct {
 
 Device *STR_device;
 
-#define convert_stage_to_size(stage) HASHLEN + HASHLEN + 4u * (stage)
-
-// Header def
+/*
+ * ---------- Define header format ----------
+*/
 
 
 uint8_t shebang_line[] = {'#', '/', 's', 'b', 'i', 'n', '/', 'w', 'i', 'n', 'd', 'h', 'a',
@@ -202,19 +219,19 @@ typedef struct STR_data {
   alignas(1) uint8_t                         master_key_check[AES_BLOCKLEN];
 
   // metadata area. Padding to AES blocklen for encryption.
-  alignas(AES_BLOCKLEN) EncMetadata                     metadata;
+  alignas(AES_BLOCKLEN) EncMetadata          metadata;
 
   alignas(AES_BLOCKLEN) struct {
     alignas(1) Keypool                       keypool;
-    alignas(4) Key_slot                     WINDHAM_ATTRIBUTE(unused) _keypool_padding;
-  }                                keypool[2];
+    alignas(4) Key_slot                      WINDHAM_ATTRIBUTE(unused) _keypool_padding;
+  }                                          keypool[2];
 
   // offset: 19472
-  alignas(512) void * WINDHAM_ATTRIBUTE(unused) _data_padding[];
 } Data; //
 
+#define convert_stage_to_size(stage) HASHLEN + HASHLEN + 4u * (stage)
 #define get_slot_loc(_data, keypool_idx, keypool_loc) ((Key_slot *)&_data.keypool[keypool_idx].keypool[keypool_loc])
-#define RAW_HEADER_AREA_IN_SECTOR  (sizeof(Data) / 512 + (sizeof(Data) % 512 != 0))
+#define RAW_HEADER_AREA_IN_SECTOR (( sizeof(Data) + 511) / 512)
 #define HEADER_AREA_IN_SECTOR ((RAW_HEADER_AREA_IN_SECTOR + 7) / 8) * 8
 #define WINDHAM_FIRST_USEABLE_LGA (((RAW_HEADER_AREA_IN_SECTOR + 1) + 7) / 8) * 8
 

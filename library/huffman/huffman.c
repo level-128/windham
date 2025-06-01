@@ -262,10 +262,11 @@ bool get_is_high_entropy(size_t size, uint8_t content[]){
   } else if (size > 1024){
     return true;
   }
-    uint8_t out[32 + 3 + size / 8];
+  	uint8_t * out = malloc(32 + 3 + size / 8);
     void * huffheap = malloc(HUFFHEAP_SIZE);
     size_t outsize = huffman_compress(content, size, out, 32 + 3 + size / 8, huffheap); // 8+3
     free(huffheap);
+    free(out);
     if ( outsize == 0){
       return true;
     }

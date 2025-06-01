@@ -1,5 +1,5 @@
-#ifndef WINDHAM_ENDIAN_C
-#define WINDHAM_ENDIAN_C
+#ifndef INCL_ENDIAN
+#define INCL_ENDIAN
 
 #ifndef WINDHAM_ISOC
 #include <endian.h>
@@ -9,11 +9,11 @@
 #include <stdint.h>
 #include <limits.h>
 
-#define LITTLE_ENDIAN 1234
-#define BIG_ENDIAN    4321
+#define WINDHAM_LITTLE_ENDIAN 1234
+#define WINDHAM_BIG_ENDIAN    4321
 
 
-#if (__CHAR_BIT__ != 8)
+#if (CHAR_BIT != 8)
     #error "Sorry: Windham only supports system with 8-bit char."
 #endif
 
@@ -25,18 +25,18 @@
 
 #if (__STDC_VERSION__ >= 202311L)
     #if __STDC_ENDIAN_NATIVE__ == __STDC_ENDIAN_LITTLE__
-        #define BYTE_ORDER LITTLE_ENDIAN
+        #define BYTE_ORDER WINDHAM_LITTLE_ENDIAN
     #elif __STDC_ENDIAN_NATIVE__ == __STDC_ENDIAN_BIG__
-        #define BYTE_ORDER BIG_ENDIAN
+        #define BYTE_ORDER WINDHAM_BIG_ENDIAN
     #else
         #error "Unknown / Unsupport system byte order. Byte order must be either Big or Small. Running on PDP systems?"
     #endif
 
 #elif defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__)
   #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    #define BYTE_ORDER LITTLE_ENDIAN
+    #define BYTE_ORDER WINDHAM_LITTLE_ENDIAN
   #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    #define BYTE_ORDER BIG_ENDIAN
+    #define BYTE_ORDER WINDHAM_BIG_ENDIAN
   #else
     #error "Unknown / Unsupport system byte order. Byte order must be either Big or Small. Running on PDP systems?"
   #endif
@@ -48,7 +48,7 @@
           uint32_t i;
           unsigned char c[4];
       } test = {0x01020304};
-      return (test.c[0] == 0x01) ? BIG_ENDIAN : LITTLE_ENDIAN;
+      return (test.c[0] == 0x01) ? WINDHAM_BIG_ENDIAN : WINDHAM_LITTLE_ENDIAN;
   }
 #endif
 
@@ -75,7 +75,7 @@ static inline uint64_t swap64(uint64_t x) {
 }
 
 #if defined(BYTE_ORDER)
-  #if BYTE_ORDER == LITTLE_ENDIAN
+  #if BYTE_ORDER == WINDHAM_LITTLE_ENDIAN
     #define htobe16(x) swap16(x)
     #define htole16(x) (x)
     #define be16toh(x) swap16(x)
@@ -90,7 +90,7 @@ static inline uint64_t swap64(uint64_t x) {
     #define htole64(x) (x)
     #define be64toh(x) swap64(x)
     #define le64toh(x) (x)
-  #elif BYTE_ORDER == BIG_ENDIAN
+  #elif BYTE_ORDER == WINDHAM_BIG_ENDIAN
     #define htobe16(x) (x)
     #define htole16(x) swap16(x)
     #define be16toh(x) (x)
@@ -107,45 +107,45 @@ static inline uint64_t swap64(uint64_t x) {
     #define le64toh(x) swap64(x)
   #endif
 #else
-  static inline uint16_t htobe16_r(uint16_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? swap16(x) : x;
+  static inline uint16_t htobe16(uint16_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? swap16(x) : x;
   }
-  static inline uint16_t htole16_r(uint16_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? x : swap16(x);
+  static inline uint16_t htole16(uint16_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? x : swap16(x);
   }
-  static inline uint16_t be16toh_r(uint16_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? swap16(x) : x;
+  static inline uint16_t be16toh(uint16_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? swap16(x) : x;
   }
-  static inline uint16_t le16toh_r(uint16_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? x : swap16(x);
-  }
-
-  static inline uint32_t htobe32_r(uint32_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? swap32(x) : x;
-  }
-  static inline uint32_t htole32_r(uint32_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? x : swap32(x);
-  }
-  static inline uint32_t be32toh_r(uint32_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? swap32(x) : x;
-  }
-  static inline uint32_t le32toh_r(uint32_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? x : swap32(x);
+  static inline uint16_t le16toh(uint16_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? x : swap16(x);
   }
 
-  static inline uint64_t htobe64_r(uint64_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? swap64(x) : x;
+  static inline uint32_t htobe32(uint32_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? swap32(x) : x;
   }
-  static inline uint64_t htole64_r(uint64_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? x : swap64(x);
+  static inline uint32_t htole32(uint32_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? x : swap32(x);
   }
-  static inline uint64_t be64toh_r(uint64_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? swap64(x) : x;
+  static inline uint32_t be32toh(uint32_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? swap32(x) : x;
   }
-  static inline uint64_t le64toh_r(uint64_t x) {
-      return (get_byte_order() == LITTLE_ENDIAN) ? x : swap64(x);
+  static inline uint32_t le32toh(uint32_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? x : swap32(x);
+  }
+
+  static inline uint64_t htobe64(uint64_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? swap64(x) : x;
+  }
+  static inline uint64_t htole64(uint64_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? x : swap64(x);
+  }
+  static inline uint64_t be64toh(uint64_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? swap64(x) : x;
+  }
+  static inline uint64_t le64toh(uint64_t x) {
+      return (get_byte_order() == WINDHAM_LITTLE_ENDIAN) ? x : swap64(x);
   }
 #endif
 
 #endif
-#endif /* ENDIAN_H */
+#endif

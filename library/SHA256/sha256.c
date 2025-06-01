@@ -54,7 +54,7 @@
 #include "../../include/sha256.h"
 
 #ifndef lint
-__attribute__((unused)) static const char rcsid[] =
+static const char rcsid[] =
 	"$Id: sha256.c 680 2003-07-25 21:57:49Z asaddi $";
 #endif /* !lint */
 

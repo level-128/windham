@@ -9,23 +9,21 @@ void check_size(const char * device, Data * data_, uint8_t master_key[HASHLEN], 
    size_t block_count = STR_device->block_count / (data_->metadata.block_size / 512) * (data_->metadata.block_size / 512);
    // let STR_device->block_count align with the block size.
    if (block_count != data_->metadata.end_sector) {
-      const char * q_str_size_ref = _(
-         "The device's last sector (%zu) does not match with the underlying device's size (%zu). %s");
-      const char * is_suspend_str = is_suspend
-                                       ? _(
-                                          "Cannot resize the suspend partition since windham partition is designed to be tamper resistance. "
-                                          "Resume the partition and re-open it to resize.")
-                                       : _("Do you want to adjust the sector range?");
-      char q_str[strlen(q_str_size_ref) + 2 * strlen(STRINGIFY(SIZE_MAX)) + strlen(is_suspend_str)];
+      if (is_suspend) {
+         print_error(_("The device's last sector (%zu) does not match with the underlying device's size (%zu). Cannot resize "
+                       "the suspend partition since windham partition is designed to be tamper resistance. Resume the partition "
+                       "and re-open it to resize."), data_->metadata.end_sector, STR_device->block_count);
+      }
+
+#define OPTION_MSG _("The device's last sector (%zu) does not match with the underlying device's size (%zu). Do you want to"\
+      "adjust the sector range?")
+      char q_str[sizeof(OPTION_MSG) + 2 * sizeof(STRINGIFY(INT64_MAX))];
       sprintf(
          q_str,
-         q_str_size_ref,
+         OPTION_MSG,
          data_->metadata.end_sector,
-         STR_device->block_count,
-         is_suspend_str);
-      if (is_suspend) {
-         print_error("%s", q_str);
-      }
+         STR_device->block_count);
+#undef OPTION_MSG
 
       switch (ask_option(
          q_str,
@@ -156,8 +154,8 @@ void action_open(
                "Additional device parameters: \n"
                "UUID: %s\n"
                "Crypto algorithm: %s\n"
-               "Start sector %lu\n"
-               "End sector %lu\n"
+               "Start sector %"PRIu64"\n"
+               "End sector %"PRIu64"\n"
                "Block size %hu\n"),
             uuid_str,
             data.metadata.enc_type,
@@ -243,10 +241,10 @@ void action_open(
             _(
                "\nAdditional device parameters: \n"
                "UUID: %s\n"
-               "Size (MiB): %lu\n"
+               "Size (MiB): %"PRIu64"\n"
                "Crypto algorithm: %s\n"
-               "Start sector %lu\n"
-               "End sector %lu\n"
+               "Start sector %"PRIu64"\n"
+               "End sector %"PRIu64"\n"
                "Block size %hu\n"),
             uuid_str,
             (data.metadata.end_sector - data.metadata.start_sector) / 2 / 1024,
@@ -273,6 +271,7 @@ void action_open(
    }    // switch (frontend_read_header_ret_ENUM_MAPPER_DEVSTAT(device, &data, &offset, &is_decoy)) {
 }
 
+#ifndef WINDHAM_ISOC
 static void _action_open_print_summary(int i, WindhamtabEntity entities) {
 #define HAS_FLG(x) entities.option_flags & (1 << x)
    printf("Entity %d, pass %hu:\n", i + 1, entities.pass);
@@ -310,6 +309,7 @@ static void _action_open_print_summary(int i, WindhamtabEntity entities) {
    printf("\n");
 #undef HAS_FLG
 }
+#endif
 
 void action_open_(
    const char * uninit_device,
@@ -327,7 +327,9 @@ void action_open_(
    bool is_nokeyring,
    bool is_nofail,
    bool is_selected_windhamtab_pass) {
+
    if (strcmp(uninit_device, "TAB") == 0) {
+#ifndef WINDHAM_ISOC
       int entity_count;
       if (windhamtab_file == NULL) {
          windhamtab_file = WINDHAMTAB_FILE;
@@ -448,8 +450,11 @@ void action_open_(
             HAS_FLGI(NMOBJ_windhamtab_no_write_wq) || is_no_write_workqueue,
             HAS_FLGI(NMOBJ_windhamtab_is_no_map_partition),
             true);
-#undef HAS_FLGI
       }
+#undef HAS_FLGI
+#else
+      print_error(_("ISO C mode does not support windhamtab mode."));
+#endif
    } else {
       char random_target_name[sizeof("windham-123e4567-e89b-12d3-a456-abcdef123456")];
       if (target_name == NULL) {
