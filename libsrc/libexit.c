@@ -44,6 +44,7 @@ void windham_exit(int exitno) {
 void print_stack_trace() {
 #ifdef IS_FRONTEND_ENTRY
 #ifdef __GLIBC__
+#include <execinfo.h>
    void * array[40];
 
    const size_t size    = backtrace(array, 40);
