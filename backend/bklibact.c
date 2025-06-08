@@ -34,16 +34,14 @@ void action_close(const char * device, bool is_deferred_remove) {
                device),
             ("")));
       CHECK_DEVICE_TOPOLOGY_FREE(parent);
-#pragma GCC diagnostic pop
       remove_crypt_mapping(device, is_deferred_remove);
    } else {
+      // device[0] == '/'
       if (STARTSWITH(device, "/dev/mapper/")) {
          print_error(
             _("The provided name is a mapped block device, use \"Windham Close %s\" to close the device."),
             device + strlen("/dev/mapper/"));
       } else if (STARTSWITH(device, "/dev/")) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-zero-length"
          CHECK_DEVICE_TOPOLOGY(
             device,
             "",
@@ -67,6 +65,7 @@ void action_close(const char * device, bool is_deferred_remove) {
             } while(0);
          );
          CHECK_DEVICE_TOPOLOGY_FREE(child);
+         return;
 #pragma GCC diagnostic pop
       }
       print_error(

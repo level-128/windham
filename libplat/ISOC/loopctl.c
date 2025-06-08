@@ -68,6 +68,37 @@ void create_file(const char *path, size_t size) {
    fclose(file);
 }
 
+uint64_t isoc_get_file_size(FILE *stream){
+   fpos_t stored_pos;
+   if (fgetpos(stream, &stored_pos)){
+      perror("fgetpos");
+      exit(1);
+   }
+   if (fseek(stream, 0, SEEK_END)){
+      print_error("Cannot determine geometry, is device pipe? %s", strerror(errno));
+      exit(1);
+   }
+
+   uint64_t sum_res = 0;
+   if (sizeof(uint64_t) != sizeof(long)){
+      while (fseek(stream, LONG_MIN, SEEK_CUR) == 0){
+         sum_res -= LONG_MIN;
+      }
+   }
+
+   long int res = ftell(stream);
+   if (res == -1L){
+      perror("cannot get file size");
+      exit(1);
+   }
+   sum_res += res;
+   if (fsetpos(stream, &stored_pos)){
+      perror("fsetpos");
+      exit(1);
+   }
+   return sum_res;
+}
+
 void init_device(
    const char * filename,
    bool         is_map_block,
@@ -95,7 +126,6 @@ void init_device(
 
    strncpy(STR_device->name, filename, sizeof(STR_device->name));
    STR_device->is_block = false;
-   STR_device->block_count = -1;
    STR_device->block_size = -1;
 
    if (disk_file_size != 0) {
@@ -114,21 +144,10 @@ void init_device(
       }
       print_error("Cannot open file %s: %s", filename, strerror(errno));
    }
+   STR_device->block_count = isoc_get_file_size(file) / 512;
 
-   if (fseek(file, sizeof(Data) - 1, SEEK_SET) != 0) {
-      fclose(file);
-      print_error("Cannot determine file geometry %s: %s", filename, strerror(errno));
-   }
-
-   int c = fgetc(file);
-   if (c == EOF) {
-      if (feof(file)) {
-         fclose(file);
-         print_error("File %s is too small to contain Windham disk format.", filename);
-      } else {
-         fclose(file);
-         print_error("Cannot determine file geometry %s: %s", filename, strerror(errno));
-      }
+   if (STR_device->block_count < RAW_HEADER_AREA_IN_SECTOR) {
+      print_error("File %s is too small to contain Windham disk format, double check your file.", filename);
    }
    fclose(file);
 }
