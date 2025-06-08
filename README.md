@@ -110,11 +110,11 @@ Windham has 2 feature support levels:
   the `main` function for 64-bit platform. 32/16-bit platform has slightly lower stack size requirements.
 - __(Optional):__ ISO C threads implementation.
 
-Windham in ISO C mode cannot mount a partition, cannot correctly handle when running under pid1, cannot parse
-`/etc/windhamtab`, cannot search disks/devices uses UUID or device path. reading partition/disks directly solely 
+Windham in ISO C mode cannot mount and operate (encrypt/decrypt) a partition; is not designed to run under pid1, cannot parse
+`/etc/windhamtab`, cannot search disks/devices uses UUID or device path. The ability to access partition/disks solely 
 depends on the platform's libc implementation: If your platform requires platform-dependent interface to read 
 partition/disks instead of general file I/O, you are out of luck. Some minor features might also be missing.
-However, unlock and extracting master key, managing passphrases, suspending support are all present in basic mode.
+However, unlock and extracting master key, managing passphrases, suspending support are all present under basic mode.
 
 Nearly all modern consumer devices satisfy requirements for basic mode. Most 32-bit MCU or SoC with decent development 
 framework or community support also works. Virtual environments (e.g. WebAssembly) with compatible libc might work
@@ -137,23 +137,30 @@ Windham supports `/etc/windhamtab` file which describes encrypted windham device
 `/etc/windhamtab` for details. To create and configure `windhamtab` file, following these steps:
 
 
-- First, run `windham Open TAB` to create a template windhamtab file (if it does not exist).
-- Append your encrypted devices and target paths (under `/dev/mapper`, same as argument `--to` in `Windham Open`), along with parameters and decryption methods. `windhamtab` supports unlock by asking for key / using keyfile / using Clevis. It is highly suggest to use `UUID=`, since it is a robust way to name devices that works even if disks are added and removed
-- To unlock using Clevis, specify your Clevis file using `CLEVIS=` in the key field. For systemd as init, stdin are handled by the daemon itself; use `--systemd-dialog` argument to integrate with systemd and plymouth (if you are using a graphical boot screen), allowing systemd or plymouth to prompt for password, or you will be stuck forever! 
-- To resolve dependency between devices, assign lower `<pass>` value for devices that need to be open first. option `--windhamtab-pass` allows Windham to execute actions only with the same pass number. 
-- Command `windham Open TAB` will then start parsing `/etc/windhamtab`.
+- First, run `windham Open TAB` to create a template `windhamtab` file (if it does not exist).
+- Append your encrypted devices and target paths (under `/dev/mapper`, same as argument `--to` in `Windham Open`), 
+  along with parameters and decryption methods. `windhamtab` supports unlock by asking for key / keyfile / Clevis. 
+  It is strongly encouraged to use `UUID=`, since it is a robust way to name devices that works even if disks are 
+  added and removed
+- To unlock using Clevis, specify your Clevis file using `CLEVIS=` in the key field. For users who use systemd as init 
+  (true under most distros), stdin are 
+  handled by the daemon itself; use `systemd-dialog` option to integrate with systemd and plymouth (if you are 
+  using a graphical boot screen), allowing systemd or plymouth to prompt for password, or you will be stuck forever! 
+- To resolve dependency between devices, assign lower `<pass>` value for devices that need to be open first. 
+  option `--windhamtab-pass` allows Windham to execute actions only with the same pass number. 
+- Running command `windham Open TAB` with `windhamtab` file present will then start parsing `/etc/windhamtab`.
 
 Most modern consumer devices supports builtin TPM (trusted platform module) or other external hardware security modules (e.g. FIDO device). To utilize
 these devices, you need an Automated Encryption Framework, such as [`clevis`](https://github.com/latchset/clevis). To register a random key designated for clevis 
 encryption using TPM2:
 
 ```
-sudo windham AddKey <device> --generate-random-key | sudo clevis encrypt tpm2 '{}' > keyfile.keyfile
+sudo windham AddKey <device> --generate-random-key | sudo clevis encrypt tpm2 '{}' > keyfile.key
 ```
 your clevis key will be created as `keyfile.keyfile`. to unlock with it:
 
 ```
-cat keyfile.keyfile | sudo windham Open <device> --keystdin
+cat keyfile.key | sudo clevis decrypt tpm2 '{}' | sudo windham Open <device> --keystdin
 ```
 
 Inside `/etc/windhamtab`, you can use `CLEVIS=` prefix for the key parameter to integrate with clevis. 
@@ -217,12 +224,15 @@ return its data as it is when reading a discarded sector, and swapping occurs ve
 
 ## Running Windham in early userspace
 
-Windham is designed to support operation in early user-space, such as decrypting your partitions (e.g., an encrypted root directory). There are two recommended methods to achieve this:
+Windham is designed to support operation in early user-space, such as decrypting your partitions (e.g., an encrypted 
+root directory). There are two recommended methods to achieve this:
 
-Wait! before actually doing this, double check whether you are a GNU/Linux wizard. If you are not, which means ... oops, you haven't unlock this part yet. 
+Wait! before actually doing this, double check whether you are a GNU/Linux wizard. If you are not, which means ... 
+oops, you haven't unlocked this part yet. 
 
 ### Using the init daemon:
-This approach aligns with the behavior recommended by most GNU/Linux distributions. When using `windham Open TAB`, Windham will parse `/etc/windhamtab` file for operation. in this case, all operations are handled by Windham itself, making it compatible with multiple init systems. Using `windhamtab` file is recommended, and directly using commandline (e.g. `Windham Open /dev/sda ...`) should be avoided.
+This approach aligns with the behavior recommended by most GNU/Linux distributions. When using `windham Open TAB`, 
+Windham will parse `/etc/windhamtab` file for operation. in this case, all operations are handled by Windham itself, making it compatible with multiple init systems. Using `windhamtab` file is recommended, and directly using commandline (e.g. `Windham Open /dev/sda ...`) should be avoided.
 
 To proceed with this method, create a target for your init daemon with `exec=windham Open TAB`. This target should execute before the init process mounts the target partition.
 
@@ -232,7 +242,8 @@ Note: Some distributions utilize initrd or initramfs. If you intend to encrypt y
 
 This method should be only used for embedded Linux systems. **YOU SHOULD NOT** do this if you are running a complete GNU/Linux distro.
 
-Windham will behave differently if it detects that it runs as pid1. When this happens, Windham will ignore the commandline, using the preset in the binary instead. You can change its preset commandline (`windham Open TAB`, then exec `/bin/sh` is precompiled by default) by using a hex editor. 
+Windham will behave differently if it detects that it runs as pid1. When this happens, Windham will ignore the 
+commandline, using the preset in the binary instead. You can change its preset commandline (`windham Open TAB`, then exec `/bin/sh` is precompiled by default) by using a hex editor. 
 
 The pre-compiled commandline is located under `.windhaminit` section. It has the following syntax:
 
