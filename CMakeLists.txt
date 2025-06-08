@@ -56,7 +56,7 @@ set(WINDHAM_DEFAULT_DISK_ENC_MODE_LIST "aes-xts-plain64" "twofish-xts-plain64"
         "serpent-xts-plain64" "twofish-xts-plain64be" "aes-xts-plain64be" "serpent-xts-plain64be" "uninit")
 if (NOT CFG_WINDHAM_DEFAULT_DISK_ENC_MODE)
     if(CMAKE_BUILD_TYPE STREQUAL "ISOC")
-        set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "uninit")
+        set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64")
     else()
         set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64")
     endif()
@@ -122,8 +122,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "ISOC")
     configure_global_flags()
     install(TARGETS windham
             RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
-    return()
-endif()
+elseif ()
 
 # --------------------------------------------------------------------
 # define common options
@@ -310,5 +309,7 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
             ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
     set_target_properties(windham PROPERTIES OUTPUT_NAME windham_test)
     configure_global_flags()
+
+endif()
 
 endif()
