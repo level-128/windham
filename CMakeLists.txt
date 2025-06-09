@@ -123,7 +123,6 @@ endfunction()
 
 if (CMAKE_BUILD_TYPE STREQUAL "ISOC")
     add_executable(windham frontend.c)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS) # MSVC
     configure_global_flags()
     install(TARGETS windham
             RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
@@ -196,6 +195,11 @@ else ()
 
     # --------------------------------------------------------------------
     # try-run
+
+    if (CMAKE_CROSSCOMPILING)
+        set(RUN_RESULT_VAR FALSE)
+        set(RUN_RESULT_VAR__TRYRUN_OUTPUT FALSE)
+    endif()
 
     # test keyctl
     if (CFG_NO_MODULE_KEYRING)
