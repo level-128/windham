@@ -52,7 +52,11 @@ Under operating systems that use Linux as kernel and GNU-Like, the command above
 default to `Release` build type, which builds a complete functional Windham under such
 platforms. **You need to install dependencies before building `Release` .** 
 For other platforms, only ISO C build type, which provides basic on-disk format management, is 
-available: [Supported platforms](#Supported-platforms). 
+available: [Supported platforms](#Supported-platforms), and will enable by default.
+
+### PATCH `rand()` FUNCTION IF YOU WANT TO CREATE WINDHAM FORMAT UNDER ISO C build type!!!
+
+### PATCH `rand()` FUNCTION IF YOU WANT TO CREATE WINDHAM FORMAT UNDER ISO C build type!!!
 
 &nbsp;
 
@@ -130,11 +134,9 @@ For instructions about how to embed unlock backend for ISO C mode, see source fi
 
 # Additional guides:
 
-These guides are meant for Windham with full support.
-
 ## `/etc/windhamtab` support and cryptography module integration
 
-Windham supports `/etc/windhamtab` file which describes encrypted windham devices. This file is similar with systemd's 
+Windham supports `/etc/windhamtab` file under full support which describes encrypted windham devices. This file is similar with systemd's 
 `/etc/crypttab`, and Windham will read `/etc/windhamtab` when using `windham Open TAB`. Refer to the commit under 
 `/etc/windhamtab` for details. To create and configure `windhamtab` file, following these steps:
 
@@ -177,7 +179,7 @@ Windham supports Decoy Partition: a feature that provides encrypted partitions w
 
 ### What is Decoy Partition?
 
-A Decoy Partition allows windham to hide the encrypted partition. In a case where someone may forces you to disclose your confidential data located on your disk, or when the
+A Decoy Partition allows windham to hide the encrypted partition. In a case where someone may force you to disclose your confidential data located on your disk, or when the
 randomness of the header itself doesn't constitute a strong rebuttal of its existence, Decoy Partition allows you to deny the existence of the encrypted partition.
 
 Decoy Partition achieves a high degree of plausible deniability by hiding itself under an identifiable
@@ -192,14 +194,14 @@ Use `windham New *your device* --decoy` to create a decoy partition along with t
 calculate whether the given size is feasible (e.g. the decoy partition cannot spawn across partition boundary defined by the partition table).
 
 It is strongly recommend to overwrite your device with random data before deploying decoy partition and identifiable partitions: `sudo dd if=/dev/urandom of=/dev/<your device>, bs=16M`.
-The confidentially of the decoy partition is build upon security through obscurity, skipping the random overwrite degrades a decoy partition, 
-in terms of plausible deniability when facing an experienced attacker, to a normal windham partition. Well, this may be okay if you just want
-to hide your files from somebody else (like your family members who regularly using your PC...).
+The confidentially of the decoy partition is build upon security through obscurity; skipping the random overwrite degrades a decoy partition, 
+in terms of plausible deniability when facing an experienced attacker, to almost zero.
 
 ### Note for using Decoy Partition
 
-Decoy partition should be created above the partition level: mostly on the disk itself, or the top level mapping scheme. You can create a decoy partition inside a encrypt partition,
-which is a very useful way to hide your data if, due to some reason, cryptographically random header makes you look suspicious.
+Decoy partition can be created at place where a normal Windham partition can be created. besides this, creating a
+decoy partition within a normal windham partition is a combo that will provide a plus to its degree of plausible deniability.
+because the bits naturally looks random both inside and outside the encrypted partition.
 
 If your device contains a GPT partition table (normally it does), things becomes a little different: GPT partition table utilizes the last few sectors to store its backup. Thus windham will avoid 
 them by locating header for the decoy partition just before the backup. Windham will actively probe for the GPT layout and decide the location for decoy partition header, 
@@ -227,10 +229,7 @@ return its data as it is when reading a discarded sector, and swapping occurs ve
 ## Running Windham in early userspace
 
 Windham is designed to support operation in early user-space, such as decrypting your partitions (e.g., an encrypted 
-root directory). There are two recommended methods to achieve this:
-
-Wait! before actually doing this, double check whether you are a GNU/Linux wizard. If you are not, which means ... 
-oops, you haven't unlocked this part yet. 
+root directory). _Please do not run ISO C build type under PID 1._ There are two recommended methods to achieve this:
 
 ### Using the init daemon:
 This approach aligns with the behavior recommended by most GNU/Linux distributions. When using `windham Open TAB`, 
@@ -273,12 +272,17 @@ use option `--nofail`, which does nothing when fail and start `exec` to the give
 
 &nbsp;
 
+## Patch `rand()` under ISO C build type
+
+// TODO!
+
+&nbsp;
 
 # Building Windham:
 ## Dependencies for full support:
 
 Windham with full support requires a GCC-like compilers that is compatible with GNU style `__attribute__` and 
-language extensions. It works under Clang, should work under Zig CC (untested).
+language extensions.
 
 | Description                             | Debian-based                | Fedora-based / SUSE                   | Arch-based      |
 |-----------------------------------------|-----------------------------|---------------------------------------|-----------------|
@@ -301,19 +305,20 @@ Additional and optional user-space programs; Windham can work without them, but 
 The build system supports following feature switches:
 
 - `CFG_NO_MODULE_KEYRING`: disable kernel key retention service
-- `CFG_WINDHAM_ALLOW_ATTACH`: make debugger attachable (default under `Debug` Profile)
+- `CFG_WINDHAM_ALLOW_ATTACH`: allow debugger to attach (default under `Debug` Profile)
 - `CFG_NO_ENFORCE_SPEC_MITIGATION`: not enforcing spectre mitigation (default under 
 `Debug` Profile)
-- `CFG_NO_OPT`: Disable SIMD optimization (Only available under x86-64 architecture)
-- `CFG_USE_SWAP`: Allowing to use swap space for key derivative (Insecure!)
-- `CFG_WIPE_MEMORY`: wipe memory after key derivative, strongly suggest if `CFG_USE_SWAP` enabled
+- `CFG_NO_OPT`: Disable SIMD optimization (Only available under x86-64)
+- `CFG_USE_SWAP`: Allowing memory repaging to swap space. Extremely insecure! 
+   enable `CFG_WIPE_MEMORY` if possible!
+- `CFG_WIPE_MEMORY`: wipe memory after key derivative.
 
 use `cmake -B build -D YOUR_OPTION=TRUE`  to toggle feature switches.
 
-For `ISOC` build type, it is equivalent to directly compile `frontend.c` using your
+For `ISOC` build type, it is almost equivalent with directly compile `frontend.c` using your
 complier (plus preset optimization options for common UNIX compilers). Nothing more
 beyond this. The build system is optional under strict ISO C11 profile, so feature
-switch will not work. The fastest way to cross compile it is directly invoking your
+switch will not work. The fastest way to cross compile it is to directly invoke your
 compiler.
 
 &nbsp;
