@@ -89,6 +89,11 @@ function(configure_global_flags)
             set(CMAKE_C_FLAGS "-O0 -g ${CMAKE_C_FLAGS}" PARENT_SCOPE)
         endif()
     endif()
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Test")
+        set(CMAKE_C_FLAGS "-Wno-unused-variable -Wno-unused-parameter ${CMAKE_C_FLAGS}" PARENT_SCOPE)
+    endif()
+
     add_compile_options(${CMAKE_C_FLAGS})
     add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
 
@@ -122,182 +127,201 @@ if (CMAKE_BUILD_TYPE STREQUAL "ISOC")
     configure_global_flags()
     install(TARGETS windham
             RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
-elseif ()
-
-# --------------------------------------------------------------------
-# define common options
-set(CMAKE_VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
-add_compile_definitions(CMAKE_VERSION=\"${CMAKE_VERSION}\")
-
-execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
-add_compile_definitions(TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
-
-string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
-add_compile_definitions(CURRENT_TIME=\"${CURRENT_TIME}\")
-
-if(CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP)
-add_compile_definitions(DEFAULT_DISK_ENC_MEM_RATIO_CAP=${CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP})
-endif()
-
-if (CFG_USE_SWAP)
-    add_compile_definitions(CONFIG_USE_SWAP)
-endif ()
-
-if (CFG_WIPE_MEMORY)
-    add_compile_definitions(ARGON2_CLEAR_INTERNAL_MEMORY=1)
 else ()
-    add_compile_definitions(ARGON2_CLEAR_INTERNAL_MEMORY=0)
-endif ()
 
-if (CFG_MIN_MEMLOCK_SIZE)
-    add_compile_definitions(DEFAULT_MIN_MEMLOCK_SIZE=${CFG_MIN_MEMLOCK_SIZE})
-endif()
+    # --------------------------------------------------------------------
+    # define common options
+    set(CMAKE_VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
+    add_compile_definitions(CMAKE_VERSION=\"${CMAKE_VERSION}\")
 
-if (CFG_WINDHAMTAB_FILE)
-    add_compile_definitions(WINDHAMTAB_FILE=${CFG_WINDHAMTAB_FILE})
-endif()
+    execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+    add_compile_definitions(TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
 
-# disabling Argon2 threads. We are not going to use them. All KDF has p=1
-add_compile_definitions(ARGON2_NO_THREADS)
+    string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
+    add_compile_definitions(CURRENT_TIME=\"${CURRENT_TIME}\")
 
+    if(CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP)
+        add_compile_definitions(DEFAULT_DISK_ENC_MEM_RATIO_CAP=${CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP})
+    endif()
 
-# --------------------------------------------------------------------
-# add files
-include_directories(${CMAKE_SOURCE_DIR}/include)
+    if (CFG_USE_SWAP)
+        add_compile_definitions(CONFIG_USE_SWAP)
+    endif ()
 
-file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
-file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
-file(GLOB HUFFMAN_SRC ${CMAKE_SOURCE_DIR}/library/huffman/*.c)
-file(GLOB cJSON_SRC ${CMAKE_SOURCE_DIR}/library/cJSON/*.c)
-file(GLOB GETOPT_SRC ${CMAKE_SOURCE_DIR}/library/getopt_port/*.c)
-
-set(ARGON2_DIR ${CMAKE_SOURCE_DIR}/library/Argon2)
-
-if (CFG_NO_OPT)
-    add_compile_definitions("__Argon2_opt_disable__")
-    message(STATUS "SIMD optimization disabled using options.")
-    file(GLOB Argon2_SRC ${ARGON2_DIR}/argon2.c ${ARGON2_DIR}/core.c ${ARGON2_DIR}/encoding.c ${ARGON2_DIR}/ref.c
-            ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
-elseif (ARCH STREQUAL "x86_64")
-    message(STATUS "Use x86-64 platform optimization")
-    file(GLOB Argon2_SRC ${ARGON2_DIR}/argon2.c ${ARGON2_DIR}/core.c ${ARGON2_DIR}/encoding.c ${ARGON2_DIR}/opt.c
-            ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
-else ()
-    message(STATUS "no platform optimization available under this architecture: ${CMAKE_SYSTEM_PROCESSOR}")
-    file(GLOB Argon2_SRC ${ARGON2_DIR}/argon2.c ${ARGON2_DIR}/core.c ${ARGON2_DIR}/encoding.c ${ARGON2_DIR}/ref.c
-            ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
-endif ()
-
-
-# --------------------------------------------------------------------
-# try-run
-
-if (CFG_NO_MODULE_KEYRING)
-    add_compile_definitions(NO_KEYCTL)
-    message("Linux kernel key retention subsystem disabled")
-else ()
-    try_run(
-            RUN_RESULT_VAR
-            COMPILE_RESULT_VAR
-            ${CMAKE_BINARY_DIR}/temp
-            SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_keyctl.c
-            COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
-            RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
-    )
-    if (NOT COMPILE_RESULT_VAR)
-        message(SEND_ERROR "Cannot compile keyctl try run program. Possibly missing kernel header.")
-    elseif (RUN_RESULT_VAR STREQUAL FAILED_TO_RUN)
-        add_compile_definitions(NO_KEYCTL)
-        message(WARNING "System call \"SYS_keyctl\" unsupported by this kernel. Disabling Linux kernel key
-        retention service.")
+    if (CFG_WIPE_MEMORY)
+        add_compile_definitions(ARGON2_CLEAR_INTERNAL_MEMORY=1)
     else ()
-        find_library(IS_KEYUTILS_LIB keyutils)
-        if(IS_KEYUTILS_LIB STREQUAL IS_KEYUTILS_LIB-NOTFOUND)
-            message(WARNING "library keyutils not found. Windham compiles with keyctl support but will fail when
-            loading keyutils module.")
-        endif()
+        add_compile_definitions(ARGON2_CLEAR_INTERNAL_MEMORY=0)
     endif ()
-endif ()
+
+    if (CFG_MIN_MEMLOCK_SIZE)
+        add_compile_definitions(DEFAULT_MIN_MEMLOCK_SIZE=${CFG_MIN_MEMLOCK_SIZE})
+    endif()
+
+    if (CFG_WINDHAMTAB_FILE)
+        add_compile_definitions(WINDHAMTAB_FILE=${CFG_WINDHAMTAB_FILE})
+    endif()
+
+    # disabling Argon2 threads. We are not going to use them. All KDF has p=1
+    add_compile_definitions(ARGON2_NO_THREADS)
 
 
-if (NOT CFG_NO_ENFORCE_SPEC_MITIGATION)
-    try_run(
-            RUN_RESULT_VAR
-            COMPILE_RESULT_VAR
-            ${CMAKE_BINARY_DIR}/temp
-            SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_prctl_speculation_ctrl.c
-            COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
-            RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
-    )
-    if ((COMPILE_RESULT_VAR EQUAL 0) OR (RUN_RESULT_VAR EQUAL 1))
-        message(WARNING "build system cannot determine speculation mitigation status.")
-        add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
-    else () # 2 (not needed) or 0 (okay) are possible.
-        add_compile_definitions(WINDHAM_SPEC_MITIGATION=${RUN_RESULT_VAR})
+    # --------------------------------------------------------------------
+    # add files
+    include_directories(${CMAKE_SOURCE_DIR}/include)
+
+    file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
+    file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
+    file(GLOB HUFFMAN_SRC ${CMAKE_SOURCE_DIR}/library/huffman/*.c)
+    file(GLOB cJSON_SRC ${CMAKE_SOURCE_DIR}/library/cJSON/*.c)
+    file(GLOB GETOPT_SRC ${CMAKE_SOURCE_DIR}/library/getopt_port/*.c)
+
+    set(ARGON2_DIR ${CMAKE_SOURCE_DIR}/library/Argon2)
+
+    if (CFG_NO_OPT)
+        add_compile_definitions("__Argon2_opt_disable__")
+        message(STATUS "SIMD optimization disabled using options.")
+        file(GLOB Argon2_SRC ${ARGON2_DIR}/argon2.c ${ARGON2_DIR}/core.c ${ARGON2_DIR}/encoding.c ${ARGON2_DIR}/ref.c
+                ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
+    elseif (ARCH STREQUAL "x86_64")
+        message(STATUS "Use x86-64 platform optimization")
+        file(GLOB Argon2_SRC ${ARGON2_DIR}/argon2.c ${ARGON2_DIR}/core.c ${ARGON2_DIR}/encoding.c ${ARGON2_DIR}/opt.c
+                ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
+    else ()
+        message(STATUS "No platform optimization available under this architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+        file(GLOB Argon2_SRC ${ARGON2_DIR}/argon2.c ${ARGON2_DIR}/core.c ${ARGON2_DIR}/encoding.c ${ARGON2_DIR}/ref.c
+                ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
     endif ()
-else ()
-    add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
-endif ()
 
 
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    if (NOT CFG_WINDHAM_ALLOW_ATTACH)
+    # --------------------------------------------------------------------
+    # try-run
+
+    # test keyctl
+    if (CFG_NO_MODULE_KEYRING)
+        add_compile_definitions(NO_KEYCTL)
+        message(STATUS "Linux kernel key retention subsystem disabled by arguments")
+    else ()
         try_run(
                 RUN_RESULT_VAR
                 COMPILE_RESULT_VAR
                 ${CMAKE_BINARY_DIR}/temp
-                SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_prctl_set_dumpable.c
+                SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_keyctl.c
                 COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
                 RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
         )
-
-        if (NOT COMPILE_RESULT_VAR OR NOT RUN_RESULT_VAR EQUAL 0)
-            message(WARNING "Allowing debugger to attach under \"Release\" target: failed to set dumpable under prctl.")
-            add_compile_definitions(WINDHAM_ALLOW_ATTACH)
+        if (NOT COMPILE_RESULT_VAR)
+            message(SEND_ERROR "Cannot compile keyctl try run program. Possibly missing kernel header.")
+        elseif (NOT CMAKE_CROSSCOMPILING)
+            if (RUN_RESULT_VAR STREQUAL FAILED_TO_RUN)
+                add_compile_definitions(NO_KEYCTL)
+                message(WARNING "System call \"SYS_keyctl\" unsupported by this kernel. Disabling Linux kernel key
+            retention service.")
+            else ()
+                find_library(IS_KEYUTILS_LIB keyutils)
+                if(IS_KEYUTILS_LIB STREQUAL IS_KEYUTILS_LIB-NOTFOUND)
+                    message(WARNING "library keyutils not found. Windham compiles with keyctl support but will fail when
+                loading keyutils module.")
+                else()
+                    message(STATUS "Linux kernel key retention subsystem detected and enabled.")
+                endif()
+            endif ()
+        else ()
+            message(STATUS "Cross compiling, not detecting SYS_keyctl and keyutils. key retention subsystem enabled")
         endif ()
-    else ()
-        add_compile_definitions(WINDHAM_ALLOW_ATTACH)
     endif ()
-else ()
-    add_compile_definitions(WINDHAM_ALLOW_ATTACH) # allow attach under debug
-endif ()
 
 
-# test ISOC threads
-try_run(
-        RUN_RESULT_VAR
-        COMPILE_RESULT_VAR
-        ${CMAKE_BINARY_DIR}/temp
-        SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_isoc_thread.c
-        COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
-        RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
-)
+    # test ISOC threads
+    try_run(
+            RUN_RESULT_VAR
+            COMPILE_RESULT_VAR
+            ${CMAKE_BINARY_DIR}/temp
+            SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_isoc_thread.c
+            COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
+            RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
+    )
 
-if (COMPILE_RESULT_VAR EQUAL 0)
-    message(WARNING "Cannot compile test <thread.h> program, build may fail. Your system may requires additional\
+    if (COMPILE_RESULT_VAR EQUAL 0)
+        message(WARNING "Cannot compile test <thread.h> program, build may fail. Your system may requires additional\
     link-time libraries to enable ISO C thread. Use environment CFLAGS= to designate required libraries. Common\
     platforms may require \"-lpthread\"; try this first.")
-elseif (RUN_OUTPUT_VAR EQUAL 1)
-    message(WARNING "Sample ISO C multithread program occurred a runtime error. Disabling ISO C thread support.\
+    elseif (NOT CMAKE_CROSSCOMPILING)
+        if (RUN_OUTPUT_VAR EQUAL 1)
+            message(WARNING "Sample ISO C multithread program occurred a runtime error. Disabling ISO C thread support.\
     Unlocking will be up to two times slower.")
-    add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
-elseif (RUN_OUTPUT_VAR EQUAL 2)
-    message(WARNING "ISO C threading support not available on this platform. Disabling ISO C thread support.\
+            add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
+        elseif (RUN_OUTPUT_VAR EQUAL 2)
+            message(WARNING "ISO C threading support not available on this platform. Disabling ISO C thread support.\
     Unlocking will be up to two times slower.")
-endif ()
+        else ()
+            message(STATUS "libc multithread detected and enabled.")
+        endif ()
+    else()
+        message(STATUS "Cross compiling, multithread enabled using libc without testing.")
+    endif()
 
+endif ()
 
 # --------------------------------------------------------------------
 # build targets
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_definitions(WINDHAM_ALLOW_ATTACH) # allow attach under debug
+    add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
+
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     add_executable(windham frontend.c
             ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
     set_target_properties(windham PROPERTIES OUTPUT_NAME windham_debug)
     configure_global_flags()
 
+
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+    # debugger attach is not allowed under release.
+    if (NOT CFG_WINDHAM_ALLOW_ATTACH)
+        if (NOT CMAKE_CROSSCOMPILING)
+            try_run(
+                    RUN_RESULT_VAR
+                    COMPILE_RESULT_VAR
+                    ${CMAKE_BINARY_DIR}/temp
+                    SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_prctl_set_dumpable.c
+                    COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
+                    RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
+            )
+
+            if (NOT COMPILE_RESULT_VAR OR NOT RUN_RESULT_VAR EQUAL 0)
+                message(WARNING "Allowing debugger to attach under \"Release\" target: failed to set dumpable under prctl.")
+                add_compile_definitions(WINDHAM_ALLOW_ATTACH)
+            endif ()
+        else ()
+            message(STATUS "Disallow debugger attach using prctl. Use CFG_WINDHAM_ALLOW_ATTACH to allow.")
+        endif ()
+    else()
+        message(WARNING "Allowing debugger to attach under \"Release\" target.")
+        add_compile_definitions(WINDHAM_ALLOW_ATTACH)
+    endif()
+
+    # detect spectre mitigation
+    if (NOT CFG_NO_ENFORCE_SPEC_MITIGATION AND NOT CMAKE_CROSSCOMPILING)
+        try_run(
+                RUN_RESULT_VAR
+                COMPILE_RESULT_VAR
+                ${CMAKE_BINARY_DIR}/temp
+                SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_prctl_speculation_ctrl.c
+                COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
+                RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
+        )
+        if ((COMPILE_RESULT_VAR EQUAL 0) OR (RUN_RESULT_VAR EQUAL 1))
+            message(WARNING "build system cannot determine speculation mitigation status.")
+            add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
+        else () # 2 (not needed) or 0 (okay) are possible.
+            add_compile_definitions(WINDHAM_SPEC_MITIGATION=${RUN_RESULT_VAR})
+        endif ()
+    else ()
+        add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
+    endif ()
+
     add_executable(windham frontend.c
             ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
     configure_global_flags()
@@ -305,11 +329,12 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
             RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
 
 elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
+    add_compile_definitions(WINDHAM_ALLOW_ATTACH) # allow attach under Test
+    add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
+
     add_executable(windham test/test.c
             ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
     set_target_properties(windham PROPERTIES OUTPUT_NAME windham_test)
     configure_global_flags()
-
-endif()
 
 endif()
