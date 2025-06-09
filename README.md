@@ -33,8 +33,9 @@ current storage encryption schemes.
 
 # How To install?
 
-Windham requires an operating system that uses the Linux kernel.
-For these operating systems, such [Dependencies](#Dependencies-for-full-support) are required.
+Windham requires Linux kernel based operating system; most of the testing are performed
+under GNU/Linux. For these operating systems, such
+[Dependencies](#Dependencies-for-full-support) are required.
 
 The commands below will compile Windham under `./windham/dev`. Git, CMake, and a ISO C11 compiler
 is required. such commands run on most modern shells across different operating systems.
@@ -47,8 +48,9 @@ cd build
 cmake --build .
 ```
 
-Under operating systems that use Linux as kernel, the command above will default to `Release` build type, which builds
-a complete functional Windham under such platforms. **You need to install dependencies before building `Release` .** 
+Under operating systems that use Linux as kernel and GNU-Like, the command above will 
+default to `Release` build type, which builds a complete functional Windham under such
+platforms. **You need to install dependencies before building `Release` .** 
 For other platforms, only ISO C build type, which provides basic on-disk format management, is 
 available: [Supported platforms](#Supported-platforms). 
 
@@ -268,8 +270,8 @@ use option `--nofail`, which does nothing when fail and start `exec` to the give
 &nbsp;
 
 
-
-# Dependencies for full support:
+# Building Windham:
+## Dependencies for full support:
 
 Windham with full support requires a GCC-like compilers that is compatible with GNU style `__attribute__` and 
 language extensions. It works under Clang, should work under Zig CC (untested).
@@ -286,6 +288,29 @@ Additional and optional user-space programs; Windham can work without them, but 
 
 - `clevis`: a pluggable framework for automated decryption / encryption.
 - `partx`: userspace tool that tells the kernel about the presence and numbering of on-disk partitions.
+
+
+&nbsp;
+
+## Cross compilation and feature switch
+
+The build system supports following feature switchs:
+
+- `CFG_NO_MODULE_KEYRING`: disable kernel key retention service
+- `CFG_WINDHAM_ALLOW_ATTACH`: make debugger attachable (default under `Debug` Profile)
+- `CFG_NO_ENFORCE_SPEC_MITIGATION`: not enforcing spectre mitigation (default under 
+`Debug` Profile)
+- `CFG_NO_OPT`: Disable SIMD optimization (Only available under x86-64 architecture)
+
+Windham Supports Cross compilation. But first, just like other CMake projects, refer
+to the manual from CMake first: [Cross compilation](https://cmake.org/cmake/help/book/mastering-cmake/chapter/Cross%20Compiling%20With%20CMake.html)
+
+For `ISOC` build type, it is equivalent to directly compile `frontend.c` using your complier (Plus preset optimization options for common UNIX compilers). Nothing more beyond this. Thus build system is optional under strict ISO C11 profile, so feature switch will not work.
+
+For `Release` build type, `try_run` will not work. Windham will use the following
+assumption: if something does compile, it will run without error / enable it's 
+best feature set. If this is not what you want, use the above feature flags to disable
+designated feature.
 
 &nbsp;
 
