@@ -11,10 +11,10 @@ void test_checkhead(char * device_) {
    // 170 = 0b10101010
    memset(&data, 170, sizeof(data));
    assert(check_head(&data));
-   fill_secure_random_bits(&data, sizeof(data));
+   fill_secure_random_bits((uint8_t * )&data, sizeof(data));
    assert(check_head(&data));
 
-   char * name[strlen(device_) + sizeof("mkfs.ext4") + 2];
+   char  name[strlen(device_) + sizeof("mkfs.ext4") + 2];
    sprintf(name, "mkfs.ext4 %s", device_);
    system(name);
 

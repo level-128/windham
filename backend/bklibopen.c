@@ -171,7 +171,7 @@ void action_open(
       if (mapper_keyring_get_disk_serial(data.uuid_and_salt, disk_key) == true) {
          printf(_("Found kernel keyring key\n"));
          size_t start_sector, end_sector;
-         size_t device_block_cnt = STR_device->block_count;
+         int64_t device_block_cnt = STR_device->block_count;
          get_new_header_range_and_offset_based_on_size(
             device,
             device_block_cnt,

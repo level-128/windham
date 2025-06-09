@@ -51,7 +51,7 @@ void init(bool is_root) {
    const int speculation_stat = prctl(PR_GET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS);
    if (speculation_stat) { // if the CPU is affected by the speculation misfeature.
       if (! (speculation_stat | PR_SPEC_DISABLE || speculation_stat | PR_SPEC_FORCE_DISABLE)) {
-         const bool result = prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS, PR_SPEC_FORCE_DISABLE, 0, 0) ||
+         const bool WINDHAM_ATTRIBUTE(maybe_unused) result = prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS, PR_SPEC_FORCE_DISABLE, 0, 0) ||
                              prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_INDIRECT_BRANCH, PR_SPEC_FORCE_DISABLE, 0, 0);
 #if WINDHAM_SPEC_MITIGATION != -1
          if (result != 0) {

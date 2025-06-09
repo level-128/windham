@@ -182,7 +182,7 @@ ENUM_MAPPER_DEVSTAT locate_possible_header_location_and_type(
 
 int64_t get_new_header_range_and_offset_based_on_size(
    const char * device,
-   uint64_t     device_block_count,
+   int64_t      device_block_count,
    size_t *     start_sector,
    size_t *     end_sector,
    size_t       block_size,

@@ -69,7 +69,7 @@ void action_create(
 
    fill_secure_random_bits(master_key, HASHLEN);
 
-   const size_t  device_block_cnt = STR_device->block_count;
+   const int64_t device_block_cnt = STR_device->block_count;
    const int64_t offset           =
       get_new_header_range_and_offset_based_on_size(
          device,
