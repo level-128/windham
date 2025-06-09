@@ -242,12 +242,16 @@ Note: Some distributions utilize initrd or initramfs. If you intend to encrypt y
 
 ### Running `windham` as pid1:
 
-This method should be only used for embedded Linux systems. **YOU SHOULD NOT** do this if you are running a complete GNU/Linux distro.
+This method should be only used for embedded Linux systems. **YOU SHOULD NOT** do
+this if you are running a complete GNU/Linux distro.
 
-Windham will behave differently if it detects that it runs as pid1. When this happens, Windham will ignore the 
-commandline, using the preset in the binary instead. You can change its preset commandline (`windham Open TAB`, then exec `/bin/sh` is precompiled by default) by using a hex editor. 
+Windham will behave differently if it detects that it runs as pid1. When this happens,
+Windham will ignore the commandline, using the preset in the binary instead. You can
+change its preset commandline (`windham Open TAB`, then exec `/bin/sh` is precompiled
+by default) by using a hex editor. 
 
-The pre-compiled commandline is located under `.windhaminit` section. It has the following syntax:
+The pre-compiled commandline is located under `.windhaminit` section. It has the 
+following syntax:
 
 ```
 WINDHAMINIT:\xff<program exec after success>\xff<Action>\xff<argument>\xff<options>...
@@ -294,23 +298,56 @@ Additional and optional user-space programs; Windham can work without them, but 
 
 ## Cross compilation and feature switch
 
-The build system supports following feature switchs:
+The build system supports following feature switches:
 
 - `CFG_NO_MODULE_KEYRING`: disable kernel key retention service
 - `CFG_WINDHAM_ALLOW_ATTACH`: make debugger attachable (default under `Debug` Profile)
 - `CFG_NO_ENFORCE_SPEC_MITIGATION`: not enforcing spectre mitigation (default under 
 `Debug` Profile)
 - `CFG_NO_OPT`: Disable SIMD optimization (Only available under x86-64 architecture)
+- `CFG_USE_SWAP`: Allowing to use swap space for key derivative (Insecure!)
+- `CFG_WIPE_MEMORY`: wipe memory after key derivative, strongly suggest if `CFG_USE_SWAP` enabled
 
-Windham Supports Cross compilation. But first, just like other CMake projects, refer
-to the manual from CMake first: [Cross compilation](https://cmake.org/cmake/help/book/mastering-cmake/chapter/Cross%20Compiling%20With%20CMake.html)
+use `cmake -B build -D YOUR_OPTION=TRUE`  to toggle feature switches.
 
-For `ISOC` build type, it is equivalent to directly compile `frontend.c` using your complier (Plus preset optimization options for common UNIX compilers). Nothing more beyond this. Thus build system is optional under strict ISO C11 profile, so feature switch will not work.
+For `ISOC` build type, it is equivalent to directly compile `frontend.c` using your
+complier (plus preset optimization options for common UNIX compilers). Nothing more
+beyond this. The build system is optional under strict ISO C11 profile, so feature
+switch will not work. The fastest way to cross compile it is directly invoking your
+compiler.
+
+&nbsp;
+
+Windham Supports cross compile `Release` build type. But first, just like other CMake projects, refer
+to the manual from CMake first: [Cross compilation](https://cmake.org/cmake/help/book/mastering-cmake/chapter/Cross%20Compiling%20With%20CMake.html).
+To cross compile, use:
+`-D CMAKE_SYSTEM_NAME=Linux -D CMAKE_SYSTEM_PROCESSOR=*your target arch*`
+
+For example, cross compile `Release` build type from a non x86-64 host to x86-64 with x86 specific 
+optimization disabled on debian systems:
+
+```shell
+# install cross tools
+sudo apt install gcc-x86-64-linux-gnu 
+
+cmake -D CMAKE_SYSTEM_NAME=Linux\
+ -D CMAKE_SYSTEM_PROCESSOR=amd64\
+ -D CFG_NO_OPT=TRUE\
+ -D CMAKE_C_COMPILER=x86_64-linux-gnu-gcc\
+ -B build
+ 
+cd build
+cmake --build .
+```
 
 For `Release` build type, `try_run` will not work. Windham will use the following
 assumption: if something does compile, it will run without error / enable it's 
 best feature set. If this is not what you want, use the above feature flags to disable
 designated feature.
+
+[Crosstool-NG](https://crosstool-ng.github.io/) and [ZigCC](https://ziglang.org/download/) 
+are two helpful and handy tools for cross compiling to hosted platforms. Zig cc is
+the Zig compiler's sub-command, compatible with GCC and Clang.
 
 &nbsp;
 
@@ -352,7 +389,7 @@ A notification to BIS and the ENC Encryption Request Coordinator via email of th
 internet
 address) of the source code is required when the cryptographic functionality of the source code is updated or modified.
 
-If you reside in the United states, or defined as a US person, you need to submit your evidence of BIS compliance before publishing your change.
+If you reside in the United States, or defined as a US person, you need to submit your evidence of BIS compliance before publishing your change.
 
 ### Implementing Digital Rights Management (DRM) or digital Anti-Circumvention scheme
 
