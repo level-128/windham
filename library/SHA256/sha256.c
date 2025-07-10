@@ -37,6 +37,11 @@
  *   cdc76e5c 9914fb92 81a1c7e2 84d73e67 f1809a48 a497200e 046d39cc c7112cd0
  */
 
+#define HAVE_STDINT_H 1
+
+#define RUNTIME_ENDIAN
+
+
 #ifdef HAVE_CONFIG_H
 #include "clamav-config.h"
 #endif /* HAVE_CONFIG_H */
@@ -127,15 +132,15 @@ static inline uint64_t _byteswap64(uint64_t x)
 #define BYTESWAP(x) _byteswap(sc->littleEndian, x)
 #define BYTESWAP64(x) _byteswap64(sc->littleEndian, x)
 
-#define _BYTESWAP(x) ((ROTR((x), 8) & 0xff00ff00L) | \
+#define _bYTESWAP(x) ((ROTR((x), 8) & 0xff00ff00L) | \
 		      (ROTL((x), 8) & 0x00ff00ffL))
-#define _BYTESWAP64(x) __byteswap64(x)
+#define _bYTESWAP64(x) __byteswap64(x)
 
 static inline uint64_t __byteswap64(uint64_t x)
 {
   uint32_t a = x >> 32;
   uint32_t b = (uint32_t) x;
-  return ((uint64_t) _BYTESWAP(b) << 32) | (uint64_t) _BYTESWAP(a);
+  return ((uint64_t) _bYTESWAP(b) << 32) | (uint64_t) _bYTESWAP(a);
 }
 
 static inline uint32_t _byteswap(int littleEndian, uint32_t x)
@@ -143,7 +148,7 @@ static inline uint32_t _byteswap(int littleEndian, uint32_t x)
   if (!littleEndian)
     return x;
   else
-    return _BYTESWAP(x);
+    return _bYTESWAP(x);
 }
 
 static inline uint64_t _byteswap64(int littleEndian, uint64_t x)
@@ -151,7 +156,7 @@ static inline uint64_t _byteswap64(int littleEndian, uint64_t x)
   if (!littleEndian)
     return x;
   else
-    return _BYTESWAP64(x);
+    return _bYTESWAP64(x);
 }
 
 static inline void setEndian(int *littleEndianp)
