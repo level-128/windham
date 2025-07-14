@@ -32,6 +32,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+// use runtime endian
+#define RUNTIME_ENDIAN
 
 #define SHA256_HASH_SIZE 32
 

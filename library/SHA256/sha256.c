@@ -37,23 +37,8 @@
  *   cdc76e5c 9914fb92 81a1c7e2 84d73e67 f1809a48 a497200e 046d39cc c7112cd0
  */
 
-#define HAVE_STDINT_H 1
 
-#define RUNTIME_ENDIAN
-
-
-#ifdef HAVE_CONFIG_H
-#include "clamav-config.h"
-#endif /* HAVE_CONFIG_H */
-
-#if HAVE_INTTYPES_H
-# include <inttypes.h>
-#else
-# if HAVE_STDINT_H
-#  include <stdint.h>
-# endif
-#endif
-
+#include <stdint.h>
 #include <string.h>
 
 #include "../../include/sha256.h"
