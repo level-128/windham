@@ -6,6 +6,7 @@
 #include "../include/windham_const.h"
 
 #include "../libplat/chk_enc_supp_stat.c"
+#include "../libplat/get_entropy.c"
 
 
 

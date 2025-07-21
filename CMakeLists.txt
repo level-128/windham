@@ -65,8 +65,8 @@ elseif (NOT CFG_WINDHAM_DEFAULT_DISK_ENC_MODE IN_LIST WINDHAM_DEFAULT_DISK_ENC_M
     ${CFG_WINDHAM_DEFAULT_DISK_ENC_MODE_LIST}")
 else()
     if(CMAKE_BUILD_TYPE STREQUAL "ISOC" AND CFG_WINDHAM_DEFAULT_DISK_ENC_MODE STREQUAL "uninit")
-        message(WARNING "using encryption mode other than uninit under ISOC build type will init the device and
-        forcing windham to open at such type on other platforms.")
+        message(WARNING "using encryption mode other than uninit under ISOC build type will init the device and"
+        "forcing windham to open at such type on other platforms.")
     endif()
 endif ()
 add_compile_definitions(DEFAULT_DISK_ENC_MODE="${CFG_WINDHAM_DEFAULT_DISK_ENC_MODE}")
@@ -79,8 +79,8 @@ function(configure_global_flags)
         if(CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang|ZigCC|Intel)$")
             set(CMAKE_C_FLAGS "-O3 ${CMAKE_C_FLAGS}" PARENT_SCOPE)
         else()
-            message(WARNING "Windham don't know how to set optimization flags for this compiler. Use CMAKE_C_FLAGS to
-            pass optimization flags.")
+            message(WARNING "Windham don't know how to set optimization flags for this compiler. "
+                    "Use CMAKE_C_FLAGS to pass optimization flags.")
         endif()
     elseif(CMAKE_BUILD_TYPE MATCHES "^(Debug|Test)$")
         if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
@@ -219,13 +219,13 @@ else ()
         elseif (NOT CMAKE_CROSSCOMPILING)
             if (RUN_RESULT_VAR STREQUAL FAILED_TO_RUN)
                 add_compile_definitions(NO_KEYCTL)
-                message(WARNING "System call \"SYS_keyctl\" unsupported by this kernel. Disabling Linux kernel key
-            retention service.")
+                message(WARNING "System call \"SYS_keyctl\" unsupported by this kernel. Disabling Linux kernel key"
+            "retention service.")
             else ()
                 find_library(IS_KEYUTILS_LIB keyutils)
                 if(IS_KEYUTILS_LIB STREQUAL IS_KEYUTILS_LIB-NOTFOUND)
-                    message(WARNING "library keyutils not found. Windham compiles with keyctl support but will fail when
-                loading keyutils module.")
+                    message(WARNING "library keyutils not found. Windham compiles with keyctl support but will fail when"
+                "loading keyutils module.")
                 else()
                     message(STATUS "Linux kernel key retention subsystem detected and enabled.")
                 endif()
@@ -247,17 +247,17 @@ else ()
     )
 
     if (COMPILE_RESULT_VAR EQUAL 0)
-        message(WARNING "Cannot compile test <thread.h> program, build may fail. Your system may requires additional\
-    link-time libraries to enable ISO C thread. Use environment CFLAGS= to designate required libraries. Common\
-    platforms may require \"-lpthread\"; try this first.")
+        message(WARNING "Cannot compile test <thread.h> program, build may fail. Your system may requires additional"
+    "link-time libraries to enable ISO C thread. Use environment CFLAGS= to designate required libraries. Common"
+    "platforms may require \"-lpthread\"; try this first.")
     elseif (NOT CMAKE_CROSSCOMPILING)
         if (RUN_OUTPUT_VAR EQUAL 1)
-            message(WARNING "Sample ISO C multithread program occurred a runtime error. Disabling ISO C thread support.\
-    Unlocking will be up to two times slower.")
+            message(WARNING "Sample ISO C multithread program occurred a runtime error. Disabling ISO C thread support."
+    "Unlocking will be up to two times slower.")
             add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
         elseif (RUN_OUTPUT_VAR EQUAL 2)
-            message(WARNING "ISO C threading support not available on this platform. Disabling ISO C thread support.\
-    Unlocking will be up to two times slower.")
+            message(WARNING "ISO C threading support not available on this platform. Disabling ISO C thread support."
+    "Unlocking will be up to two times slower.")
         else ()
             message(STATUS "libc multithread detected and enabled.")
         endif ()

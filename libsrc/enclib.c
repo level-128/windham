@@ -11,9 +11,9 @@
 #include "../include/windham_const.h"
 #include "../include/aes.h"
 #include "../include/sha256.h"
+#include "../libplat/get_entropy.c"
 #include "libkdf.c"
 #include "srclib.c"
-
 
 
 uint64_t bounds[][2] = {
@@ -47,37 +47,6 @@ uint64_t bounds[][2] = {
 
 const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
 
-
-#ifndef WINDHAM_ISOC
-#include <sys/random.h>
-void fill_secure_random_bits(uint8_t * address, const size_t size) {
-FILL_BY_GETRANDOM:
-   ssize_t size_filled = getrandom(address, size, 0);
-   if (size_filled != (long) size) {
-      if (errno == EINTR) { // interrupted by signal
-         goto FILL_BY_GETRANDOM;
-      }
-      perror("getrandom");
-      windham_exit(1);
-   }
-}
-#else
-void fill_secure_random_bits(uint8_t * address, size_t size) {
-   unsigned bits = 0;
-   if (RAND_MAX > 0xffff) {
-      bits = 2;
-   } else {
-      bits = 1;
-   }
-   for (size_t i = 0; i < size; i+=bits) {
-      unsigned randnum = (unsigned) rand();
-      address[i] = randnum & 0xff;
-      if (bits == 2) {
-         address[i+1] = (randnum >> 8) & 0xff;
-      }
-   }
-}
-#endif
 
 extern inline bool is_header_suspended(const Data encrypted_header) {
    return memcmp(encrypted_header.head, head, 16) == 0;
@@ -207,7 +176,6 @@ int read_key_from_data_one_level_mt_thread_function(void * arg) {
    return result;
 }
 
-#define STACK_SIZE (1024 * 32)
 
 bool read_key_from_data_one_level_dispatch(
    Data       data,

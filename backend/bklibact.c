@@ -8,6 +8,7 @@
 
 #include "../libsrc/mapper.c"
 #include "../libsrc/srclib.c"
+#include "../libplat/get_entropy.c"
 #include "bklibkey.c"
 #include "bksrclib.c"
 #include "../include/windham_const.h"
@@ -90,7 +91,7 @@ int action_addkey(
    Key     new_key;
    int     ret_target_level;
 
-   const ENUM_MAPPER_DEVSTAT device_stat = locate_possible_header_location_and_type(device, &data, &offset, is_decoy);
+   const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
    if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
       print_error(_("The header is suspended. Resume header to perform this operation."));
    }
@@ -165,7 +166,7 @@ void action_removekey(
    Data    data;
    int64_t offset;
 
-   const ENUM_MAPPER_DEVSTAT device_stat = locate_possible_header_location_and_type(device, &data, &offset, is_decoy);
+   const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
    if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
       print_error(_("The header is suspended. Resume header to perform this operation."));
    }
@@ -232,7 +233,7 @@ void action_backup(const char * device, const char * filename, const bool is_dec
 #endif
    Data                data;
    int64_t             offset;
-   ENUM_MAPPER_DEVSTAT device_stat = locate_possible_header_location_and_type(device, &data, &offset, is_decoy);
+   ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
    if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
       print_error(
          _("The header is suspended. Resume header to perform this operation. Although it is technically possible to backup a"
@@ -254,7 +255,7 @@ void action_restore(const char * device, const char * filename, const bool is_de
 
    Data    data;
    int64_t offset;
-   locate_possible_header_location_and_type(filename, &data, &offset, is_decoy);
+   load_header_by_device(filename, &data, &offset, is_decoy);
 
    write_header_to_device(
       &data,
@@ -266,7 +267,7 @@ void action_restore(const char * device, const char * filename, const bool is_de
 void action_suspend(const char * device, PARAMS_FOR_KEY) {
    Data    data;
    int64_t offset;
-   locate_possible_header_location_and_type(device, &data, &offset, is_decoy);
+   load_header_by_device(device, &data, &offset, is_decoy);
 
    if (is_header_suspended(data)) {
       print_error(_("The device %s is already suspended."), device);
@@ -284,7 +285,7 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
    Data    data;
    int64_t offset;
 
-   locate_possible_header_location_and_type(device, &data, &offset, is_decoy);
+   load_header_by_device(device, &data, &offset, is_decoy);
 
    if (! is_header_suspended(data)) {
       print_error(_("The device %s is not suspended."), device);
@@ -322,7 +323,7 @@ void action_destory(const char * device, bool is_decoy) {
    Data    data;
    int64_t offset;
 
-   ENUM_MAPPER_DEVSTAT stat = locate_possible_header_location_and_type(device, &data, &offset, is_decoy);
+   ENUM_MAPPER_DEVSTAT stat = load_header_by_device(device, &data, &offset, is_decoy);
 
    uint8_t * uuid = data.uuid_and_salt;
    printf(
@@ -393,7 +394,7 @@ void action_destory(const char * device, bool is_decoy) {
       // depends on target.
 #ifndef WINDHAM_ISOC
       sleep(1);
-#elifdef __STDC_NO_THREADS__
+#elif defined(__STDC_NO_THREADS__)
       struct timespec start, current;
 
       if (timespec_get(&start, TIME_UTC) != TIME_UTC) {

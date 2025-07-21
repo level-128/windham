@@ -1,9 +1,11 @@
 #ifndef INCL_HEADERIO
 #define INCL_HEADERIO
 
-#include <stdio.h>
+#include <stdint.h>
+#include "../include/windham_const.h"
 
-void action_new_check_crypt_support_status(const char *);
+
+void operate_header_on_device(Data *data, const char *device, int64_t offset, bool is_read);
 
 #ifndef WINDHAM_ISOC
 #include "GNU_Linux/headerio.c"

@@ -223,7 +223,7 @@ typedef struct STR_data {
 
   alignas(AES_BLOCKLEN) struct {
     alignas(1) Keypool                       keypool;
-    alignas(4) Key_slot                      WINDHAM_ATTRIBUTE(unused) _keypool_padding;
+    alignas(4) Key_slot                      WINDHAM_ATTRIBUTE(maybe_unused) _keypool_padding;
   }                                          keypool[2];
 
   // offset: 19472

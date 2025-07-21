@@ -137,7 +137,7 @@ typedef enum {
 } ENUM_MAPPER_DEVSTAT;
 
 
-ENUM_MAPPER_DEVSTAT locate_possible_header_location_and_type(
+ENUM_MAPPER_DEVSTAT load_header_by_device(
    const char * device,
    Data *       return_data,
    int64_t *    return_offset,
