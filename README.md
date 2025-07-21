@@ -3,6 +3,8 @@
 Windham is a libre software for disk encryption, an implementation of its own specification, based on the
 Linux kernel's dm-crypt module.
 
+Readme Translation: [Simplified Chinese](/Document/README_zh-cn.md), [French](/Document/README_fr.md)
+
 &nbsp;
 
 __NOTE: Windham is currently under active development. Future versions, although unlikely, may introduce an incompatible
