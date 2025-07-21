@@ -119,7 +119,16 @@ void action_open(
       kernel_keyring_init();
    }
 
-   switch (locate_possible_header_location_and_type(device, &data, &offset, is_decoy)) {
+   ENUM_MAPPER_DEVSTAT header_type = load_header_by_device(device, &data, &offset, is_decoy);
+
+   // generate name for empty target name
+   char random_target_name[sizeof("windham-123e4567-e89b-12d3-a456-abcdef123456")];
+   if (target_name == NULL){
+      memcpy(random_target_name, "windham-", strlen("windham-"));
+      generate_UUID_from_bytes(data.uuid_and_salt, random_target_name + strlen("windham-"));
+   }
+
+   switch (header_type) {
    // Case 1: Open a suspend partition
    case NMOBJ_MAPPER_DEVSTAT_SUSP: {
       convert_metadata_endianness_to_h(&data.metadata);
@@ -456,19 +465,10 @@ void action_open_(
       print_error(_("ISO C mode does not support windhamtab mode."));
 #endif
    } else {
-      char random_target_name[sizeof("windham-123e4567-e89b-12d3-a456-abcdef123456")];
-      if (target_name == NULL) {
-         memcpy(random_target_name, "windham-", strlen("windham-"));
-         uint8_t random_bits[16];
-         fill_secure_random_bits(random_bits, 16);
-         generate_UUID_from_bytes(random_bits, random_target_name + strlen("windham-"));
-      }
       init_device(uninit_device, is_dry_run == false, is_target_readonly, is_nofail, is_decoy, 0, 0);
       action_open(
          STR_device->name,
-         target_name == NULL
-            ? random_target_name
-            : target_name,
+         target_name,
          timeout,
          key,
          master_key,
