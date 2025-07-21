@@ -140,7 +140,8 @@ Windham supports `/etc/windhamtab` file under full support which describes encry
 
 
 - First, run `windham Open TAB` to create a template `windhamtab` file (if it does not exist).
-- Append your encrypted devices and target paths (under `/dev/mapper`, same as argument `--to` in `Windham Open`), 
+- Append your encrypted devices and target paths (under `/dev/mapper`, same as argument `--to` in `Windham Open`) 
+  according to the format commited in the file, 
   along with parameters and decryption methods. `windhamtab` supports unlock by asking for key / keyfile / Clevis. 
   It is strongly encouraged to use `UUID=`, since it is a robust way to name devices that works even if disks are 
   added and removed
@@ -236,7 +237,9 @@ Windham will parse `/etc/windhamtab` file for operation. in this case, all opera
 
 To proceed with this method, create a target for your init daemon with `exec=windham Open TAB`. This target should execute before the init process mounts the target partition.
 
-Note: Some distributions utilize initrd or initramfs. If you intend to encrypt your root directory, consult your distribution's documentation for the tool used to package initrd or initramfs (e.g., dracut), and ensure Windham and Clevis are included in the package; execute the service depend chroot, as it depends on the chroot target.
+Note: Some distributions utilize initrd or initramfs. If you intend to encrypt your root directory, consult your 
+distribution's documentation for the tool used to package initrd or initramfs (e.g., dracut), and ensure Windham 
+and Clevis are included in the package; execute the service before chroot, as it depends on the chroot target.
 
 ### Running `windham` as pid1:
 
@@ -359,7 +362,7 @@ Windham is not attachable by debugger under cmake `Release` build type. you shou
 system is the primary development platform, and it is also recommended because Windham uses glibc extensions to print 
 stack traces under crash.
 
-Oh, make sure that you have acknowledged [the code of conduct](CODE_OF_CONDUCT.md).
+Oh, make sure that you have acknowledged [the code of conduct](/CODE_OF_CONDUCT.md).
 
 &nbsp;
 
@@ -378,7 +381,7 @@ unmodified covered work. The "Additional permissions" have been removed from ver
 
 Since version 1.241231 (released at Dev 31, 2024), License has been changed from GPLv3 only to GPLv3 or later.
 
-This software contains 3rd party free software. See [licensing information](library/license.md).
+This software contains 3rd party free software. See [licensing information](/library/license.md).
 
 ### U.S. Encryption Export Regulations
 
