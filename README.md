@@ -5,8 +5,8 @@ Linux kernel's dm-crypt module.
 
 &nbsp;
 
-__NOTE: Windham is currently under active development. Future versions, although unlikely, may introduce an incompatible on-disk 
-format; use at your on risk!!!!.__
+__NOTE: Windham is currently under active development. Future versions, although unlikely, may introduce an incompatible
+on-disk format; use at your on risk!!!!.__
 
 &nbsp;
 
@@ -33,12 +33,12 @@ current storage encryption schemes.
 
 # How To install?
 
-Windham requires Linux kernel based operating system; most of the testing are performed
+Windham requires a Linux kernel based UNIX-like system; most of the testing are performed
 under GNU/Linux. For these operating systems, such
 [Dependencies](#Dependencies-for-full-support) are required.
 
-The commands below will compile Windham under `./windham/dev`. Git, CMake, and a ISO C11 compiler
-is required. such commands run on most modern shells across different operating systems.
+These commands will compile Windham under `./windham/dev`. Git, CMake 3.16+, and a ISO C11 compiler
+are required. such commands run on most modern shells across different operating systems.
 
 ```shell
 git clone https://github.com/level-128/windham.git --depth=1
@@ -48,15 +48,13 @@ cd build
 cmake --build .
 ```
 
-Under operating systems that use Linux as kernel and GNU-Like, the command above will 
+Under GNU-like systems, the command above will 
 default to `Release` build type, which builds a complete functional Windham under such
 platforms. **You need to install dependencies before building `Release` .** 
-For other platforms, only ISO C build type, which provides basic on-disk format management, is 
-available: [Supported platforms](#Supported-platforms), and will enable by default.
+For other platforms, only ISO C build type -- provides a set of basic on-disk format management operations
+-- is available and enable by default. Refer: [Supported platforms](#Supported-platforms),
 
-### PATCH `rand()` FUNCTION IF YOU WANT TO CREATE WINDHAM FORMAT UNDER ISO C build type!!!
 
-### PATCH `rand()` FUNCTION IF YOU WANT TO CREATE WINDHAM FORMAT UNDER ISO C build type!!!
 
 &nbsp;
 
@@ -104,12 +102,12 @@ Windham has 2 feature support levels:
    is recommended). No additional libc requirements.
 2. Basic mode with strict ISO C11 support. The following requirements must be satisfied for the target system:
 
-- 8-bit byte with 2's complement to encode signed integers; a byte order that is either Big or Little-endian.
+- 8-bit byte with 2's complement signed integer representation; a byte order that is either Big or Little-endian.
 - The basic character set (defined as the representable characters in a single 8-bit byte) of the system must meet
   the following requirements: it must include all the characters in the "C" locale of ISO C; a-z, A-Z, and 0-9 should
   be encoded consecutively in the character set. (ASCII falls into this category)
 - The system must contain a hosted environment, or freestanding environment with `stdlib.h` `string.h` and
-  `stdio.h` implemented in the C library.
+  `stdio.h` fully implemented in the C library.
 - The system must have at least 492,000 bytes of free memory in heap (or could be dynamic allocated). 
   464,000 bytes of 492,000 bytes must be continuous in the address space where Windham executes. Execution 
   environment must provide at least `25,968 + sizeof(FILENAME_MAX) * 2` bytes of stack size when the control flow reaches
@@ -122,11 +120,11 @@ depends on the platform's libc implementation: If your platform requires platfor
 partition/disks instead of general file I/O, you are out of luck. Some minor features might also be missing.
 However, unlock and extracting master key, managing passphrases, suspending support are all present under basic mode.
 
-Nearly all modern consumer devices satisfy requirements for basic mode. Most 32-bit MCU or SoC with decent development 
+Nearly all modern consumer devices satisfy these requirements for the basic mode. Most 32-bit MCU or SoC with decent development 
 framework or community support also works. Virtual environments (e.g. WebAssembly) with compatible libc might work
-out-of-box (or with minor modifications to overcome file permissions). However, without an operating system or a 
-standardized baremetal framework (e.g. UEFI, FreeRTOS + FAT) that could handle file IO or providing an unlock backend 
-(TCG Opal, passing the key through kernel commandline...), running windham is technically possible but basically useless.
+out-of-box (or with minor modifications to overcome file permissions). However, without an operating environment or a 
+standardized baremetal framework (e.g. FreeRTOS Plus FAT & POSIX) that could handle file IO or providing an unlock backend 
+(e.g. Commandline TCG Opal framework), running windham is technically possible but basically useless.
 
 For instructions about how to embed unlock backend for ISO C mode, see source file `libplat/ISOC/mapper.c`.
 
@@ -167,7 +165,7 @@ your clevis key will be created as `keyfile.keyfile`. to unlock with it:
 cat keyfile.key | sudo clevis decrypt tpm2 '{}' | sudo windham Open <device> --keystdin
 ```
 
-Inside `/etc/windhamtab`, you can use `CLEVIS=` prefix for the key parameter to integrate with clevis. 
+Inside `/etc/windhamtab`, you can use `CLEVIS=` prefix for the key parameter to integrate with clevis.
 
 
 &nbsp;
@@ -175,16 +173,17 @@ Inside `/etc/windhamtab`, you can use `CLEVIS=` prefix for the key parameter to 
 
 ## Decoy Partition
 
-Windham supports Decoy Partition: a feature that provides encrypted partitions with a high degree of plausible deniability.
+Windham supports Decoy Partition: a feature that provides encrypted partition with a high degree of plausible deniability.
 
 ### What is Decoy Partition?
 
-A Decoy Partition allows windham to hide the encrypted partition. In a case where someone may force you to disclose your confidential data located on your disk, or when the
+A Decoy Partition allows windham to hide its encrypted partition. In a case where someone may force you to disclose your confidential data located on your disk, or when the
 randomness of the header itself doesn't constitute a strong rebuttal of its existence, Decoy Partition allows you to deny the existence of the encrypted partition.
 
 Decoy Partition achieves a high degree of plausible deniability by hiding itself under an identifiable
 partition that occupies the same region (usually the last partition / trailing free area in the partition table). The size of the decoy partition is usually much
-smaller than the full space of the identifiable partition. Also, The identifiable partition on top of it, both its metadata, journal and data, **must be linear**, otherwise the decoy partition
+smaller than the full space of the identifiable partition. Also, The identifiable partition on top of it, both its metadata, 
+journal and data, **must be linear in space from the bottom to the top sectors**, otherwise the decoy partition
 may be damaged due to overwritten by the identifiable partition.
 
 ### How to enable Decoy Partition?
@@ -216,12 +215,12 @@ this as guarantee.
 modification caused by removing or creating the GPT partition overwrites it.** well, the only thing you can do, then, is to gracefully say goodbye to your data.
 
 There are no protection and no ways to ensure the modification to the identifiable partition will not overwrite the underlying encrypted partition. For filesystems,
-Exfat and FAT32 are recommended. These filesystems have (by default) linear sequences when writing. EXT4, by default, does not.
+ExFAT and FAT32 are recommended. These filesystems have (by default) linear sequences from the bottom sector to the top when writing. EXT4, by default, does not.
 
-TRIM issues: most internal SSD devices supports TRIM, a.k.a logical block discard. TRIM command allows the device to flag region as invalid, and allows the hardware
+TRIM issues: most internal SSD devices supports TRIM, a.k.a. logical block discard. TRIM command allows the device to flag region as invalid, and allows the hardware
 to reclaim them for internal swapping. When creating a decoy partition on a TRIM capable SSD device, the adversary will easily notice a giant blob of random data
 that are not labeled as discarded, thus penetrating all plausible deniability features. You should disable trim; or if you want yourself look less suspicious, use a USB
-flash drive (they usually lacks TRIM support) or a HDD disk. Some HDD disks are TRIM-capable, mostly shingled magnetic recording (SMR) disks, but the controller will
+flash drive (they usually lack of TRIM support) or an HDD disk. Some HDD disks are TRIM-capable, mostly shingled magnetic recording (SMR) disks, but the controller will
 return its data as it is when reading a discarded sector, and swapping occurs very infrequently on these devices. 
 
 &nbsp;
@@ -229,7 +228,7 @@ return its data as it is when reading a discarded sector, and swapping occurs ve
 ## Running Windham in early userspace
 
 Windham is designed to support operation in early user-space, such as decrypting your partitions (e.g., an encrypted 
-root directory). _Please do not run ISO C build type under PID 1._ There are two recommended methods to achieve this:
+root directory). _Please do not run ISO C build under PID 1._ There are two recommended methods to achieve this:
 
 ### Using the init daemon:
 This approach aligns with the behavior recommended by most GNU/Linux distributions. When using `windham Open TAB`, 
@@ -270,11 +269,6 @@ If the command fails when windham is running as pid1, the program will exit, whi
 has died: `Kernel panic - not syncing - Attempted to kill init!`. This behavior is expected; if not, 
 use option `--nofail`, which does nothing when fail and start `exec` to the given executable.
 
-&nbsp;
-
-## Patch `rand()` under ISO C build type
-
-// TODO!
 
 &nbsp;
 
@@ -394,12 +388,18 @@ A notification to BIS and the ENC Encryption Request Coordinator via email of th
 internet
 address) of the source code is required when the cryptographic functionality of the source code is updated or modified.
 
-If you reside in the United States, or defined as a US person, you need to submit your evidence of BIS compliance before publishing your change.
+If you reside in the United States, or defined as a US person, you need to submit your evidence of BIS compliance before
+publishing your change.
 
 ### Implementing Digital Rights Management (DRM) or digital Anti-Circumvention scheme
 
 In GPLv3, Term 3: _Protecting Users' Legal Rights From Anti-Circumvention Law._
 
-Windham (and work based on Windham, as defined by the term Covered Work) shall not be deemed part of an effective technological measure under any applicable law fulfilling obligations under article 11 of the WIPO copyright treaty adopted on 20 December 1996, or similar laws prohibiting or restricting circumvention of such measures.
+Windham (and work based on Windham, as defined by the term Covered Work) shall not be deemed part of an effective 
+technological measure under any applicable law fulfilling obligations under article 11 of the WIPO copyright treaty 
+adopted on 20 December 1996, or similar laws prohibiting or restricting circumvention of such measures.
 
-When you convey a covered work, you waive any legal power to forbid circumvention of technological measures to the extent such circumvention is effected by exercising rights under this License with respect to the covered work, and you disclaim any intention to limit operation or modification of the work as a means of enforcing, against the work's users, your or third parties' legal rights to forbid circumvention of technological measures.
+When you convey a covered work, you waive any legal power to forbid circumvention of technological measures to the 
+extent such circumvention is effected by exercising rights under this License with respect to the covered work, and you
+disclaim any intention to limit operation or modification of the work as a means of enforcing, against the work's users,
+your or third parties' legal rights to forbid circumvention of technological measures.
