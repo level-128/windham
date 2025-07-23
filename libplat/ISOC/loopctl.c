@@ -75,7 +75,8 @@ uint64_t isoc_get_file_size(FILE *stream){
       exit(1);
    }
    if (fseek(stream, 0, SEEK_END)){
-      print_error("Cannot determine geometry, is device pipe? %s", strerror(errno));
+      print_error(_("Cannot determine geometry: %s, your platform does not allow fseek + SEEK_END on this device/file."
+                    " This happens under some platforms that does not allow fseek to act on disks or block devices."), strerror(errno));
       exit(1);
    }
 
@@ -108,7 +109,6 @@ void init_device(
    uintmax_t    disk_file_size,
    uintmax_t    block_size) {
 
-   assert(is_map_block == false);
 
    const char * msg = _("%s is not allowed under ISO C mode.");
    if (is_string_startwith(filename, "UUID=")) {
@@ -144,8 +144,11 @@ void init_device(
       }
       print_error("Cannot open file %s: %s", filename, strerror(errno));
    }
-   STR_device->block_count = isoc_get_file_size(file) / 512;
-
+   if (is_map_block) {
+      STR_device->block_count = isoc_get_file_size(file) / 512;
+   } else {
+      STR_device->block_count = -1;
+   }
    if (STR_device->block_count < RAW_HEADER_AREA_IN_SECTOR) {
       print_error("File %s is too small to contain Windham disk format, double check your file.", filename);
    }
