@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdalign.h>
+#include <assert.h>
 #include <errno.h>
 
 #include "aes.h"
@@ -223,11 +224,13 @@ typedef struct STR_data {
 
   alignas(AES_BLOCKLEN) struct {
     alignas(1) Keypool                       keypool;
-    alignas(4) Key_slot                      WINDHAM_ATTRIBUTE(maybe_unused) _keypool_padding;
+    alignas(4) Key_slot                      _keypool_padding;
   }                                          keypool[2];
 
-  // offset: 19472
+  // offset: 19536
 } Data; //
+
+static_assert(sizeof(Data) == 19536);
 
 #define convert_stage_to_size(stage) HASHLEN + HASHLEN + 4u * (stage)
 #define get_slot_loc(_data, keypool_idx, keypool_loc) ((Key_slot *)&_data.keypool[keypool_idx].keypool[keypool_loc])
