@@ -458,9 +458,8 @@ bool generate_bytes_from_UUID(const char uuid_str[37], uint8_t bytes[16]) {
 
 int ask_option(const char * title, ...) {
    va_list args;
-   int     ch    = 0;
-   bool    valid = false;
-   int     count = 0;
+   char input[3];
+   int  count = 0;
 
    printf("%s\n", title);
 
@@ -473,38 +472,24 @@ int ask_option(const char * title, ...) {
    }
    va_end(args);
 
-#ifndef WINDHAM_ISOC
-   struct termios t;
-   tcgetattr(STDIN_FILENO, &t);
-   t.c_lflag &= ~ICANON;
-   t.c_lflag &= ~ECHO;
-   tcsetattr(STDIN_FILENO, TCSANOW, &t);
-#endif
    printf(_("Select an option:"));
-   while (! valid) {
-      ch = getchar();
-      if (ch == -1) {
-         print_error(_("Cannot getchar:%i  %s"), errno, strerror(errno));
+
+   while (true) {
+      fgets(input, sizeof(input), stdin);
+      if (input[1] != '\n' ||
+         !(input[0] >= '0' && input[0] <= '9')) {
+         printf(_("\nError input. Select an option:"));
+         while (getchar() != '\n') {}
+         continue;
       }
-      if (ch >= '0' && ch <= '9') {
-         if (ch >= '1' && ch <= '0' + count) {
-            valid = true;
-         } else {
-            printf("\33[2K\r");
-            printf(_("Error input. Select an option within 1 - %i:"), count);
-         }
+      if (input[0] >= '1' && input[0] <= '0' + count) {
+         break;
       } else {
-         printf("\33[2K\r");
-         printf(_("Error input. Select an option:"));
+         printf(_("\nError input. Select an option within 1 - %i:"), count);
+         continue;
       }
    }
-   printf("\33[2K\r");
-#ifndef WINDHAM_ISOC
-   t.c_lflag |= ICANON;
-   t.c_lflag |= ECHO;
-   tcsetattr(STDIN_FILENO, TCSANOW, &t);
-#endif
-   return ch - '0';
+   return input[0] - '0';
 }
 
 
