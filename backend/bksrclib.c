@@ -29,12 +29,6 @@
    const bool    is_allow_nolock,    const bool is_decoy
 
 
-// supported crypt
-char * crypt_list[]     = {"aes", "twofish", "serpent", NULL};
-char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
-char * iv_list[]        = {"plain64", "plain64be", "essiv", "eboiv", NULL};
-
-
 void write_header_to_device(const Data * data, const char * device, const int64_t offset) {
    operate_header_on_device((Data *) data, device, offset, false);
 }
