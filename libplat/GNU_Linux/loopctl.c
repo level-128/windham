@@ -386,6 +386,7 @@ bool init_file_device(const char * filename, bool is_map_block, bool is_readonly
 
       STR_device->is_loop = true;
       strcpy(STR_device->name, dup_stdout);
+      free(dup_stdout);
 
       int fd = open(STR_device->name, O_RDONLY);
 
