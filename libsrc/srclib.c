@@ -152,14 +152,14 @@ void ask_for_conformation(const char * format, ...) {
    }
    random_str[2] = '\0';
 
-   printf("\033[1;33m%s\n", _("CONFORMATION REQUIRED: "));
+   printf(_("CONFORMATION REQUIRED: \n"));
    va_list args;
    va_start(args, format);
    vprintf(format, args);
    va_end(args);
    sprintf(complete_str, "YES %s", random_str);
    printf(_("\nType \"%s\" to confirm."), complete_str);
-   printf(" \033[0m\n");
+   printf("\n");
 
 
    if (fgets(user_input, sizeof(user_input), stdin) == NULL) {
