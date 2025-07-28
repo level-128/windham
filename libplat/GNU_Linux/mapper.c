@@ -292,17 +292,8 @@ int try_create_crypt_mapping(const char * file_name, const char * enc_type) {
 
 
 
-   char name[sizeof("windham-tmp-12345678abcdefgh12345678abcdefgh")];
-   srandom(time(NULL));
-   const int32_t rand_num[4] = {random(), random(), random(), random()};
-   snprintf(
-   name,
-   sizeof(name),
-   "windham-tmp-%016"PRIX32"%016"PRIX32"%016"PRIX32"%016"PRIX32,
-   rand_num[0],
-   rand_num[1],
-   rand_num[2],
-   rand_num[3]);
+   char name[] = "windham-tmp-XXXXXX";
+   memcpy(name + strlen("windham-tmp-"), file_name + (strlen(file_name) - 6), 6);
 
    if (! (dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
       return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
