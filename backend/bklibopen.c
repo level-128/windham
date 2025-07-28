@@ -122,11 +122,12 @@ void action_open(
    ENUM_MAPPER_DEVSTAT header_type = load_header_by_device(device, &data, &offset, is_decoy);
 
    // generate name for empty target name
-   char random_target_name[sizeof("windham-123e4567-e89b-12d3-a456-abcdef123456")];
+   char random_target_name[] = "windham-123e4567-e89b-12d3-a456-abcdef123456";
    if (target_name == NULL){
-      memcpy(random_target_name, "windham-", strlen("windham-"));
       generate_UUID_from_bytes(data.uuid_and_salt, random_target_name + strlen("windham-"));
+      target_name = random_target_name;
    }
+
 
    switch (header_type) {
    // Case 1: Open a suspend partition
