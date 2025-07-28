@@ -100,7 +100,7 @@ void action_new_check_crypt_support_status(const char * str) {
    STR_device->block_size = -1;
    free(dup_stdout);
 
-   int result = try_create_crypt_mapping(STR_device->name, str);
+   int result = try_create_crypt_mapping(STR_device->name, str, tempfile + strlen(tempfile) - 6);
    remove(tempfile);
 
    if (result == EMOBJ_try_create_crypt_mapping_FAILED_INIT) {

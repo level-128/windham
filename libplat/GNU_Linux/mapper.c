@@ -274,7 +274,7 @@ void create_crypt_mapping_from_disk_key(
 }
 
 
-int try_create_crypt_mapping(const char * file_name, const char * enc_type) {
+int try_create_crypt_mapping(const char * file_name, const char * enc_type, const char * tmp_name) {
    if (! is_device_mapper_available) {
       return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
    }
@@ -293,7 +293,7 @@ int try_create_crypt_mapping(const char * file_name, const char * enc_type) {
 
 
    char name[] = "windham-tmp-XXXXXX";
-   memcpy(name + strlen("windham-tmp-"), file_name + (strlen(file_name) - 6), 6);
+   memcpy(name + strlen("windham-tmp-"), tmp_name, 6);
 
    if (! (dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
       return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
