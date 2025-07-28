@@ -89,6 +89,11 @@ void action_new_check_crypt_support_status(const char * str) {
    }
 
    dup_stdout[dup_stdout_len - 1] = 0;
+
+   Device STR_device_copy;
+   memcpy(&STR_device_copy, STR_device, sizeof(Device));
+
+   // modify STR_device because it will clean loop device when exit or interrupt.
    memcpy(STR_device->name, dup_stdout, dup_stdout_len - 1);
    STR_device->is_loop = true;
    STR_device->block_count = -1;
@@ -96,6 +101,7 @@ void action_new_check_crypt_support_status(const char * str) {
    free(dup_stdout);
 
    int result = try_create_crypt_mapping(STR_device->name, str);
+   remove(tempfile);
 
    if (result == EMOBJ_try_create_crypt_mapping_FAILED_INIT) {
       print_warning(_("dm-crypt initialization failed: create device-mapper mapping failed. Windham "
@@ -113,7 +119,7 @@ void action_new_check_crypt_support_status(const char * str) {
       str);
    }
 
-   remove(tempfile);
+   memcpy(STR_device, &STR_device_copy, sizeof(Device));
    return;
 
    FAIL2:
@@ -122,4 +128,5 @@ void action_new_check_crypt_support_status(const char * str) {
 
    FAIL1:
    print_warning(_("Cannot create temp file for dm-crypt test: %s. Are you using Landlock?"), strerror(errno));
+   memcpy(STR_device, &STR_device_copy, sizeof(Device));
 }
