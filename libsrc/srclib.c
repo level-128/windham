@@ -475,7 +475,10 @@ int ask_option(const char * title, ...) {
    printf(_("Select an option:"));
 
    while (true) {
-      fgets(input, sizeof(input), stdin);
+      if (fgets(input, sizeof(input), stdin) == NULL) {
+         perror("fgets");
+         windham_exit(1);
+      }
       if (input[1] != '\n' ||
          !(input[0] >= '0' && input[0] <= '9')) {
          printf(_("\nError input. Select an option:"));
