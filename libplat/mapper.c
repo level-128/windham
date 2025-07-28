@@ -37,6 +37,15 @@ void create_crypt_mapping_from_disk_key(
    bool is_no_write_workqueue,
    bool is_no_map_partition);
 
+
+// Not implemented under ISO C
+enum {
+   EMOBJ_try_create_crypt_mapping_OK,
+   EMOBJ_try_create_crypt_mapping_FAILED_INIT,
+   EMOBJ_try_create_crypt_mapping_FAILED_MAPPING,
+};
+int try_create_crypt_mapping(const char * file_name, const char * enc_type);
+
 void remove_crypt_mapping(const char * name, bool is_deferred_remove);
 
 void remove_crypt_mapping_by_uuid(const char uuid_str[37]);

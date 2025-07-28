@@ -274,7 +274,70 @@ void create_crypt_mapping_from_disk_key(
 }
 
 
-void check_container(void) {
+int try_create_crypt_mapping(const char * file_name, const char * enc_type) {
+   if (! is_device_mapper_available) {
+      return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
+   }
+
+   struct dm_task * dmt;
+
+   char params_crypt[540];
+
+   snprintf(
+      params_crypt,
+      sizeof(params_crypt),
+      "%s e8cfa3dbfe373b536be43c5637387786c01be00ba5f730aacb039e86f3eb72f3 0 %s 0",
+      enc_type,
+      file_name);
+
+
+
+   char name[sizeof("windham-tmp-12345678abcdefgh12345678abcdefgh")];
+   srandom(time(NULL));
+   const int32_t rand_num[4] = {random(), random(), random(), random()};
+   snprintf(
+   name,
+   sizeof(name),
+   "windham-tmp-%016"PRIX32"%016"PRIX32"%016"PRIX32"%016"PRIX32,
+   rand_num[0],
+   rand_num[1],
+   rand_num[2],
+   rand_num[3]);
+
+   if (! (dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
+      return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
+   }
+
+   if (! p_dm_task_set_name(dmt, name)) {
+      return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
+   }
+   if (! p_dm_task_add_target(dmt, 0, 8, "crypt", params_crypt)) {
+      return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
+   }
+
+   if (! p_dm_task_run(dmt)) {
+      p_dm_task_destroy(dmt);
+      return EMOBJ_try_create_crypt_mapping_FAILED_MAPPING;
+   }
+   p_dm_task_destroy(dmt);
+
+   p_dm_task_update_nodes();
+
+   dmt = p_dm_task_create(DM_DEVICE_REMOVE);
+   p_dm_task_set_name(dmt, name);
+
+   if (! p_dm_task_run(dmt)) {
+      return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
+   }
+   p_dm_task_destroy(dmt);
+
+   p_dm_task_update_nodes();
+
+   return EMOBJ_try_create_crypt_mapping_OK;
+}
+
+
+void check_environment(void) {
    char * container = NULL;
    if (getenv("container")) {
       container = "Flatpak";
@@ -315,7 +378,7 @@ void check_container(void) {
 
 
 void mapper_init() {
-   check_container();
+   check_environment();
    void * handle = dlopen("libdevmapper.so", RTLD_LAZY);
    if (! handle) {
       print_warning(

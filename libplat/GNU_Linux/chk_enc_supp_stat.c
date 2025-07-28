@@ -1,47 +1,12 @@
-#define MAX_LINE_LENGTH 1024
-#define TARGET_PREFIX "name         : "
+// recommended crypt
 
-
-char ** get_crypto_list() {
-   int     crypto_count = 0;
-   char    line[MAX_LINE_LENGTH];
-   char ** crypto_list = NULL;
-
-   FILE * file = fopen("/proc/crypto", "r");
-   if (file == NULL) {
-      print_warning(
-         _(
-            "Cannot determine available encryption mode on the system. Please ensure that the kernel encryption subsystem is available."
-         ));
-      return NULL;
-   }
-
-   while (fgets(line, sizeof(line), file)) {
-      if (strncmp(line, TARGET_PREFIX, strlen(TARGET_PREFIX)) == 0) {
-         const char * name = line + strlen(TARGET_PREFIX);
-         if (*name != '_' && strcmp("stdrng\n", name) != 0) {
-            (crypto_count) ++;
-            // ReSharper disable once CppDFAMemoryLeak
-            crypto_list = realloc(crypto_list, sizeof(char *) * crypto_count);
-
-            crypto_list[crypto_count - 1] = strdup(name);
-
-            char * end = crypto_list[crypto_count - 1] + strlen(crypto_list[crypto_count - 1]) - 1;
-            if (*end == '\n') {
-               *end = '\0';
-            }
-         }
-      }
-   }
-   crypto_list               = realloc(crypto_list, sizeof(char *) * (crypto_count + 1));
-   crypto_list[crypto_count] = NULL;
-   fclose(file);
-   // ReSharper disable once CppDFAMemoryLeak
-   return crypto_list;
-}
+char * crypt_list[]     = {"aes", "twofish", "serpent", "sm4", NULL};
+char * chainmode_list[] = {"cbc", "xts", "ecb", NULL};
+char * iv_list[]        = {"plain64", "plain64be", "essiv", "eboiv", NULL};
 
 
 void check_encryption_mode_arg(const char * str, int64_t idx[3]) {
+   bool is_crypto_okay = true;
    int dash_count = 0;
    for (int i = 0; str[i] != '\0'; i ++) {
       if (str[i] == '-') {
@@ -56,50 +21,105 @@ void check_encryption_mode_arg(const char * str, int64_t idx[3]) {
    char * token = strtok(strcpy, "-");
    idx[0]       = is_in_list(token, crypt_list);
    if (idx[0] == -1) {
-      print_error(_("Invalid argument. Unrecognized cipher \"%s\". "), token);
+      print_warning(_("Unrecognized cipher \"%s\". "), token);
+      is_crypto_okay = false;
    }
 
    token  = strtok(NULL, "-");
    idx[1] = is_in_list(token, chainmode_list);
    if (idx[1] == -1) {
-      print_error(_("Invalid argument. Unrecognized chainmode \"%s\". "), token);
+      print_warning(_("Unrecognized chainmode \"%s\". "), token);
+      is_crypto_okay = false;
    }
 
    token  = strtok(NULL, "-");
    idx[2] = is_in_list(token, iv_list);
    if (idx[2] == -1) {
-      print_error(_("Invalid argument. Unrecognized ivmode \"%s\". "), token);
+      print_warning(_("Unrecognized ivmode \"%s\". "), token);
+      is_crypto_okay = false;
    }
    free(strcpy);
+   if (is_crypto_okay == false) {
+      print_warning(_("Designate encryption mode \"%s\" contains unknown/unrecommended cipher/chainmode/ivmode. "
+                             "These patterns "
+                             "might contain cryptography flaws, or it might not be widely supported under different "
+                             "systems. Windham recommends " DEFAULT_DISK_ENC_MODE "."), str);
+   }
 }
 
 
 void action_new_check_crypt_support_status(const char * str) {
    int64_t idx[3];
    check_encryption_mode_arg(str, idx);
-   char ** crypto_list = get_crypto_list();
 
-   if (crypto_list == NULL) {
-      return;
+
+   char tempfile[] = "/tmp/windham-temp-test-XXXXXX";
+
+   int fd = mkstemp(tempfile);
+   if (fd == -1){
+      goto FAIL1;
    }
 
-   char chainmode_name[32];
-   sprintf(chainmode_name, "%s(%s)", chainmode_list[idx[1]], crypt_list[idx[0]]);
-   if (is_in_list(chainmode_name, crypto_list) == -1) {
-      ask_for_conformation(
-         _(
-            "The cipher %s you've requested might not be supported by your current system. Although you can create a "
-            "header that employs this encryption scheme, "
-            "your system might not be capable of unlocking it. This means you won't be able to access the encrypted "
-            "device you've just created with this specific "
-            "method on this system. You would need to locate a compatible system, recompile your kernel, or find the "
-            "appropriate kernel module to access the "
-            "device. Do you wish to proceed?"),
-         chainmode_name);
+   if (write(fd, (uint8_t [4096]){0}, 4096) != 4096) {
+      goto FAIL2;
    }
 
-   for (int i = 0; crypto_list[i]; i ++) {
-      free(crypto_list[i]);
+   close(fd);
+
+   char * exec_dir[]     = {"/sbin", "/usr/sbin", "/bin", "/usr/bin", NULL};
+   char * dup_stdout     = NULL;
+   size_t dup_stdout_len = 0;
+   int    exec_ret_val   = 0;
+
+   bool success = exec_name(
+      "losetup",
+      exec_dir,
+      -1,
+      &dup_stdout,
+      &dup_stdout_len,
+      &exec_ret_val,
+      NMOBJ_exec_name_wait_child | NMOBJ_exec_name_dup_stdout_only,
+      "-f",
+      "--show",
+      tempfile,
+      NULL);
+   if (! success || exec_ret_val != 0) {
+      free(dup_stdout);
+      goto FAIL2;
    }
-   free(crypto_list);
+
+   dup_stdout[dup_stdout_len - 1] = 0;
+   memcpy(STR_device->name, dup_stdout, dup_stdout_len - 1);
+   STR_device->is_loop = true;
+   STR_device->block_count = -1;
+   STR_device->block_size = -1;
+   free(dup_stdout);
+
+   int result = try_create_crypt_mapping(STR_device->name, str);
+
+   if (result == EMOBJ_try_create_crypt_mapping_FAILED_INIT) {
+      print_warning(_("dm-crypt initialization failed: create device-mapper mapping failed. Windham "
+                      "is unable to test encryption compatibility, and the current running system will fail to open "
+                      "the header that you are currently creating."))
+   } else if (result == EMOBJ_try_create_crypt_mapping_FAILED_MAPPING) {
+         ask_for_conformation(
+      _("dm-crypt failed using the test parameter. "
+         "The cipher %s you've requested might not be supported by your current system. Although you can create a "
+         "header that employs this encryption scheme, "
+         "your system might not be capable of unlocking it. This means you won't be able to access the encrypted "
+         "device you've just created with this specific "
+         "method on this system. You would need to locate for a compatible kernel module or recompile the kernel to "
+         "access the device. Do you wish to proceed?"),
+      str);
+   }
+
+   remove(tempfile);
+   return;
+
+   FAIL2:
+   close(fd);
+   remove(tempfile);
+
+   FAIL1:
+   print_warning(_("Cannot create temp file for dm-crypt test: %s. Are you using Landlock?"), strerror(errno));
 }
