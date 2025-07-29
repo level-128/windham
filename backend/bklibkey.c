@@ -277,17 +277,20 @@ void get_key_input_from_the_console(const char * device, char password[MAX_PASSW
    char password2[MAX_PASSWORD_INPUT_LEN];
    printf(_("Password for %s:\n"), device);
    get_password_input(password);
-   printf(_("\nConfirm password:\n"));
-   get_password_input(password2);
-   if (strcmp(password, password2) != 0) {
-      print_error(_("Passwords do not match."));
+   if (is_new_key == true) {
+      printf(_("\nConfirm password:\n"));
+      get_password_input(password2);
+      if (strcmp(password, password2) != 0) {
+         print_error(_("Passwords do not match."));
+      }
+      if (strlen(password) < MIN_KEY_CHAR) {
+         print_error(
+            _("the provided password is too short (%zu characters), which is not recommended. To bypass this restriction, use "
+               "argument --key instead."),
+            strlen(password));
+      }
    }
-   if (is_new_key && strlen(password) < MIN_KEY_CHAR) {
-      print_error(
-         _("the provided password is too short (%zu characters), which is not recommended. To bypass this restriction, use "
-            "argument --key instead."),
-         strlen(password));
-   }
+
    if (is_new_key) { }
 }
 
