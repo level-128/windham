@@ -2,6 +2,39 @@
 
 #define MEM_ERR(x) (x == NMOBJ_Enclib_alloc_failed_policy_nolock || x == NMOBJ_Enclib_alloc_failed_no_free_mem)
 
+uint64_t bounds[][2] = {
+   {350, 350}, // 342, 464
+   {1480, 1480}, // 932, 1262
+   {6100, 6100}, // 2533, 3429
+   /* {6887, 9319}, */
+   // times e
+   {22466, 22469},
+   {61071, 61079},
+   {166009, 166024},
+   {451261, 451332},
+   // times 2
+   {902522,902702},
+   {1805044,1805405},
+   {3610088,3610810},
+   {7220176,7221620},
+   {14440352,14443240},
+   {28880704,28886480},
+   {57761408,57772960},
+   {115522816,115545920},
+   {231045632,231091841},
+   {462091264,462183682},
+   {924182528,924367364},
+   {1848365056,1848734729},
+   {3696730112,3697469458},
+   {7393460224,7394938916},
+   {14786920448,14789877832},
+   {29573840896,29579755664},
+   {59147681792,59159511328},
+   {118295363584,118319022656},
+   {236590727168,236638045313}
+
+};
+
 typedef enum {
    NMOBJ_Enclib_calc_okay,
    // okay
@@ -46,7 +79,22 @@ bool is_allow_nolock;
 #include <sys/mman.h>
 #include <sys/sysinfo.h>
 
-int kdf_memalloc(uint8_t ** result, const size_t target_mem) {
+// side channel attack defence
+size_t search_mem_upper_bound(size_t mem) {
+   if (mem < bounds[0][0] || mem < DEFAULT_MIN_MEMLOCK_SIZE) {
+      return mem;
+   }
+   for (int i = 0; i < KEY_SLOT_EXP_MAX; i++) {
+      if (mem > bounds[i][1]) {
+         continue;
+      }
+      return bounds[i][1];
+   }
+   WINDHAM_UNREACHABLE
+}
+
+
+int kdf_memalloc(uint8_t ** result, size_t target_mem) {
    if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE || is_allow_nolock == true) {
       *result = malloc(target_mem);
       if (*result == NULL) {
@@ -54,6 +102,8 @@ int kdf_memalloc(uint8_t ** result, const size_t target_mem) {
       }
       return 1;
    }
+
+   target_mem = search_mem_upper_bound(target_mem);
 
    struct sysinfo info;
 
