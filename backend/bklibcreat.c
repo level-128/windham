@@ -40,11 +40,11 @@ void action_create(
          nparts = blkid_partlist_numof_partitions(ls);
          } blkid_free_probe(pr);
          CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(child_ret_len, > 0 && nparts != 0, child,
-            (_("Cannot create device: device %s contains partition table and already been mapped as \"%s\"."
-                  "Use \"sudo partx %s -d\" to close it."),
-               device, child[0], device),
-            (_("Cannot create device: device %s contains partition table and already been mapped. Use "
-                  "\"sudo partx %s -d\" to close them. mapped locations:"),
+            (_("Cannot create device: device %s contains partition table and already been mapped as \"%s\". "
+                  "Use \"sudo umount %s\" to unmount, then use \"sudo partx %s -d\" to close it."),
+               device, child[0], device, device),
+            (_("Cannot create device: device %s contains partition table and already been mapped. unmount "
+               "all partitions using \"umount\" command and use \"sudo partx %s -d\" to close them. mapped locations:"),
                device, device));
 
          CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(
