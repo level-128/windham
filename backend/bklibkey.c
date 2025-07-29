@@ -274,10 +274,10 @@ END:
 
 
 void get_key_input_from_the_console(const char * device, char password[MAX_PASSWORD_INPUT_LEN], const bool is_new_key) {
-   char password2[MAX_PASSWORD_INPUT_LEN];
    printf(_("Password for %s:\n"), device);
    get_password_input(password);
    if (is_new_key == true) {
+      char password2[MAX_PASSWORD_INPUT_LEN];
       printf(_("\nConfirm password:\n"));
       get_password_input(password2);
       if (strcmp(password, password2) != 0) {
@@ -392,7 +392,7 @@ print_error(_("--keystdin is not available under ISO C."))
 }
 
 
-bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device) {
+bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device, bool is_new_key) {
    size_t key_size = 0;
    char   password[MAX_PASSWORD_INPUT_LEN];
 
@@ -400,7 +400,7 @@ bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device
    case NMOBJ_key_file_type_masterkey:
       return false;
    case NMOBJ_key_file_type_input:
-      get_key_input_from_the_console(device, password, true);
+      get_key_input_from_the_console(device, password, is_new_key);
       key_size = strlen(password);
       sha256_digest_all(password, key_size, inited_key);
       break;
@@ -492,7 +492,7 @@ void get_master_key(
       return;
    }
    uint8_t inited_key[HASHLEN];
-   prepare_key(key, inited_key, device);
+   prepare_key(key, inited_key, device, false);
 
    *ret_key_location = get_keypool_location_candidate(self.master_key_mask, inited_key);
 
@@ -587,7 +587,7 @@ void add_key_to_keyslot(
 END_LOOP:;
 
    // prepare key and print message for high entropy key.
-   const bool is_high_entropy_key = prepare_key(key_key, inited_key, device);
+   const bool is_high_entropy_key = prepare_key(key_key, inited_key, device, true);
    if (is_high_entropy_key) {
       if (key_key.key_type == NMOBJ_key_file_type_file) {
          printf(
