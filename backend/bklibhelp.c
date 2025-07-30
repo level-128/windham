@@ -11,13 +11,15 @@ void frontend_print_unlock_args() {
       "\t--key-file <location>: password input as key file. The key file will be read as key (exclude EOF character). Option '--key', "
       "'--key-file' and '--keystdin' are mutually exclusive.\n"
       "\t--keystdin: read key from standard input. the key format must be 32-byte bit stream encoded using hexadecimal format. "
-      "spaces are ignored. Useful when intergrating with Clevis\n"
+      "spaces are ignored. Useful when integrating with Clevis\n"
       "\t--master-key <characters>: use master key to unlock.\n"
       "\t--decoy: Open a decoy device.\n"
       "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
       "\t--max-unlock-time <float>: the suggested max time (sec) for unlock, \"-\" for unlimited.\n"
       "\t--max-unlock-level <int>: the target derivation level for decryption.\n"
-	   "\t--allow-swap: Use swap space to derivate if needed. However swap deduces security.\n"
+	   "\t--allow-swap: Allocate all possible memory for KDF. Only physical memory (does not include swap space) is "
+      "allowed to allocate by default. DO NOT ENABLE THIS OPTION IF THE SWAP SPACE STORES AS PLAINTEXT ON NON-VOLATILE "
+      "DEVICE!\n"
       "\t--systemd-dialog: use systemd password dialog.\n")
       );
 #ifndef CONFIG_USE_SWAP

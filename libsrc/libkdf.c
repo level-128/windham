@@ -95,7 +95,7 @@ size_t search_mem_upper_bound(size_t mem) {
 
 
 int kdf_memalloc(uint8_t ** result, size_t target_mem) {
-   if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE || is_allow_nolock == true) {
+   if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE) {
       *result = malloc(target_mem);
       if (*result == NULL) {
          Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
@@ -107,7 +107,7 @@ int kdf_memalloc(uint8_t ** result, size_t target_mem) {
 
    struct sysinfo info;
 
-   if (sysinfo(&info) != -1) {
+   if (sysinfo(&info) != -1 && is_allow_nolock == false) {
       size_t real_free_mem = info.freeram - info.totalram / 100 + 131072;
 
       if (real_free_mem < target_mem) {
@@ -155,11 +155,15 @@ int kdf_memalloc(uint8_t ** result, size_t target_mem) {
    return 1;
 }
 
-void kdf_memfree(uint8_t * result, const size_t target_mem) {
-   if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE || is_allow_nolock == true) {
+void kdf_memfree(uint8_t * result, size_t target_mem) {
+   if (target_mem < DEFAULT_MIN_MEMLOCK_SIZE) {
       free(result);
    } else {
-      munmap(result, target_mem);
+      target_mem = search_mem_upper_bound(target_mem);
+      if (munmap(result, target_mem) == -1) {
+         perror("munmap");
+         windham_exit(2);
+      }
    }
 }
 #else
