@@ -402,15 +402,15 @@ void action_destory(const char * device, bool is_decoy) {
          return;
       }
 
+      int64_t elapsed_ns = 0;
       do {
          if (timespec_get(&current, TIME_UTC) != TIME_UTC) {
             perror("Failed to get current time");
             return;
          }
-         int64_t elapsed_ns = (current.tv_sec - start.tv_sec) * 1000000000LL;
+         elapsed_ns = (current.tv_sec - start.tv_sec) * 1000000000LL;
          elapsed_ns += (current.tv_nsec - start.tv_nsec);
-
-      } while (elapsed_ns < 1000000000LL);
+      } while (elapsed_ns < 1000000000);
 #else
       thrd_sleep(&(struct timespec){.tv_sec=1}, NULL);
 #endif
