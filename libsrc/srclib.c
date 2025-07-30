@@ -549,7 +549,9 @@ uint64_t parse_size(const char * size_str) {
       print_error(_("invalid size input"));
    }
 
-   char * input = strdup(size_str);
+   char * input = malloc(strlen(size_str) + 1);
+   strcpy(input, size_str);
+
    char unit[4] = {0};
    extract_non_digits_unit(input, unit, 4);
    char integer_part_str[sizeof("18446744073709551615")]; // uint64_t max
