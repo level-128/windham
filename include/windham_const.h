@@ -230,7 +230,7 @@ typedef struct STR_data {
   // offset: 19536
 } Data; //
 
-static_assert(sizeof(Data) == 19536);
+static_assert(sizeof(Data) == 19536, "size of Data mismatch under your platform. An non ISO C conformation compiler?");
 
 #define convert_stage_to_size(stage) HASHLEN + HASHLEN + 4u * (stage)
 #define get_slot_loc(_data, keypool_idx, keypool_loc) ((Key_slot *)&_data.keypool[keypool_idx].keypool[keypool_loc])
