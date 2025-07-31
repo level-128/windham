@@ -104,7 +104,7 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\tMultithread Support: Yes\n"));
 #endif
       printf(_("\tnumber of keyslots: %i\n"), KEY_SLOT_COUNT);
-      printf(_("\tLength of the final encryption key (bits): %i\n"), HASHLEN * CHAR_BIT);
+      printf(_("\tEntropy of the final encryption key (bits): %i\n"), HASHLEN * CHAR_BIT);
       printf(_("\tDefault block size: %d\n"), DEFAULT_BLOCK_SIZE);
       printf(_("\tFinal Header logical sector (header size / 512b): %"PRIu64"\n"), (uint64_t)RAW_HEADER_AREA_IN_SECTOR);
       printf(_("\tPreset data start logical sector: %"PRIu64"\n"), (uint64_t)WINDHAM_FIRST_USEABLE_LGA);
