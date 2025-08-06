@@ -23,6 +23,9 @@
 // huffman
 #include "huffman/huffman.c"
 
+// QRCode
+#include "QRCode/QRCode.c"
+
 // SHA256
 #include "SHA256/sha256.c"
 
