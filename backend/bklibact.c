@@ -30,7 +30,7 @@ void action_close(const char * device, bool is_deferred_remove) {
             (_("Cannot close device %s, unmount the device to continue. Active mount points:"), device));
 
          CHECK_DEVICE_TOPOLOGY_PRINT_ERROR(parent_ret_len, > 1, parent,
-            (_("The associate device %s has multiple childs. This is likely because the partition mapping "
+            (_("The associate device %s has multiple children. This is likely because the partition mapping "
                   "scheme has been modified since last setup. Windham can not close this device."),
                device),
             ("")));
@@ -225,12 +225,25 @@ LOCK_AND_WRITE:;
 }
 
 
-void action_backup(const char * device, const char * filename, const bool is_decoy) {
-#ifndef WINDHAM_ISOC // access not avaliable
+void action_backup(const char * device, char * filename, const bool is_decoy) {
+   if (filename == NULL) {
+      filename = "windham_backup";
+   }
+
+   printf(_("Creating header backup for device %s to %s\n"), device, filename);
+
+#ifndef WINDHAM_ISOC
    if (access(filename, F_OK) != -1) {
       print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
    }
+#else
+   FILE *file = fopen(filename, "r");
+   if (file != NULL) {
+      fclose(file);
+      print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
+   }
 #endif
+
    Data                data;
    int64_t             offset;
    ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
@@ -240,22 +253,40 @@ void action_backup(const char * device, const char * filename, const bool is_dec
             " suspended partition, You should not do this."));
    }
 
+#ifndef WINDHAM_ISOC
+   int fd = creat(filename, S_IRUSR);
+   if (fd == -1) {
+      print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
+   }
+   close(fd);
+#else
+   FILE *file = fopen(filename, "wb");
+   if (file == NULL) {
+      print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
+   }
+   fclose(file);
+#endif
+
    write_header_to_device(&data, filename, 0);
 }
 
-
 void action_restore(const char * device, const char * filename, const bool is_decoy) {
+   Data    data;
+   int64_t offset = 0;
+
    if (is_decoy) {
       ask_for_conformation(
-         _("Restoring header to device \"%s\" as decoy partition, All content will be lost. Continue?"),
+         _("Restoring header to device \"%s\" as decoy partition. The header offset of the decoy partition is based on "
+           "the current layout of the device, which might differ from the original layout. Restore to a mismatched "
+           "layout will DESTROY your data! Confirm no change has been made between backup and restore."),
          device);
+
    } else {
-      ask_for_conformation(_("Restoring header to device \"%s\", All content will be lost. Continue?"), device);
+      ask_for_conformation(_("Restoring header to device \"%s\", Continue?"), device);
+
+      load_header_by_device(filename, &data, &offset, false);
    }
 
-   Data    data;
-   int64_t offset;
-   load_header_by_device(filename, &data, &offset, is_decoy);
 
    write_header_to_device(
       &data,

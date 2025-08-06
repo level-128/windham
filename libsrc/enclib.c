@@ -16,11 +16,9 @@
 #include "srclib.c"
 
 
-const uint8_t head[16] = {'\xe8', '\xb4', '\xb4', '\xe8', '\xb4', '\xb4', 'l', 'e', 'v', 'e', 'l', '-', '1', '2', '8', '!'};
-
 
 extern inline bool is_header_suspended(const Data encrypted_header) {
-   return memcmp(encrypted_header.head, head, 16) == 0;
+   return memcmp(encrypted_header.hint.tag, suspend_hint_tag, sizeof(suspend_hint_tag)) == 0;
 }
 
 
@@ -592,7 +590,7 @@ void register_key_slot_as_used2(
 
 void suspend_encryption(Data * encrypted_header, const uint8_t master_key[HASHLEN]) {
    // tag header as suspended
-   memcpy(encrypted_header->head, head, sizeof(head));
+   memcpy(encrypted_header->hint.tag, suspend_hint_tag, sizeof(suspend_hint_tag));
    uint8_t key[HASHLEN];
 
    get_metadata_key_or_disk_key_from_master_key(
@@ -619,7 +617,7 @@ bool resume_encryption(
    uint8_t        key[HASHLEN];
 
    // untag header as suspended.
-   fill_secure_random_bits(encrypted_header->head, sizeof(encrypted_header->head));
+   fill_secure_random_bits(encrypted_header->hint.tag, sizeof(encrypted_header->hint.tag));
 
    xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
 
