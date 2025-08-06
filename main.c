@@ -467,7 +467,7 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 
   // Check invalid arguments
 
-#define $ent(_action_num, _warn_or_err, _msg, _options) \
+#define ent(_action_num, _warn_or_err, _msg, _options) \
    if ((action_num == -1 || action_num == (NMOBJ_action_##_action_num)) && !(_options)) { \
     if (strcmp(#_warn_or_err, "warn") == 0) {				\
       print_warning(_(_msg));						\
@@ -476,16 +476,16 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
     }									\
   }
 
-#define $is(_x) (options[_x] == 1)
-#define $isval(_x, _options) (if ($is(_x) && (params[_x] _options)))
-#define $has(_cnt, ...) (_sum_values(__VA_ARGS__, NMOBJ_target_SIZE) <= _cnt)
+#define is(_x) (options[_x] == 1)
+#define isval(_x, _options) (if ($is(_x) && (params[_x] _options)))
+#define has(_cnt, ...) (_sum_values(__VA_ARGS__, NMOBJ_target_SIZE) <= _cnt)
 
 #include "include/valid_args.h"
 
 
-#undef $ent
-#undef $is
-#undef $has
+#undef ent
+#undef is
+#undef has
 
 
   Key key;
@@ -578,7 +578,6 @@ void frontend_check_validity_and_execute(int action_num, const char * device, ch
 		     options[NMOBJ_target_decoy],
 		     options[NMOBJ_is_anonymous_key],
 		     false);
-    // TODO:
     break;
   case NMOBJ_action_backup:
     init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
