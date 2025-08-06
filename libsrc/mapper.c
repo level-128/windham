@@ -106,9 +106,6 @@ bool read_GPT_header(
    const char * WINDHAM_ATTRIBUTE(maybe_unused)            device,
    Read_GPT_header_return * WINDHAM_ATTRIBUTE(maybe_unused) return_) {
 
-#ifndef IS_FRONTEND_ENTRY
-  return false;
-#else
    gpt_hdr hdr;
    FILE *  fd = fopen(device, "rb");
 
@@ -154,7 +151,6 @@ bool read_GPT_header(
 
    fclose(fd);
    return true;
-#endif
 }
 
 
