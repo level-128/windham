@@ -140,7 +140,7 @@ ENUM_MAPPER_DEVSTAT load_header_by_device(
    ENUM_MAPPER_DEVSTAT ret;
 
    if (is_decoy) {
-      printf(_("Unlocking %s as decoy partition\n"), device);
+      printf(_("Opening %s as decoy partition\n"), device);
 
       Read_GPT_header_return gpt_header_ret;
       if (read_GPT_header(device, &gpt_header_ret) == false) {
@@ -149,28 +149,17 @@ ENUM_MAPPER_DEVSTAT load_header_by_device(
          *return_offset = (gpt_header_ret.lba_end + 1 - HEADER_AREA_IN_SECTOR) * 512;
          printf(_("GPT partition table detected, locating metadata by GPT genometry.\n"));
       }
-    ret = NMOBJ_MAPPER_DEVSTAT_DECOY;
+      get_header_from_device(return_data, device, *return_offset);
+      return NMOBJ_MAPPER_DEVSTAT_DECOY;
    } else {
-      uint8_t   content_head[16] = {0};
-     FILE * fp = fopen(device, "rb");
-      if (fp == 0) {
-         print_error(_("can not open device %s"), device);
-      }
-
-      if (fread(content_head, sizeof(content_head), 1, fp) != 1) {
-         perror("read");
-      }
-      fclose(fp);
-
-      if (memcmp(content_head, head, sizeof(head)) == 0) {
-         ret = NMOBJ_MAPPER_DEVSTAT_SUSP;
-      } else {
-         ret = NMOBJ_MAPPER_DEVSTAT_NORM;
-      }
       *return_offset = 0;
    }
    get_header_from_device(return_data, device, *return_offset);
-   return ret;
+   if (is_header_suspended(*return_data)) {
+      return NMOBJ_MAPPER_DEVSTAT_SUSP;
+   } else {
+      return NMOBJ_MAPPER_DEVSTAT_NORM;
+   }
 }
 
 
