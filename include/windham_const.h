@@ -145,12 +145,11 @@ Device *STR_device;
 */
 
 
-uint8_t shebang_line[] = {'#', '/', 's', 'b', 'i', 'n', '/', 'w', 'i', 'n', 'd', 'h', 'a',
-        'm', ' ', 'O', 'p', 'e', 'n', '\n'};
+uint8_t shebang_line[16] = {'#', '/', 's', 'b', 'i', 'n', '/', 'w', 'i', 'n', 'd', 'h', 'a',
+        'm', '\n', 0};
 
-uint8_t windham_head[32] = {'w', 'i', 'n', 'd', 'h', 'a', 'm'};
+uint8_t suspend_hint_tag[14] = {128, 128, 128, 128, 128, 128, 128, 's', 'u', 's', 'p', 'e', 'n', 'd'};
 
-uint8_t windham_hint_head[14] = {0x20, 0x21, 0x22, 0x23, 0x24, 0x25};
 
 
 // Metadata struct
@@ -198,26 +197,30 @@ typedef struct {
 #define cal_salt_size(level_minus_one) HASHLEN + 4 * ((level_minus_one) + 1)
 
 
-typedef struct {
-  alignas(1) uint8_t max_level;
-  alignas(1) uint8_t header_type;
+typedef union {
+  alignas(1) uint8_t tag[16];
+  alignas(1) struct {
+    alignas(1) uint8_t hint_tag[14];
+    alignas(1) int8_t max_iter_level;
+    alignas(1) uint8_t flags;
+  } hint;
 } Hint;
 
 
 typedef uint8_t Keypool[KEY_SLOT_COUNT * sizeof(Key_slot) * 4];
 
 typedef struct STR_data {
-  alignas(1) uint8_t                         head[30];
+  alignas(1) uint8_t                         head[16];
   alignas(1) Hint                            hint;
 
   // UUID, also as salt to prevent tempering
-  alignas(1) uint8_t                         uuid_and_salt[16];
+  alignas(AES_BLOCKLEN) uint8_t                         uuid_and_salt[16];
 
   // Unique mask (or vector if you prefer) of which the memery per KDF step, metadata encryption depends on.
-  alignas(1) uint8_t                         master_key_mask[HASHLEN];
+  alignas(AES_BLOCKLEN) uint8_t                         master_key_mask[HASHLEN];
 
   // first 128b of sha256(master_key_mask) enc with master_key
-  alignas(1) uint8_t                         master_key_check[AES_BLOCKLEN];
+  alignas(AES_BLOCKLEN) uint8_t                         master_key_check[AES_BLOCKLEN];
 
   // metadata area. Padding to AES blocklen for encryption.
   alignas(AES_BLOCKLEN) EncMetadata          metadata;
