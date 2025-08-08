@@ -514,26 +514,44 @@ void get_master_key(
       ret_level,
       master_key);
 
-   //TODO: add all error outputs
-   if (unlocked_slot == NMOBJ_Enclib_calc_failed_reached_max_mem) {
-      print_error(
-         _("Cannot unlock the target probably due to incorrect key.\n"
-            "\tIf you are certain that the key is indeed correct, because the memory limit has reached, try increasing the maximum "
-            "memory limit "
-            "using --max-unlock-memory."));
-   } else if (unlocked_slot == NMOBJ_Enclib_alloc_failed_no_free_mem) {
+   switch (unlocked_slot){
+      case NMOBJ_Enclib_alloc_failed_no_free_mem:
       print_error(
          _("Cannot unlock the target because of insufficient system memory.\n"
             "\tIf you are certain that the key is indeed correct, try consider exporting the master key on a more "
-            "computationally powerful device and then use the master key to unlock the target."
-         ));
-   } else if (unlocked_slot == NMOBJ_Enclib_calc_failed_no_time) {
+            "computationally powerful device and then use the master key to unlock the target."));
+
+      case NMOBJ_Enclib_alloc_failed_policy_nolock:
+      print_error(
+         _("Cannot unlock the target because of insufficient system memory.\n"
+            "\tIf you are certain that the key is indeed correct, try enable swap using --allow-swap. DO NOT ENABLE "
+            "THIS OPTION IF THE SWAP SPACE STORES AS PLAINTEXT ON NON-VOLATILE DEVICE!"));
+
+      case NMOBJ_Enclib_calc_failed_no_time:
       print_error(
          _("Cannot unlock the target probably due to incorrect key.\n"
             "\tIf you are certain that the key is indeed correct, because the time limit has reached, try increasing the maximum "
             "time limit "
             "using --max-unlock-time."));
-   }
+
+      case NMOBJ_Enclib_calc_failed_level_exceeded:
+      print_error(
+         _("Cannot unlock the target because unlock level has been reached. Double check your "
+           "parameters or key."));
+
+      case NMOBJ_Enclib_calc_failed_reached_max_mem:
+      print_error(
+         _("Cannot unlock the target because max memory has been reached. Double check your "
+           "parameters or key."));
+
+      case NMOBJ_Enclib_alloc_failed_lock_error:
+      print_error(
+         _("Cannot unlock the target because windham tries to lock memory into physical RAM but failed "
+           "while --allow-swap is not given. Use \"ulimit -m\" to increase mem-lock size for this process."));
+
+      }
+
+
 }
 
 
