@@ -370,7 +370,7 @@ bool exec_name(char * _, ...) {
 #endif
 
 
-void xor_with_len(const size_t length, const uint8_t a[], const uint8_t b[], uint8_t c[]) {
+inline void xor_with_len(const size_t length, const uint8_t a[], const uint8_t b[], uint8_t c[]) {
    for (size_t i = 0; i < length; i ++) {
       c[i] = a[i] ^ b[i];
    }

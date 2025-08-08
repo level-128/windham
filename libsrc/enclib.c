@@ -22,20 +22,25 @@ extern inline bool is_header_suspended(const Data encrypted_header) {
 }
 
 
-void generate_memory_req_from_master_key_mask(const uint8_t master_key_mask[HASHLEN], uint64_t mem[KEY_SLOT_EXP_MAX]) {
-   struct AES_ctx ctx;
-   AES_init_ctx(&ctx, master_key_mask);
-   uint8_t buffer[AES_BLOCKLEN] = {0};
-   static_assert(KEY_SLOT_EXP_MAX % 2 == 0, "KEY_SLOT_EXP_MAX not devideable by 2");
-
-   for (int i = 0; i < KEY_SLOT_EXP_MAX; i += 2) {
-      buffer[0] = i / 2;
-      AES_ECB_encrypt(&ctx, buffer);
-      memcpy(&mem[i], buffer, AES_BLOCKLEN);
-      memset(buffer, 0, AES_BLOCKLEN);
-      mem[i]     = (mem[i] % (bounds[i][1] - bounds[i][0] + 1)) + bounds[i][0];
-      mem[i + 1] = (mem[i + 1] % (bounds[i + 1][1] - bounds[i + 1][0] + 1)) + bounds[i + 1][0];
+uint64_t generate_memory_based_on_hash_value(const uint8_t hash[restrict HASHLEN],
+   const uint8_t master_key_mask[restrict KEY_SLOT_EXP_MAX], int level_minus_one) {
+   uint64_t diff = kdf_mem_bounds[level_minus_one][1] - kdf_mem_bounds[level_minus_one][0] + 1;
+   if (diff == 1) {
+      return kdf_mem_bounds[level_minus_one][0];
    }
+
+   union {
+      uint8_t buf[HASHLEN];
+      uint64_t result;
+   } cast_union = {.result=0};
+
+   xor_with_len(HASHLEN, hash, master_key_mask, cast_union.buf);
+   sha256_digest_all(cast_union.buf, sizeof(cast_union.buf), cast_union.buf);
+
+   cast_union.result = be64toh(cast_union.result);
+   uint64_t bias = cast_union.result % diff;
+
+   return kdf_mem_bounds[level_minus_one][0] + bias;
 }
 
 
@@ -74,7 +79,6 @@ bool check_master_key_check(const Data data, const uint8_t master_key[HASHLEN]) 
 
 int read_key_from_data_one_level_st(
    Data       data,
-   uint64_t   mem,
    uint8_t    inited_keys_cpy[2][HASHLEN],
    uint16_t   keypool_loc,
    bool       is_allow_nolock,
@@ -82,6 +86,7 @@ int read_key_from_data_one_level_st(
    uint8_t    ret_master_key[HASHLEN],
    unsigned * ret_key_zone) {
    for (int j = 0; j < 2; j ++) {
+      uint64_t mem = generate_memory_based_on_hash_value(inited_keys_cpy[j], data.master_key_mask, i);
       int result = kdf_hash(
          1,
          mem,
@@ -112,7 +117,6 @@ typedef struct {
    int       i;
    int       j;
    Data *    data;
-   uint64_t  mem;
    uint8_t * inited_keys_cpy;
    uint8_t * ret_master_key;
    uint16_t  keypool_loc;
@@ -123,9 +127,12 @@ typedef struct {
 int read_key_from_data_one_level_mt_thread_function(void * arg) {
    uint8_t                                                tmp_master_key[HASHLEN];
    Read_key_from_data_one_level_mt_thread_function_args * args   = arg;
+
+   uint64_t mem = generate_memory_based_on_hash_value(args->inited_keys_cpy, args->data->master_key_mask, args->i);
+
    int                                                    result = kdf_hash(
       1,
-      args->mem,
+      mem,
       PARALLELISM,
       args->inited_keys_cpy,
       HASHLEN,
@@ -148,7 +155,6 @@ int read_key_from_data_one_level_mt_thread_function(void * arg) {
 
 bool read_key_from_data_one_level_dispatch(
    Data       data,
-   uint64_t   mem,
    uint8_t    inited_keys_cpy[2][HASHLEN],
    uint16_t   keypool_loc,
    bool       is_allow_nolock,
@@ -159,7 +165,6 @@ bool read_key_from_data_one_level_dispatch(
 #if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
    return read_key_from_data_one_level_st(
    data,
-   mem,
    inited_keys_cpy,
    keypool_loc,
    is_allow_nolock,
@@ -173,7 +178,6 @@ bool read_key_from_data_one_level_dispatch(
    if (! is_mt_mem_okay) {
       return read_key_from_data_one_level_st(
          data,
-         mem,
          inited_keys_cpy,
          keypool_loc,
          is_allow_nolock,
@@ -187,7 +191,6 @@ bool read_key_from_data_one_level_dispatch(
       args[j].data            = &data;
       args[j].i               = i;
       args[j].j               = j;
-      args[j].mem             = mem;
       args[j].inited_keys_cpy = inited_keys_cpy[j];
       args[j].keypool_loc     = keypool_loc;
       args[j].is_allow_nolock = is_allow_nolock;
@@ -262,15 +265,13 @@ int read_key_from_data(
    unsigned *    ret_key_zone,
    unsigned *    ret_level,
    uint8_t       ret_master_key[HASHLEN]) {
-   uint64_t mem[KEY_SLOT_EXP_MAX];
-   generate_memory_req_from_master_key_mask(data.master_key_mask, mem);
 
    uint8_t inited_keys_cpy[2][HASHLEN];
    memcpy(inited_keys_cpy[0], inited_key, HASHLEN);
    memcpy(inited_keys_cpy[1], inited_key, HASHLEN);
 
    struct timespec start, current;
-   double          elapsed_time = 0.0;
+   double          elapsed_time;
    timespec_get(&start, TIME_UTC);
 
    for (int i = 0; i < KEY_SLOT_EXP_MAX; i ++) {
@@ -278,7 +279,7 @@ int read_key_from_data(
          *ret_level = i;
          return NMOBJ_Enclib_calc_failed_level_exceeded;
       }
-      if (mem[i] >= target_mem) {
+      if (kdf_mem_bounds[i][1] >= target_mem) {
          *ret_level = i;
          return NMOBJ_Enclib_calc_failed_reached_max_mem;
       }
@@ -294,7 +295,6 @@ int read_key_from_data(
       int result;
       if (read_key_from_data_one_level_dispatch(
              data,
-             mem[i],
              inited_keys_cpy,
              keypool_loc,
              is_allow_nolock,
@@ -326,8 +326,6 @@ int generate_key_slot_key_mask(
    Key_slot *    ret_target_slot) {
    int return_val;
 
-   uint64_t mem[KEY_SLOT_EXP_MAX];
-   generate_memory_req_from_master_key_mask(data.master_key_mask, mem);
 
    uint8_t inited_key_cpy[HASHLEN];
    memcpy(inited_key_cpy, inited_key, HASHLEN);
@@ -343,7 +341,7 @@ int generate_key_slot_key_mask(
          return_val = NMOBJ_Enclib_gen_okay_level_reached;
          goto BREAK_LOOP;
       }
-      if (mem[i] >= target_mem) {
+      if (kdf_mem_bounds[i][1] >= target_mem) {
          *ret_level = i;
          return_val = NMOBJ_Enclib_gen_okay_mem_reached;
          goto BREAK_LOOP;
@@ -364,9 +362,12 @@ int generate_key_slot_key_mask(
       }
 
       uint8_t hash_result[HASHLEN];
+
+      uint64_t mem = generate_memory_based_on_hash_value(inited_key_cpy, data.master_key_mask, i);
+
       int     result = kdf_hash(
          1,
-         mem[i],
+         mem,
          PARALLELISM,
          inited_key_cpy,
          HASHLEN,

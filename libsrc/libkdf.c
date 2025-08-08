@@ -2,7 +2,7 @@
 
 #define MEM_ERR(x) (x == NMOBJ_Enclib_alloc_failed_policy_nolock || x == NMOBJ_Enclib_alloc_failed_no_free_mem)
 
-uint64_t bounds[][2] = {
+uint64_t kdf_mem_bounds[26][2] = {
    {350, 350}, // 342, 464
    {1480, 1480}, // 932, 1262
    {6100, 6100}, // 2533, 3429
@@ -32,7 +32,6 @@ uint64_t bounds[][2] = {
    {59147681792,59159511328},
    {118295363584,118319022656},
    {236590727168,236638045313}
-
 };
 
 typedef enum {
@@ -60,15 +59,13 @@ typedef enum {
    // no correct pw, sys error, no memory
 } Kdf_step;
 
-#ifndef __STDC_NO_THREADS__
-
 #include <threads.h>
 
+#ifndef __STDC_NO_THREADS__
 thread_local Kdf_step Kdf_step_result;
 thread_local bool     is_allow_nolock;
 
 #else
-
 Kdf_step Kdf_step_result;
 bool is_allow_nolock;
 
@@ -81,14 +78,14 @@ bool is_allow_nolock;
 
 // side channel attack defence
 size_t search_mem_upper_bound(size_t mem) {
-   if (mem < bounds[0][0] || mem < DEFAULT_MIN_MEMLOCK_SIZE) {
+   if (mem < kdf_mem_bounds[0][0] || mem < DEFAULT_MIN_MEMLOCK_SIZE) {
       return mem;
    }
    for (int i = 0; i < KEY_SLOT_EXP_MAX; i++) {
-      if (mem > bounds[i][1]) {
+      if (mem > kdf_mem_bounds[i][1]) {
          continue;
       }
-      return bounds[i][1];
+      return kdf_mem_bounds[i][1];
    }
    WINDHAM_UNREACHABLE
 }
