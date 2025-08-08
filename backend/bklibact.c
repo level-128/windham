@@ -260,7 +260,7 @@ void action_backup(const char * device, char * filename, const bool is_decoy) {
    }
    close(fd);
 #else
-   FILE *file = fopen(filename, "wb");
+   file = fopen(filename, "wb");
    if (file == NULL) {
       print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
    }
