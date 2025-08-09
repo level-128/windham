@@ -145,7 +145,7 @@ Device *STR_device;
 */
 
 
-uint8_t shebang_line[16] = {'#', '/', 'b', 'i', 'n', '/', 'w', 'i', 'n', 'd', 'h', 'a',
+uint8_t shebang_line[16] = {'#', '!', '/', 'b', 'i', 'n', '/', 'w', 'i', 'n', 'd', 'h', 'a',
         'm', '\n', 0};
 
 uint8_t suspend_hint_tag[14] = {128, 128, 128, 128, 128, 128, 128, 's', 'u', 's', 'p', 'e', 'n', 'd'};
