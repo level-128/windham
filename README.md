@@ -15,9 +15,9 @@ on-disk format; use at your on risk!!!!.__
 # Supported features:
 
 - Transparent and on-the-fly disk (or partition) encryption.
-- Optional Plausible deniability: through Decoy Partition (stenography) and completely signature-less & cryptographically
+- Plausible deniability: completely signature-less & cryptographically
   random on-disk format. In another word, no one can 100% prove that a partition is encrypted using windham instead of garbage
-  random data.
+  random data. Optionally supports Decoy Partition (stenography) -- hiding itself under a plaintext filesystem.
 - Passphrases management: supports registering multiple passphrases, passfile and/or key (up to 16 in total)
 - Fast: thanks to its cryptographically random on-disk format, the unlock time does not depend on the number 
   of passphrase registered; it is always as fast as only if one passphrase has been registered.
@@ -355,6 +355,36 @@ the Zig compiler's sub-command, compatible with GCC and Clang.
 
 &nbsp;
 
+# Security considerations
+
+Windham is a cutting-edge storage encryption scheme which combines plausible deniability, O(1) parallel unlock, high
+flexibility and enhanced brute-force protection. However, there is no silver bullet: some compromises has to be made for
+mitigating or voiding multiple attack vectors. This part only applies to "security freaks". Most users will never be  
+targeted by these attack vectors.
+
+before continue, we need to introduce some concepts
+- header re-transform: changing a new vector field, recalculate the header into an equivalent form, but most bits are 
+changed, including keyslot field and metadata field.
+- anonymous key: anonymous key does not have an identifier, and cannot retain across re-transformation. Use option 
+`--anonymous-key` to anonymous a key under action `DelKey`.
+- KDF iteration: Windham uses Argon2id for password iteration, with variable memory consumption bias per iteration. The
+target memory will grow exponentially per iteration.
+
+## slot history attack:
+If the adversary is able to compare the difference between headers before and after action `AddKey` when option 
+`--rapid-add` is used, the adversary will gain formidable advantage to brute-force the passphrase, since `--rapid-add`
+means forbid header re-transform when possible.
+
+Windham has basic mitigations against this attack: Windham will broadcast multiple irreverent regions when using
+`--rapid-add`. Even after mitigation, it provides the adversary about 30-100 times of advantage when using 
+`--rapid-add` if your adversary could access the device both before and after `--rapid-add`.
+
+
+## key identifier attack
+If the adversary has access to the device (uses one of its key or its master key), the adversary has about 4-5 magnitude
+of computational advantage agienst other registered non-anonymous keys.
+
+&nbsp;
 
 # Contribute:
 
