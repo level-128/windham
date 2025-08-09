@@ -44,7 +44,7 @@
 */
 // Some consts are defined in CMake, these are:
 #ifndef DEFAULT_TARGET_TIME
-#define DEFAULT_TARGET_TIME 1
+#define DEFAULT_TARGET_TIME 1.5
 #endif
 
 #ifndef MAX_UNLOCK_TIME_FACTOR
