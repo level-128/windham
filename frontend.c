@@ -93,12 +93,14 @@ int main(int argc, char * argv[argc]) {
 
   if (is_shebang(argv[0], self_path)) {
     if (geteuid() == 0) {
-      main_(3, (char * []){argv[0], "Open", argv[1], NULL});
+      main_(argc, argv);
     }
 
     char *pkexec_args[] = {
       "pkexec",
       self_path,
+      "Open",
+      argv[1],
       NULL
   };
 
