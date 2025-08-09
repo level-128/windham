@@ -330,7 +330,7 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
             ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
     configure_global_flags()
     install(TARGETS windham
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+            RUNTIME DESTINATION "/bin")
 
 elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
     add_compile_definitions(WINDHAM_ALLOW_ATTACH) # allow attach under Test
