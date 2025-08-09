@@ -98,6 +98,16 @@ void action_create(
 
    ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 
+   if (STR_device->is_block == false) {
+      int res = ask_option(_("It seems that you are creating Windham on a file, not device. Do you want to add shebang line "
+                   "thus making the file itself as self-decrypt executable?"),
+                   _("No"),
+                   _("Yes, and make Windham identifiable."));
+      if (res == 2) {
+         memcpy(data.head, shebang_line, sizeof(shebang_line));
+      }
+   }
+
 
    // fill random data to first 128K.
 #ifndef WINDHAM_ISOC

@@ -468,7 +468,12 @@ int ask_option(const char * title, ...) {
       const char * option = va_arg(args, const char *);
       if (option == NULL)
          break;
-      printf("%d. %s\n", ++count, option);
+      if (count == 0) {
+         printf("%d. %s (default)\n", ++count, option);
+      } else {
+         printf("%d. %s\n", ++count, option);
+      }
+
    }
    va_end(args);
 
@@ -478,6 +483,10 @@ int ask_option(const char * title, ...) {
       if (fgets(input, sizeof(input), stdin) == NULL) {
          perror("fgets");
          windham_exit(1);
+      }
+      if (input[0] == '\n') {
+         input[0] = '1';
+         break;
       }
       if (input[1] != '\n' ||
          !(input[0] >= '0' && input[0] <= '9')) {

@@ -127,7 +127,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "ISOC")
     install(TARGETS windham
             RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
 else ()
-
+    include(GNUInstallDirs)
     # --------------------------------------------------------------------
     # define common options
     set(CMAKE_VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
@@ -330,7 +330,7 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
             ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
     configure_global_flags()
     install(TARGETS windham
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
     add_compile_definitions(WINDHAM_ALLOW_ATTACH) # allow attach under Test

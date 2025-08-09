@@ -3,11 +3,15 @@
 #include <locale.h>
 
 #include "include/windham_const.h"
-#include "library/include_all_libs.c"
 #include "main.c"
 
 // if ISOC, disable gettext and locale, disable parsing init_str when running under PID1.
 #ifndef WINDHAM_ISOC
+
+#include <unistd.h>
+#include <sys/auxv.h>
+#include <stdio.h>
+
 #define INIT_STR				\
 u8"/bin/sh\xffOpen\xffTAB"
 
@@ -44,6 +48,26 @@ void parse_and_call() {
   free(copy);
 }
 
+bool is_shebang(const char * args0, const char * self_path) {
+  char shebang[16];
+  for (int i = 2; shebang_line[i] != 0; i++) {
+    shebang[i - 2] = shebang_line[i] == '\n' ? 0 : shebang_line[i];
+  }
+  if (strcmp(args0, shebang) != 0) {
+    return false;
+  }
+
+  char * auxval = (char *)getauxval(AT_EXECFN);
+  if (strcmp(args0, auxval) == 0) {
+    return false;
+  }
+
+  if (strcmp(self_path, auxval) == 0) {
+    return false;
+  }
+  return true;
+}
+
 
 int main(int argc, char * argv[argc]) {
   is_pid1 = getpid() == 1;
@@ -58,11 +82,38 @@ int main(int argc, char * argv[argc]) {
   textdomain("windham");
   tcgetattr(STDIN_FILENO, &oldt);
 
+  char self_path[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+  if (len == -1) {
+    perror("readlink");
+    exit(1);
+  }
+  self_path[len] = '\0';
+
+
+  if (is_shebang(argv[0], self_path)) {
+    if (geteuid() == 0) {
+      main_(3, (char * []){argv[0], "Open", argv[1], NULL});
+    }
+
+    char *pkexec_args[] = {
+      "pkexec",
+      self_path,
+      NULL
+  };
+
+    execvp("pkexec", pkexec_args);
+
+    perror("pkexec");
+    exit(1);
+  }
   main_(argc, argv);
   return 0;
 }
 
 #else
+
+#include "library/include_all_libs.c"
 
 int main(int argc, char * argv[]) {
   // detect shell
