@@ -102,7 +102,8 @@ void action_create(
       int res = ask_option(_("It seems that you are creating Windham on a file, not device. Do you want to add shebang line "
                    "thus making the file itself as self-decrypt executable?"),
                    _("No"),
-                   _("Yes, and make Windham identifiable."));
+                   _("Yes, and make Windham identifiable."),
+                   NULL);
       if (res == 2) {
          memcpy(data.head, shebang_line, sizeof(shebang_line));
       }
