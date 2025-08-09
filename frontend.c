@@ -96,11 +96,16 @@ int main(int argc, char * argv[argc]) {
       main_(argc, argv);
     }
 
+    char absolute_path[PATH_MAX];
+    if (realpath(argv[1], absolute_path) == NULL) {
+      perror("realpath");
+      exit(1);
+    }
     char *pkexec_args[] = {
       "pkexec",
       self_path,
       "Open",
-      argv[1],
+      absolute_path,
       NULL
   };
 
