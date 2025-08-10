@@ -357,13 +357,13 @@ the Zig compiler's sub-command, compatible with GCC and Clang.
 
 # Security considerations
 
-Windham is a cutting-edge storage encryption scheme which combines plausible deniability, O(1) parallel unlock, high
-flexibility and enhanced brute-force protection. However, there is no silver bullet: some compromises has to be made for
+Windham implements a cutting-edge storage encryption scheme which combines plausible deniability. 
+However, there is no silver bullet: some compromises has to be made for
 mitigating or voiding multiple attack vectors. This part only applies to "security freaks". Most users will never be  
 targeted by these attack vectors.
 
-before continue, we need to introduce some concepts
-- header re-transform: changing a new vector field, recalculate the header into an equivalent form, but most bits are 
+before continue, we need to introduce some concepts related with the internals of Windham:
+- header re-transform: changing a new header vector, recalculate the header into an equivalent form, but most bits are 
 changed, including keyslot field and metadata field.
 - anonymous key: anonymous key does not have an identifier, and cannot retain across re-transformation. Use option 
 `--anonymous-key` to anonymous a key under action `DelKey`.
@@ -371,18 +371,56 @@ changed, including keyslot field and metadata field.
 target memory will grow exponentially per iteration.
 
 ## slot history attack:
-If the adversary is able to compare the difference between headers before and after action `AddKey` when option 
+If the adversary has access to the physical device and able to compare the difference between headers before and after action `AddKey` when option 
 `--rapid-add` is used, the adversary will gain formidable advantage to brute-force the passphrase, since `--rapid-add`
 means forbid header re-transform when possible.
 
 Windham has basic mitigations against this attack: Windham will broadcast multiple irreverent regions when using
 `--rapid-add`. Even after mitigation, it provides the adversary about 30-100 times of advantage when using 
-`--rapid-add` if your adversary could access the device both before and after `--rapid-add`.
+`--rapid-add` if your adversary could access the device both before and after `AddKey --rapid-add`. Windham does not 
+enable `--rapid-add` by default, so each time a header re-transform is issued.
 
 
 ## key identifier attack
-If the adversary has access to the device (uses one of its key or its master key), the adversary has about 4-5 magnitude
-of computational advantage agienst other registered non-anonymous keys.
+If the adversary has access to the device (uses one of its password or its master key), the adversary has about 4-5 magnitude
+of computational advantage against other registered non-anonymous passwords. The stores the 
+intermediate key after the first stage of KDF iteration. This recorded intermediate key has a much smaller Argon2id
+m-cost parameter, and it is served to use as retain passwords during re-transform and print internal identifier when 
+`--dry-run` is used. This attack does not apply if:
+
+- your registered password has an entropy larger than SHA256's output entropy (32 bytes). In another word: guessing your
+password is much harder than guessing the final disk key. This usually applies to most keyfiles or key used for clevis
+integration.
+- your registered password are anonymous. 
+- you only have one password registered and your master key has not been compromised.
+
+
+## side channel attack
+During each KDF iteration, the m-cost parameter will wiggle based on the previous hash result and the header vector.
+This wiggle only happens when 21.93MiB of memory is required during KDF iteration. The wiggle scale ranges from 0.013% 
+to 0.02% (when m-cost of KDF reaches 220.4TiB, basically impossible for most forcastable future systems). This m-cost
+wiggle mechanism will hinder the ability for adversary to customize hardware for boosting the KDF.
+
+It is possible that the adversary could sniff your Power or EM radiation with time from the device which is currently 
+unlocking, or time itself by other malicious processes. For modern computing devices, their CPU has complicated cache
+hierarchy, OSes has preempted multitasking, CPU speed affected by thermal and other factors, to measure the execution time
+within the accuracy of wiggle scale, since cache miss is unpredictable by the nature of Argon2, is nearly impossible. 
+However, this might be possible for MCUs. They have simple cache design and constant clock cycles with constant cycles 
+per instruction. RTOSes has predictable multitasking scheduler. Most MCUs to date will not utilize more than 21.93MiB
+of RAM for KDF within the time budget, but in the future, they may will.
+
+On the memory side, Windham will allocate the upper limit of wiggle range for each KDF iteration. Side channel attack 
+may be conducted by measuring page fault. Windham will use huge pages when possible to mitigate such measurement.
+
+
+## on-disk format tag
+Most on-disk formats or filesystems has a magic number to identify itself, allowing kernel or other software wo identify
+them and mount or manage them. Windham does not depend on on-disk format tag since it means losing plausible deniability.
+However, Windham does have one by convention (`WINDHAMWINDHAMWI` encoded using ASCII). The program itself will ignore 
+the first 16 bytes of a partition where on-disk format tag is stored. Other software are encouraged to search for this
+identifier.
+
+To remove this identifier, use `dd if=/dev/urandom of=/dev/your_disk bs=16B count=1`.
 
 &nbsp;
 
