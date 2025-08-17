@@ -9,7 +9,6 @@
 #ifndef WINDHAM_ISOC
 
 #include <unistd.h>
-#include <sys/auxv.h>
 #include <stdio.h>
 
 #define INIT_STR				\
@@ -48,6 +47,10 @@ void parse_and_call() {
   free(copy);
 }
 
+#ifndef WINDHAM_NO_SHEBANG_ENTRY
+
+#include <sys/auxv.h>
+
 bool is_shebang(const char * args0, const char * self_path) {
   char shebang[16];
   for (int i = 2; shebang_line[i] != 0; i++) {
@@ -58,6 +61,9 @@ bool is_shebang(const char * args0, const char * self_path) {
   }
 
   char * auxval = (char *)getauxval(AT_EXECFN);
+  if (auxval == NULL) {
+    return false;
+  }
   if (strcmp(args0, auxval) == 0) {
     return false;
   }
@@ -67,6 +73,16 @@ bool is_shebang(const char * args0, const char * self_path) {
   }
   return true;
 }
+
+#else
+
+bool is_shebang(const char * WINDHAM_ATTRIBUTE(maybe_unused) args0,
+                const char * WINDHAM_ATTRIBUTE(maybe_unused) self_path) {
+  return false;
+}
+
+
+#endif
 
 
 int main(int argc, char * argv[argc]) {

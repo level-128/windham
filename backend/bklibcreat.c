@@ -98,15 +98,17 @@ void action_create(
 
    ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 
+#ifndef WINDHAM_NO_SHEBANG_ENTRY
    if (STR_device->is_block == false) {
       int res = ask_option(_("It seems that you are creating Windham on a file, not device. Do you want to add shebang line "
-                   "thus making the file itself as self-decrypt executable?"),
+                   "thus making the file itself as a self-decrypt executable?"),
                    _("No"),
-                   _("Yes, and make Windham identifiable."),
+                   _("Yes, and make it identifiable."),
                    NULL);
       if (res == 2) {
          memcpy(data.head, shebang_line, sizeof(shebang_line));
       }
+#endif
    }
 
 

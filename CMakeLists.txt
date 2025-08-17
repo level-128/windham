@@ -265,6 +265,31 @@ else ()
         message(STATUS "Cross compiling, multithread enabled using libc without testing.")
     endif()
 
+
+    # test getauxval
+    try_run(
+            RUN_RESULT_VAR
+            COMPILE_RESULT_VAR
+            ${CMAKE_BINARY_DIR}/temp
+            SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_getauxval.c
+            COMPILE_OUTPUT_VARIABLE COMPILE_OUTPUT_VAR
+            RUN_OUTPUT_VARIABLE RUN_OUTPUT_VAR
+    )
+
+    if (COMPILE_RESULT_VAR EQUAL 0)
+        message(WARNING "Your libc does not support getauxval. Shebang entry will be disabled.")
+        add_compile_definitions(WINDHAM_NO_SHEBANG_ENTRY)
+    elseif (NOT CMAKE_CROSSCOMPILING)
+        if (RUN_OUTPUT_VAR EQUAL 1)
+            message(WARNING "getauxval return 0 for getauxval(AT_EXECFN). Shebang entry will be disabled.")
+            add_compile_definitions(WINDHAM_NO_SHEBANG_ENTRY)
+        else ()
+            message(STATUS "Shebang entry enabled.")
+        endif ()
+    else()
+        message(STATUS "Cross compiling, Shebang entry enabled without testing.")
+    endif()
+
 endif ()
 
 # --------------------------------------------------------------------

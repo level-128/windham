@@ -103,7 +103,7 @@ void secure_wipe_memory(void *v, size_t n) {
     memset_explicit(v, 0, n);
 #else
     volatile void * mem_dest = v;
-    memset(mem_dest, 0, n);
+    memset((void *)mem_dest, 0, n);
 #endif
 }
 
