@@ -95,7 +95,7 @@ function(configure_global_flags)
     endif()
 
     add_compile_options(${CMAKE_C_FLAGS})
-    add_definitions("-DCOMPILE_PARAMS=\"${CMAKE_C_FLAGS}\"")
+    add_compile_definitions(COMPILE_PARAMS="${CMAKE_C_FLAGS}")
 
     if(CMAKE_BUILD_TYPE STREQUAL "ISOC")
         if(UNIX)
@@ -130,8 +130,8 @@ else ()
     include(GNUInstallDirs)
     # --------------------------------------------------------------------
     # define common options
-    set(CMAKE_VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
-    add_compile_definitions(CMAKE_VERSION=\"${CMAKE_VERSION}\")
+    set(WINDHAM_USING_CMAKE ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
+    add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
 
     execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
     add_compile_definitions(TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
@@ -191,6 +191,8 @@ else ()
         file(GLOB Argon2_SRC ${ARGON2_DIR}/argon2.c ${ARGON2_DIR}/core.c ${ARGON2_DIR}/encoding.c ${ARGON2_DIR}/ref.c
                 ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
     endif ()
+
+    set(LIBRARY_SOURCES ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
 
 
     # --------------------------------------------------------------------
@@ -290,6 +292,41 @@ else ()
         message(STATUS "Cross compiling, Shebang entry enabled without testing.")
     endif()
 
+
+    # check loop ioctl (compile-only)
+    # Verifies <linux/loop.h> provides LOOP_SET_FD, LOOP_CLR_FD, LOOP_SET_STATUS64,
+    # LOOP_CTL_GET_FREE, LOOP_SET_BLOCK_SIZE, struct loop_info64, LO_FLAGS_AUTOCLEAR.
+    # Uses try_compile (not try_run) because:
+    #   - Running requires root privileges
+    #   - Different kernel versions, capabilities, seccomp affect runtime results
+    #   - Only need to verify the headers can compile
+    # If compile fails, defines WINDHAM_NO_LOOP_IOCTL to fall back to losetup command.
+    # This is a compile-time decision — there is no runtime fallback from ioctl to losetup.
+    try_compile(
+            LOOP_IOCTL_COMPILE_RESULT
+            ${CMAKE_BINARY_DIR}/temp
+            SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_loop_ioctl.c
+    )
+    if (LOOP_IOCTL_COMPILE_RESULT)
+        message(STATUS "Loop device ioctl headers available (LOOP_CONFIGURE, LOOP_CTL_GET_FREE, etc.).")
+    else ()
+        message(WARNING "Loop device ioctl headers not available. Falling back to losetup command.")
+        add_compile_definitions(WINDHAM_NO_LOOP_IOCTL)
+    endif ()
+
+    # check mntent.h (glibc-specific; unavailable on musl / uclibc)
+    try_compile(
+            HAS_MNTENT
+            ${CMAKE_BINARY_DIR}/temp
+            SOURCES ${CMAKE_SOURCE_DIR}/build_misc/check_mntent.c
+    )
+    if (HAS_MNTENT)
+        add_compile_definitions(WINDHAM_HAS_MNTENT)
+        message(STATUS "mntent.h available — Probe will show mount info.")
+    else ()
+        message(STATUS "mntent.h not available (non-glibc libc). Probe mount info disabled.")
+    endif ()
+
 endif ()
 
 # --------------------------------------------------------------------
@@ -300,8 +337,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
 
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    add_executable(windham frontend.c
-            ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
+    add_executable(windham frontend.c ${LIBRARY_SOURCES})
     set_target_properties(windham PROPERTIES OUTPUT_NAME windham_debug)
     configure_global_flags()
 
@@ -351,19 +387,14 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
         add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
     endif ()
 
-    add_executable(windham frontend.c
-            ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
+    add_executable(windham frontend.c ${LIBRARY_SOURCES})
     configure_global_flags()
     install(TARGETS windham
-            RUNTIME DESTINATION "/bin")
+            RUNTIME DESTINATION bin)
 
 elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
-    add_compile_definitions(WINDHAM_ALLOW_ATTACH) # allow attach under Test
-    add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
-
-    add_executable(windham test/test.c
-            ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
-    set_target_properties(windham PROPERTIES OUTPUT_NAME windham_test)
-    configure_global_flags()
+    message(STATUS "Test build type uses Python test suite (tests/run_tests.py).")
+    message(STATUS "Build with Debug or Release type, then run: python3 tests/run_tests.py")
+    add_compile_definitions(WINDHAM_TEST)
 
 endif()

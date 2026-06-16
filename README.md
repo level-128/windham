@@ -24,6 +24,15 @@ on-disk format; use at your on risk!!!!.__
 - Tamper resistance: on-disk format is designed to prevent malicious tampering.
 - Self-correlated metadata: Windham will entangle each change to multiple indirect regions to vastly reduce the 
   usefulness of extracting information by comparing the on-disk format before and after each modification.
+- **Probe** — inspect block devices or files for Windham signatures (shebang, suspend, or magic tag), display
+  device attributes (model, size, mount info), and detect unidentifiable encrypted partitions via statistical
+  entropy analysis. Works under both full-support and ISO C profiles (ISO C uses `/proc/partitions` text parsing).
+- **Unicode password input** — press Tab then Space during interactive password entry to switch into a Unicode
+  code-point input mode (type hex code points after a `U+` prompt). Passwords are normalized to UTF-32
+  (big-endian) before hashing, ensuring encoding-independent key derivation across platforms.
+- **Auxiliary data zone** (`--aux-add`, `--aux-del`, `--aux-probe`): store per-key metadata alongside the
+  encrypted header. Aux entries are encrypted with the associated key-slot key, survive header re-transforms,
+  and are automatically deleted when the owning key is removed.
 
 Windham combines the flexibility, functionality and security of cryptsetup plus LUKS/LUKS2; it also
 provides plausible deniability and hidden volume (under VeraCrypt's term) feature similar with VeraCrypt.
@@ -90,7 +99,15 @@ For other platforms, only ISO C build type -- provides a set of basic on-disk fo
   they will gain formidable advantage if they decide to brute-force the passphrase.
   Usually an encryption solution for cold storage does not need to defend for such adversary model. AddKey without 
   `--rapid-add` option (which is also the default) does not have this venerability, but it is very slow when you
-  already have multiple passphrases registered. 
+  already have multiple passphrases registered.
+- Action `Probe` scans block devices or files for Windham partitions. Under GNU/Linux, it defaults to scanning
+  `/proc/partitions` for all block devices. Use `--dir=<path>` to probe a specific file or device, and
+  `--probe-pattern=<major>:<minor>` to filter by device number. Probe displays device model, size, mount info,
+  and Windham signatures (shebang / magic / suspend) when found. Unidentifiable encrypted partitions are
+  detected via statistical analysis of the header region.
+- During interactive password entry, press Tab then Space at an empty prompt to enter **Unicode mode**: type
+  hexadecimal code points (up to 8 digits) after each `U+` prompt. Press Enter on an empty code point to display
+  all entered characters. Enter `0` (U+0000) to finish input, or `_` to delete the previous character. 
 
 
 &nbsp;
@@ -416,11 +433,29 @@ may be conducted by measuring page fault. Windham will use huge pages when possi
 ## on-disk format tag
 Most on-disk formats or filesystems has a magic number to identify itself, allowing kernel or other software wo identify
 them and mount or manage them. Windham does not depend on on-disk format tag since it means losing plausible deniability.
-However, Windham does have one by convention (`WINDHAMWINDHAMWI` encoded using ASCII). The program itself will ignore 
-the first 16 bytes of a partition where on-disk format tag is stored. Other software are encouraged to search for this
-identifier.
+However, Windham provides two explicit identifiers that external partition software may use:
 
-To remove this identifier, use `dd if=/dev/urandom of=/dev/your_disk bs=16B count=1`.
+- `windham_partition_magic` (`"windhamlevel-128"`) — 16-byte ASCII tag at header offset 16, intended for
+  use by external partitioning tools.
+- `shebang_line` (`"#!/bin/windham\n"`) — enables the Windham binary to act as a self-decrypting executable.
+
+The program itself ignores both tags on read. To remove these identifiers, use
+`dd if=/dev/urandom of=/dev/your_disk bs=16B count=1` (for the magic area) and similarly
+for the shebang area.
+
+## Running tests
+
+Windham uses a Python-based test suite located under `tests/`. Each test case spawns the
+compiled `windham` binary via `subprocess`, capturing stdin, stdout, and stderr:
+
+```sh
+cmake -B cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DCFG_USE_SWAP=1
+cmake --build cmake-build-debug
+python3 tests/run_tests.py --binary cmake-build-debug/windham_debug
+```
+
+Tests cover basic creation/open, key management (AddKey/DelKey), auxiliary zone operations,
+suspend/resume, and the Probe action. Run `python3 tests/run_tests.py --help` for options.
 
 &nbsp;
 
@@ -431,6 +466,9 @@ To remove this identifier, use `dd if=/dev/urandom of=/dev/your_disk bs=16B coun
 Windham is not attachable by debugger under cmake `Release` build type. you should use `Debug` build type. GNU operating
 system is the primary development platform, and it is also recommended because Windham uses glibc extensions to print 
 stack traces under crash.
+
+Tests live under `tests/` (Python, `subprocess`-based). Run `python3 tests/run_tests.py` after building the `Debug` target
+with `-DCFG_USE_SWAP=1`.
 
 Oh, make sure that you have acknowledged [the code of conduct](/CODE_OF_CONDUCT.md).
 

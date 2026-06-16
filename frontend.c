@@ -139,6 +139,8 @@ int main(int argc, char * argv[argc]) {
 #include "library/include_all_libs.c"
 
 int main(int argc, char * argv[]) {
+  setlocale(LC_ALL, "");
+
   // detect shell
   // if it is available, we can infer that the terminal should be able to handle color output.
   // this is not good, I know, but we are on ISO C.

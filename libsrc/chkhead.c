@@ -4,12 +4,15 @@
 #include <limits.h>
 #include <math.h>
 #include <assert.h>
+#include <string.h>
 #include "../include/windham_const.h"
 
+#if (__STDC_VERSION__ >= 202311L)
+#include <stdbit.h>
+#endif
 
 int popcount64(uint64_t x) {
 #if (__STDC_VERSION__ >= 202311L)
-#include <stdbit.h>
     return stdc_count_ones(x);
 #elif defined(__GNUC__)
     return __builtin_popcountll(x);
@@ -22,10 +25,15 @@ int popcount64(uint64_t x) {
 }
 
 size_t count_ones(const uint8_t *data, size_t length) {
-    assert(length % sizeof(uint64_t) == 0); // should always true
+    assert(length % sizeof(uint64_t) == 0);
     size_t total = 0;
-    for (size_t i = 0; i < length; ++i) {
-        total += popcount64(data[i]);
+    for (size_t i = 0; i < length; i += sizeof(uint64_t)) {
+        union { 
+            uint8_t u8[8]; 
+            uint64_t u64; 
+        } word;
+        for (int j = 0; j < 8; j++) word.u8[j] = data[i + j];
+        total += popcount64(word.u64);
     }
     return total;
 }
@@ -91,7 +99,48 @@ bool check_head(Data * data) {
 
     uint32_t count_of_1 = (N - ratio_diff * N) / 2;
     size_t ones = count_ones((unsigned char *)data + offsetof(Data, master_key_mask), N / CHAR_BIT);
-    return ones >= count_of_1;
+    if (ones < count_of_1) return false;
+
+    size_t byte_count = sizeof(Data) - offsetof(Data, master_key_mask);
+    const uint8_t *bytes = (const uint8_t *)data + offsetof(Data, master_key_mask);
+
+    // MTF + chi-squared: encode bytes with move-to-front,
+    // test uniformity of MTF positions
+    uint8_t mtf[256];
+    for (int i = 0; i < 256; i++) mtf[i] = (uint8_t)i;
+    uint64_t freq[256] = {0};
+
+    for (size_t i = 0; i < byte_count; i++) {
+        uint8_t b = bytes[i];
+        int pos = 0;
+        while (mtf[pos] != b) pos++;
+        freq[pos]++;
+        memmove(mtf + 1, mtf, (size_t)pos);
+        mtf[0] = b;
+    }
+
+    double expected = (double)byte_count / 256.0;
+    double chi_sq = 0.0;
+    for (int i = 0; i < 256; i++) {
+        double d = (double)freq[i] - expected;
+        chi_sq += d * d / expected;
+    }
+    // chi-sq critical at df=255, p approx 1e-6: df + 4.89 * sqrt(2*df) approx 255 + 110.5
+    if (chi_sq > 255.0 + 4.89 * sqrt(510.0)) return false;
+
+    // 2D random walk: 2 bits per axis per byte
+    int64_t wx = 0, wy = 0;
+    for (size_t i = 0; i < byte_count; i++) {
+        uint8_t b = bytes[i];
+        switch (b & 3) { case 0: wx--; break; case 3: wx++; break; default: break; }
+        switch ((b >> 2) & 3) { case 0: wy--; break; case 3: wy++; break; default: break; }
+    }
+    double ed2 = (double)byte_count;           // E[D²] = N (Var per axis = 0.5 per step)
+    double ad2 = (double)(wx * wx + wy * wy);  // actual D²
+    double sd  = (double)byte_count;           // SD[D²] = N
+    if (fabs(ad2 - ed2) > 4.0 * sd) return false;
+
+    return true;
 }
 
 

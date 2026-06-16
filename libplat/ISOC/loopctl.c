@@ -80,12 +80,12 @@ uint64_t isoc_get_file_size(FILE *stream){
       exit(1);
    }
 
-   uint64_t sum_res = 0;
-   if (sizeof(uint64_t) != sizeof(long)){
-      while (fseek(stream, LONG_MIN, SEEK_CUR) == 0){
-         sum_res -= LONG_MIN;
-      }
-   }
+	uint64_t sum_res = 0;
+	if (sizeof(uint64_t) != sizeof(long)){
+		while (fseek(stream, LONG_MIN, SEEK_CUR) == 0){
+			sum_res -= LONG_MIN;
+		}
+	}
 
    long int res = ftell(stream);
    if (res == -1L){
@@ -144,13 +144,15 @@ void init_device(
       }
       print_error("Cannot open file %s: %s", filename, strerror(errno));
    }
-   if (is_map_block) {
-      STR_device->block_count = isoc_get_file_size(file) / 512;
-   } else {
-      STR_device->block_count = -1;
-   }
-   if (STR_device->block_count < RAW_HEADER_AREA_IN_SECTOR) {
-      print_error("File %s is too small to contain Windham disk format, double check your file.", filename);
-   }
+	if (is_map_block) {
+		STR_device->block_size  = DEFAULT_BLOCK_SIZE;
+		STR_device->block_count = isoc_get_file_size(file) / DEFAULT_BLOCK_SIZE * (DEFAULT_BLOCK_SIZE / 512);
+		if (STR_device->block_count < RAW_HEADER_AREA_IN_SECTOR) {
+			print_error("File %s is too small to contain Windham disk format, double check your file.", filename);
+		}
+	} else {
+		STR_device->block_size  = DEFAULT_BLOCK_SIZE;
+		STR_device->block_count = -1;
+	}
    fclose(file);
 }

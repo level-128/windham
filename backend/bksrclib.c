@@ -3,25 +3,27 @@
 #include <stdint.h>
 
 #include "../libsrc/enclib.c"
-#include "../libsrc/mapper.c"
-
 #include "../libplat/headerio.c"
+#include "../libsrc/auxlib.c"
+#include "../libsrc/mapper.c"
 #include "../libplat/keyctl.c"
+#include "../libplat/password_input.c"
 
 
 #define OPERATION_BACKEND_UNENCRYPT_HEADER                \
     unsigned ret_key_zone, ret_level; \
     uint16_t ret_key_location;\
+    uint8_t ret_inited_key[HASHLEN];\
          get_master_key(data, master_key, key, device, max_unlock_mem, max_unlock_time, max_unlock_level, is_allow_nolock, \
-&ret_level, &ret_key_zone, &ret_key_location);                               \
+&ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);                               \
 \
    if (!unlock_metadata_using_master_key(&data, master_key)){ \
      print_error(_("The header is likely damaged, which means you can't unlock your device even using your masterkey. Sorry, there is nothing that I could do...")); \
       }
 
 
-#define OPERATION_LOCK_AND_WRITE                                                                                                           \
-   lock_metadata_using_master_key(&data, master_key);                                                                                      \
+#define OPERATION_LOCK_AND_WRITE                      \
+   lock_metadata_using_master_key(&data, master_key); \
    write_header_to_device(&data, device, offset);
 
 
@@ -137,8 +139,6 @@ ENUM_MAPPER_DEVSTAT load_header_by_device(
    int64_t *    return_offset,
    const bool   is_decoy) {
 
-   ENUM_MAPPER_DEVSTAT ret;
-
    if (is_decoy) {
       printf(_("Opening %s as decoy partition\n"), device);
 
@@ -169,7 +169,8 @@ int64_t get_new_header_range_and_offset_based_on_size(
    size_t *     start_sector,
    size_t *     end_sector,
    size_t       block_size,
-   uint64_t     decoy_size) {
+   uint64_t     decoy_size,
+   uint64_t     aux_sector_size) {
    long long safe_node = (1 << 24) / 512; // safe sector
 
    int64_t return_val;
@@ -192,6 +193,10 @@ int64_t get_new_header_range_and_offset_based_on_size(
       if (decoy_size % (block_size / 512) != 0) {
          print_warning(_("decoy size does not align with block size, auto shrinking decoy size to match."));
          decoy_size = decoy_size / (block_size / 512) * (block_size / 512);
+      }
+
+      if (decoy_size && aux_sector_size) {
+         print_warning(_("auxiliary data is not supported for decoy partition."));
       }
 
       Read_GPT_header_return gpt_header_ret;
@@ -284,7 +289,7 @@ int64_t get_new_header_range_and_offset_based_on_size(
          return_val = (gpt_header_ret.lba_end + 1 - HEADER_AREA_IN_SECTOR) * 512;
       }
    } else {
-      *start_sector = WINDHAM_FIRST_USEABLE_LGA;
+      *start_sector = WINDHAM_FIRST_USEABLE_LGA(aux_sector_size * 512);
       *end_sector   = device_block_count - device_block_count % (block_size / 512);
       return_val    = 0;
    }

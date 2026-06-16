@@ -1,19 +1,51 @@
+/*
+ * Loop device management: ioctl vs losetup fallback
+ *
+ * Compile-time selection (via CMake try_compile on <linux/loop.h>):
+ *   - WINDHAM_NO_LOOP_IOCTL undefined: use kernel ioctl (preferred)
+ *   - WINDHAM_NO_LOOP_IOCTL defined:   fall back to losetup command
+ *
+ *   If <linux/loop.h> is missing or does not define the required constants/structs,
+ *   try_compile fails and the entire ioctl path is disabled at compile time.
+ *   There is no runtime fallback from ioctl to losetup — it is decided at build time.
+ *
+ * ioctl path (init_file_device):
+ *   1. /dev/loop-control  →  LOOP_CTL_GET_FREE  (find free loop device)
+ *   2. LOOP_SET_FD        (attach backing file)
+ *   3. LOOP_SET_STATUS64  (set LO_FLAGS_AUTOCLEAR; may fail with EPERM if
+ *      CAP_SYS_RAWIO absent — tolerated, autoclear skipped but operation continues)
+ *   4. LOOP_SET_BLOCK_SIZE (set sector/block size)
+ *
+ * ioctl path (free_loop):
+ *   LOOP_CLR_FD to detach
+ *
+ * losetup fallback path (WINDHAM_NO_LOOP_IOCTL):
+ *   init_file_device: exec_name("losetup", "-f", "--show", ..., "--sector-size", ...)
+ *   free_loop:        exec_name("losetup", "-d", ...)
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <linux/fs.h>
+#ifndef WINDHAM_NO_LOOP_IOCTL
+#include <linux/loop.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/quota.h>
+#include <unistd.h>
 #include <sys/vfs.h>
 #include <linux/magic.h>
 #include <blkid/blkid.h>
 #include <mntent.h>
+#ifndef WINDHAM_NO_LOOP_IOCTL
+#include <dirent.h>
+#endif
 
-#include "../include/windham_const.h"
-#include "../include/cJSON.h"
+#include "../../include/windham_const.h"
+#include "../../include/cJSON.h"
 
 #include "../../libsrc/chkhead.c"
 #include "../../libsrc/srclib.c"
@@ -360,6 +392,8 @@ bool init_file_device(const char * filename, bool is_map_block, bool is_readonly
    if (! S_ISBLK(st.st_mode) && is_map_block) {
       printf(_("Non block device deleted, creating loop.\n"));
 
+#ifdef WINDHAM_NO_LOOP_IOCTL
+      /* losetup fallback: invoke losetup -f --show <file> --sector-size <size> */
       char * exec_dir[]     = {"/sbin", "/usr/sbin", "/bin", "/usr/bin", NULL};
       char * dup_stdout     = NULL;
       size_t dup_stdout_len = 0;
@@ -389,9 +423,78 @@ bool init_file_device(const char * filename, bool is_map_block, bool is_readonly
       free(dup_stdout);
 
       int fd = open(STR_device->name, O_RDONLY);
+#else
+      /* ioctl path: /dev/loop-control → LOOP_CTL_GET_FREE → LOOP_SET_FD
+       * + LOOP_SET_STATUS64 + LOOP_SET_BLOCK_SIZE */
+      // Open the backing file
+      int file_fd = open(filename, is_readonly ? O_RDONLY : O_RDWR);
+      if (file_fd < 0) {
+         print_error(_("Failed to open backing file %s: %s"), filename, strerror(errno));
+      }
+
+      // Find a free loop device via /dev/loop-control
+      int ctl_fd = open("/dev/loop-control", O_RDWR);
+      if (ctl_fd < 0) {
+         close(file_fd);
+         print_error(_("Failed to open /dev/loop-control: %s"), strerror(errno));
+      }
+
+      int loop_nr = ioctl(ctl_fd, LOOP_CTL_GET_FREE);
+      close(ctl_fd);
+      if (loop_nr < 0) {
+         close(file_fd);
+         print_error(_("Failed to get free loop device: %s"), strerror(errno));
+      }
+
+      char loop_path[32];
+      snprintf(loop_path, sizeof(loop_path), "/dev/loop%d", loop_nr);
+
+      int loop_fd = open(loop_path, O_RDWR);
+      if (loop_fd < 0) {
+         close(file_fd);
+         print_error(_("Failed to open loop device %s: %s"), loop_path, strerror(errno));
+      }
+
+      // Attach file to loop device
+      if (ioctl(loop_fd, LOOP_SET_FD, file_fd) < 0) {
+         close(loop_fd);
+         close(file_fd);
+         print_error(_("Failed to attach file to loop device %s: %s"), loop_path, strerror(errno));
+      }
+
+      // Set autoclear flag so the loop detaches when last reference closes.
+      // LOOP_SET_STATUS64 may fail with EPERM if CAP_SYS_RAWIO is absent;
+      // tolerated — autoclear is skipped but operation continues.
+      struct loop_info64 info;
+      memset(&info, 0, sizeof(info));
+      info.lo_flags = LO_FLAGS_AUTOCLEAR;
+      if (ioctl(loop_fd, LOOP_SET_STATUS64, &info) < 0 && errno != EPERM) {
+         ioctl(loop_fd, LOOP_CLR_FD, 0);
+         close(loop_fd);
+         close(file_fd);
+         print_error(_("Failed to set loop device status for %s: %s"), loop_path, strerror(errno));
+      }
+
+      // Set sector/block size
+      if (ioctl(loop_fd, LOOP_SET_BLOCK_SIZE, DEFAULT_BLOCK_SIZE) < 0) {
+         ioctl(loop_fd, LOOP_CLR_FD, 0);
+         close(loop_fd);
+         close(file_fd);
+         print_error(_("Failed to set block size on loop device %s: %s"), loop_path, strerror(errno));
+      }
+
+      // loop_fd remains open for the autoclear ref; close file_fd as the loop holds it
+      close(file_fd);
+
+      STR_device->is_loop = true;
+      strncpy(STR_device->name, loop_path, sizeof(STR_device->name) - 1);
+      STR_device->name[sizeof(STR_device->name) - 1] = '\0';
+
+      int fd = loop_fd;
+#endif
 
       if (ioctl(fd, BLKGETSIZE, &STR_device->block_count) == -1) {
-         perror("ioctl(BLKGETSIZE)"); // unlikely to fail.
+         perror("ioctl(BLKGETSIZE)");
          windham_exit(1);
       }
       if (ioctl(fd, BLKPBSZGET, &STR_device->block_size) == -1) {
@@ -477,6 +580,8 @@ void init_device(
 }
 
 void free_loop(const char * name) {
+#ifdef WINDHAM_NO_LOOP_IOCTL
+   /* losetup fallback: invoke losetup -d <device> */
    char * exec_dir[]   = {"/sbin", "/usr/sbin", "/bin", "/usr/bin", NULL};
    int    exec_ret_val = 0;
 
@@ -484,6 +589,18 @@ void free_loop(const char * name) {
    if (! success || exec_ret_val != 0) {
       print_warning(_("Failed to free loop device %s. Please run \"losetup -d %s\" manually."), name, name);
    }
+#else
+   /* ioctl path: LOOP_CLR_FD to detach */
+   int loop_fd = open(name, O_RDWR);
+   if (loop_fd < 0) {
+      print_warning(_("Failed to open loop device %s for detach: %s. Please run \"losetup -d %s\" manually."), name, strerror(errno), name);
+      return;
+   }
+   if (ioctl(loop_fd, LOOP_CLR_FD, 0) < 0) {
+      print_warning(_("Failed to detach loop device %s: %s. Please run \"losetup -d %s\" manually."), name, strerror(errno), name);
+   }
+   close(loop_fd);
+#endif
 }
 
 

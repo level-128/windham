@@ -40,6 +40,9 @@
 
 #include <stdint.h>
 
+#if (__STDC_VERSION__ < 202311L)
+#include <stdbool.h>
+#endif
 
 // QR Code Format Encoding
 #define MODE_NUMERIC        0

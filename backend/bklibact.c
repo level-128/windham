@@ -4,11 +4,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <threads.h>
 
 #include "../libsrc/mapper.c"
 #include "../libsrc/srclib.c"
 #include "../libplat/get_entropy.c"
+#include "../libplat/loopctl.c"
 #include "bklibkey.c"
 #include "bksrclib.c"
 #include "../include/windham_const.h"
@@ -100,39 +100,11 @@ int action_addkey(
 
    if (is_random_key_stdout == false) {
       action_addkey_interactive_prepare_key(&new_key);
-
-      add_key_to_keyslot(
-         &data,
-         master_key,
-         new_key,
-         device,
-         target_memory,
-         target_time,
-         target_level,
-         is_no_detect_entropy,
-         is_rapid_add,
-         is_anonymous_key,
-         is_allow_nolock,
-         &ret_target_level);
    } else { // is_random_key_stdout == true
       uint8_t new_key_uint8[HASHLEN];
       fill_secure_random_bits(new_key_uint8, HASHLEN);
       new_key.key_type                = NMOBJ_key_file_type_key_raw;
       new_key.key_or_keyfile_location = (char *) new_key_uint8;
-
-      add_key_to_keyslot(
-         &data,
-         master_key,
-         new_key,
-         device,
-         target_memory,
-         target_time,
-         target_level,
-         is_no_detect_entropy,
-         is_rapid_add,
-         is_anonymous_key,
-         is_allow_nolock,
-         &ret_target_level);
       // print the new_key_uint8 to the real stdout
 #ifndef WINDHAM_ISOC
       for (size_t i = 0; i < HASHLEN; ++i) {
@@ -149,6 +121,42 @@ int action_addkey(
       print_hex_array(HASHLEN, new_key_uint8);
       printf(_("Copy the key to somewhere else and clear this terminal."));
 #endif
+   }
+
+   // Save old master_key_mask before add_key_to_keyslot potentially changes it 
+   uint8_t old_master_key_mask[HASHLEN];
+   if (is_rapid_add == false) {
+      memcpy(old_master_key_mask, data.master_key_mask, HASHLEN);
+   }
+
+   add_key_to_keyslot(
+   &data,
+   master_key,
+   new_key,
+   device,
+   target_memory,
+   target_time,
+   target_level,
+   is_no_detect_entropy,
+   is_rapid_add,
+   is_anonymous_key,
+   is_allow_nolock,
+   &ret_target_level);
+
+   // Non-rapid add: master_key_mask changed, re-encrypt aux zone with new IV 
+   if (is_rapid_add == false) {
+      size_t aux_zone_size = 0;
+      uint8_t *aux_zone = read_aux_zone_from_device(device, &data, &aux_zone_size);
+      if (aux_zone_size != 0) {
+         uint8_t aux_key[HASHLEN];
+         get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.aux_key_mask, data.uuid_and_salt, aux_key);
+         if (!decrypt_aux_zone(aux_zone, aux_zone_size, aux_key, old_master_key_mask)) {
+            print_warning(_("Aux zone cannot be decrypted with old header IV; aux data may be lost."));
+         }
+         encrypt_aux_zone(aux_zone, aux_zone_size, aux_key, data.master_key_mask);
+         write_aux_zone_to_device(device, &data, aux_zone, aux_zone_size);
+      }
+      free(aux_zone);
    }
 
    OPERATION_LOCK_AND_WRITE
@@ -186,6 +194,39 @@ void action_removekey(
       }
    }
 
+   /* Probe aux zone for non-public entries belonging to the key being deleted */
+   bool has_aux_to_delete = false;
+   if (!is_make_anonymous && memcmp(ret_inited_key, (uint8_t[HASHLEN]){0}, HASHLEN) != 0) {
+      size_t  aux_zone_size = 0;
+      uint8_t *aux_zone = read_aux_zone_from_device(device, &data, &aux_zone_size);
+      if (aux_zone_size != 0 && decrypt_aux_zone_using_master_key(&data, aux_zone, aux_zone_size, master_key)) {
+         uint32_t pointer = 0;
+         int count = 0;
+         while (true) {
+            bool is_public = false;
+            uint32_t slot_offset = 0;
+            AuxSlot *slot = probe_aux_from_aux_zone(aux_zone, aux_zone_size, &pointer, ret_inited_key, &is_public, &slot_offset);
+            if (slot == NULL) break;
+            if (!is_public) {
+               if (count == 0) {
+                  printf(_("The following aux entries are associated with the key being deleted:\n"));
+               }
+               count++;
+               print_aux_entry(slot, slot_offset, false, count);
+               has_aux_to_delete = true;
+            }
+            free(slot);
+         }
+         if (has_aux_to_delete) {
+            ask_for_conformation(_("Remove these aux entries?"));
+            remove_aux_from_aux_zone_by_key(aux_zone, aux_zone_size, ret_inited_key);
+            encrypt_aux_zone_using_master_key(&data, aux_zone, aux_zone_size, master_key);
+            write_aux_zone_to_device(device, &data, aux_zone, aux_zone_size);
+         }
+      }
+      free(aux_zone);
+   }
+
    if (is_no_fill_random_pattern == false) {
       fill_random_pattern_in_keypool(&data);
    }
@@ -195,14 +236,14 @@ void action_removekey(
       int      target_size = convert_stage_to_size(ret_level);
       uint64_t random_value;
       fill_secure_random_bits((uint8_t *) &random_value, sizeof(random_value));
-      random_value %= target_size - PATTERN_LEN; // make sure the boundaries fit within target
+      random_value %= target_size - PATTERN_LEN;
       fill_secure_random_bits(&data.keypool[ret_key_zone].keypool[random_value + ret_key_location], PATTERN_LEN);
    }
 
    for (size_t i = 0; i < KEY_SLOT_COUNT; ++i) {
       if (data.metadata.keyslot_level[i] == ret_level && data.metadata.keyslot_location[i] == ret_key_location) {
          if (GET_BIT(data.metadata.keyslot_location_area, i) == ret_key_zone) {
-            if (is_make_anonymous) { // an anonymous key has keyslot_level != 0 while stored key is 0
+            if (is_make_anonymous) {
                data.metadata.keyslot_location[i] = 0;
                memset(data.metadata.keyslot_key[i], 0, HASHLEN);
             } else {
@@ -220,12 +261,14 @@ void action_removekey(
    } else {
       exit(2);
    }
+
 LOCK_AND_WRITE:;
    OPERATION_LOCK_AND_WRITE
 }
 
 
-void action_backup(const char * device, char * filename, const bool is_decoy) {
+void action_backup(const char * device, char * filename, const bool is_decoy, const bool is_qrcode) {
+   (void)is_qrcode;
    if (filename == NULL) {
       filename = "windham_backup";
    }
@@ -298,6 +341,7 @@ void action_restore(const char * device, const char * filename, const bool is_de
 void action_suspend(const char * device, PARAMS_FOR_KEY) {
    Data    data;
    int64_t offset;
+
    load_header_by_device(device, &data, &offset, is_decoy);
 
    if (is_header_suspended(data)) {
@@ -326,6 +370,7 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
    // unlock the header but not validate key using metadata. metadata is a mess right now.
    unsigned _, __;
    uint16_t ___;
+   uint8_t ____[HASHLEN];
    get_master_key(
       data,
       master_key,
@@ -337,7 +382,8 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
       is_allow_nolock,
       &_,
       &__,
-      &___);
+      &___,
+      ____);
 
    if (resume_encryption(&data_copy, master_key) == false) {
       print_error(

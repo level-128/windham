@@ -20,7 +20,7 @@
  * ---------- Define for ISO C compatibility ----------
 */
 
-#ifndef CMAKE_VERSION
+#ifndef WINDHAM_USING_CMAKE
 #define WINDHAM_ISOC
 #endif
 
@@ -59,8 +59,16 @@
 #define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
 #endif
 
+#ifndef DEFAULT_DISK_ENC_KEY_SIZE
+#define DEFAULT_DISK_ENC_KEY_SIZE 64
+#endif
+
 #ifndef DEFAULT_DISK_ENC_MEM_RATIO_CAP
 #define DEFAULT_DISK_ENC_MEM_RATIO_CAP 30
+#endif
+
+#ifndef DEFAULT_AUX_SECTOR_SIZE
+#define DEFAULT_AUX_SECTOR_SIZE 16
 #endif
 
 #ifndef DEFAULT_MIN_MEMLOCK_SIZE
@@ -103,16 +111,21 @@
 
 
 // jump back to test when running unit test
-#ifndef IS_FRONTEND_ENTRY
+#if defined(WINDHAM_TEST) || !defined(IS_FRONTEND_ENTRY)
+#ifndef WINDHAM_TEST
 #warning "Test target"
+#endif
 
+#ifndef WINDHAM_TEST
 #define _(STRING) STRING
+#endif
 
 jmp_buf exit_jmp;
 
-// backup terminal config.
-#elif !defined(WINDHAM_ISOC)
-// backup terminal config when interacting
+#endif
+
+// backup terminal config and init process (needed by IS_FRONTEND_ENTRY and WINDHAM_TEST)
+#if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
 struct termios oldt;
 // init process to exec when pid1
 char * init_process;
@@ -148,8 +161,12 @@ Device *STR_device;
 uint8_t shebang_line[16] = {'#', '!', '/', 'b', 'i', 'n', '/', 'w', 'i', 'n', 'd', 'h', 'a',
         'm', '\n', 0};
 
-uint8_t suspend_hint_tag[14] = {128, 128, 128, 128, 128, 128, 128, 's', 'u', 's', 'p', 'e', 'n', 'd'};
+uint8_t suspend_hint_tag[16] = {128, 128, 128, 128, 128, 128, 128, 128, 128, 's', 'u', 's', 'p', 'e', 'n', 'd'};
 
+
+// External Partition software should write this. Windham will ignore this head.
+uint8_t windham_partition_magic[16] = {'w', 'i', 'n', 'd', 'h', 'a', 'm', 'l', 'e', 'v',
+   'e', 'l', '-', '1', '2', '8'};
 
 
 // Metadata struct
@@ -168,8 +185,14 @@ typedef struct {
   alignas(8) uint64_t                        start_sector;
   alignas(8) uint64_t                        end_sector;
 
+  // start and end of the auxiliary sector. sector = bytes / 512.
+  alignas(8) uint64_t                        start_aux_sector;
+  alignas(1) uint8_t                         aux_sector_size;
+
+  alignas(1) uint8_t                         disk_key_size_in_bits_div_64;
+
   // reserved for future use
-  alignas(1) uint8_t                         _metadata_unused_plain[64];
+  alignas(1) uint8_t                         _metadata_unused_plain[54];
 
   // additional entropy for converting master key to disk key.
   alignas(1) uint8_t                         disk_key_mask[HASHLEN];
@@ -179,12 +202,19 @@ typedef struct {
 
   // registered key stored after initial hash. These keys can be used to reencrypt the header.
   //
-  alignas(AES_BLOCKLEN) uint8_t                         keyslot_key[KEY_SLOT_COUNT][HASHLEN];
+  alignas(AES_BLOCKLEN) uint8_t              keyslot_key[KEY_SLOT_COUNT][HASHLEN];
   alignas(1) uint8_t                         keyslot_level[KEY_SLOT_COUNT];
   alignas(2) uint16_t                        keyslot_location[KEY_SLOT_COUNT];
   alignas(8) uint64_t                        keyslot_location_area;
+  alignas(1) uint8_t                         aux_key_mask[HASHLEN];
   alignas(8) uint64_t                        check_key_magic_number;
 } EncMetadata;
+
+static_assert(sizeof(EncMetadata) == 752, "size of EncMetadata mismatch under your platform. "
+                                          "An non ISO C conformation compiler? "
+                                          "Before MSVC 2022 version 17.10, if the alignas specifier appeared next to a "
+                                          "structured type in a declaration, it wasn't applied correctly according to "
+                                          "the ISO C standard.");
 
 
 typedef struct {
@@ -198,7 +228,7 @@ typedef struct {
 
 
 typedef union {
-  alignas(1) uint8_t tag[16];
+  alignas(1) uint8_t windham_partition_magic_area[16]; // random by default. 
   alignas(1) struct {
     alignas(1) uint8_t hint_tag[14];
     alignas(1) int8_t max_iter_level;
@@ -216,7 +246,8 @@ typedef struct STR_data {
   // UUID, also as salt to prevent tempering
   alignas(AES_BLOCKLEN) uint8_t                         uuid_and_salt[16];
 
-  // Unique mask (or vector if you prefer) of which the memery per KDF step, metadata encryption depends on.
+  // Unique mask (or vector if you prefer) of which the memory per KDF step, metadata encryption depends on.
+  // IVs for AES CBC
   alignas(AES_BLOCKLEN) uint8_t                         master_key_mask[HASHLEN];
 
   // first 128b of sha256(master_key_mask) enc with master_key
@@ -233,12 +264,12 @@ typedef struct STR_data {
   // offset: 19536
 } Data; //
 
-static_assert(sizeof(Data) == 19536, "size of Data mismatch under your platform. An non ISO C conformation compiler?");
+static_assert(sizeof(Data) == 19568, "size of Data mismatch under your platform. An non ISO C conformation compiler?");
 
-#define convert_stage_to_size(stage) HASHLEN + HASHLEN + 4u * (stage)
+#define convert_stage_to_size(stage) (HASHLEN + HASHLEN + 4u * (stage))
 #define get_slot_loc(_data, keypool_idx, keypool_loc) ((Key_slot *)&_data.keypool[keypool_idx].keypool[keypool_loc])
 #define RAW_HEADER_AREA_IN_SECTOR (( sizeof(Data) + 511) / 512)
-#define HEADER_AREA_IN_SECTOR ((RAW_HEADER_AREA_IN_SECTOR + 7) / 8) * 8
-#define WINDHAM_FIRST_USEABLE_LGA (((RAW_HEADER_AREA_IN_SECTOR + 1) + 7) / 8) * 8
+#define HEADER_AREA_IN_SECTOR (((RAW_HEADER_AREA_IN_SECTOR + 7) / 8) * 8)
+#define WINDHAM_FIRST_USEABLE_LGA(aux_size) (((HEADER_AREA_IN_SECTOR + ((aux_size + 511) / 512) + 7) / 8) * 8)
 
 #endif

@@ -91,17 +91,17 @@ void mapper_keyring_add_disk_key(const uint8_t key[HASHLEN], uint8_t uuid[16], E
          metadata.enc_type);
       is_ok_for_keyring = false;
    }
-   if (metadata.start_sector != WINDHAM_FIRST_USEABLE_LGA) {
+   if (metadata.start_sector != WINDHAM_FIRST_USEABLE_LGA(DEFAULT_AUX_SECTOR_SIZE * 512)) {
       print_warning(
          _("Cannot register the key into Linux Keyring service: The start sector is not the same as the default value (%lu), got "
             "(%" PRIu64 ")."),
-         WINDHAM_FIRST_USEABLE_LGA,
+         WINDHAM_FIRST_USEABLE_LGA(DEFAULT_AUX_SECTOR_SIZE * 512),
          metadata.start_sector);
       is_ok_for_keyring = false;
    }
 
    if (is_ok_for_keyring) {
-      char name[strlen("windham_disk:") + 36 /* uuid len */ + 1];
+      char name[sizeof("windham_disk:") + 36 /* uuid len */];
       strcpy(name, "windham_disk:");
       generate_UUID_from_bytes(uuid, name + strlen("windham_disk:"));
 
@@ -144,7 +144,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16]) {
    if (! is_kernel_keyring_exist) {
       return;
    }
-   char name[strlen("windham:") + 36 /* uuid len */ + 1];
+   char name[sizeof("windham:") + 36 /* uuid len */];
    strcpy(name, "windham:");
    generate_UUID_from_bytes(uuid, name + strlen("windham:"));
 
@@ -186,7 +186,7 @@ bool mapper_keyring_get_disk_serial(const uint8_t uuid[16], uint8_t key[HASHLEN]
    if (! is_kernel_keyring_exist) {
       return false;
    }
-   char name[strlen("windham_disk:") + 36 /* uuid len */ + 1];
+   char name[sizeof("windham_disk:") + 36 /* uuid len */];
    strcpy(name, "windham_disk:");
    generate_UUID_from_bytes(uuid, name + strlen("windham_disk:"));
 

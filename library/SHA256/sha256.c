@@ -43,11 +43,6 @@
 
 #include "../../include/sha256.h"
 
-#ifndef lint
-static const char rcsid[] =
-	"$Id: sha256.c 680 2003-07-25 21:57:49Z asaddi $";
-#endif /* !lint */
-
 #define ROTL(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
 #define ROTR(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
 

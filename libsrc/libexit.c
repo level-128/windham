@@ -15,7 +15,12 @@
 
 
 void windham_exit(int exitno) {
-#if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
+#if defined(WINDHAM_TEST)
+   fin_device();
+  if (exitno != EXIT_SUCCESS) {
+    longjmp(exit_jmp, 1);
+  }
+#elif defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
    fin_device();
    if (is_pid1) {
       if (exitno == EXIT_SUCCESS) {

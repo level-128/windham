@@ -4,10 +4,12 @@
 #include "../libsrc/libexit.c"
 #include "../libplat/loopctl.c"
 #include "bklibact.c"
+#include "bklibaux.c"
 #include "bklibcreat.c"
 #include "bklibhelp.c"
 #include "bklibkey.c"
 #include "bklibopen.c"
+#include "bklibprobe.c"
 
 #include "../include/windham_const.h"
 

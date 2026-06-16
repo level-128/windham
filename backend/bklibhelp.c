@@ -62,7 +62,7 @@ void frontend_help(const char * the_3rd_argv) {
       printf(
          _(
             "usage: \"windham <action> <target>\"\n"
-            "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'DelKey' 'Backup' 'Restore' 'Suspend' 'Resume' and 'Destory'\n\n"
+            "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'DelKey' 'Backup' 'Restore' 'Suspend' 'Resume' 'Destory' and 'Aux'\n\n"
             "Use command \"windham Help <action>\" to view specific help text for each action.\n\n"
             "pre-compiled arguments. These arguments serve an informative purpose; changing them may render your "
             "device inaccessible.\n"));
@@ -107,12 +107,10 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\tEntropy of the final encryption key (bits): %i\n"), HASHLEN * CHAR_BIT);
       printf(_("\tDefault block size: %d\n"), DEFAULT_BLOCK_SIZE);
       printf(_("\tFinal Header logical sector (header size / 512b): %"PRIu64"\n"), (uint64_t)RAW_HEADER_AREA_IN_SECTOR);
-      printf(_("\tPreset data start logical sector: %"PRIu64"\n"), (uint64_t)WINDHAM_FIRST_USEABLE_LGA);
       printf(_("\tArgon2B3 memory size exponential count: %i\n"), KEY_SLOT_EXP_MAX);
       printf(_("\tArgon2B3 base memory size (KiB): %i\n"), BASE_MEM_COST);
       printf(_("\tArgon2B3 parallelism: %i\n"), PARALLELISM);
-      // printf(_("\tWipe memory for Argon2B3: %i\n"), ARGON2B3_CLEAR_INTERNAL_MEMORY);
-      printf(_("\tDefault encryption target time: %i\n"), DEFAULT_TARGET_TIME);
+      printf(_("\tDefault encryption target time: %f\n"), DEFAULT_TARGET_TIME);
       printf(_("\tDefault decryption target time (per slot): %i\n"), MAX_UNLOCK_TIME_FACTOR);
       printf(_("\tDefault encryption capped memory: %i\n"), DEFAULT_DISK_ENC_MEM_RATIO_CAP);
       printf(_("\tDefault encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
@@ -128,7 +126,7 @@ void frontend_help(const char * the_3rd_argv) {
 #ifdef COMPILE_PARAMS
       printf(_("\tCompile Params: %s\n"), COMPILE_PARAMS);
 #endif
-#if defined(CMAKE_VERSION)
+#if defined(WINDHAM_USING_CMAKE)
       printf(_("\tSystem architecture: %s\n"), TARGET_ARCH);
       printf(
          _("\tSystem endianness: %s\n"),
@@ -137,11 +135,11 @@ void frontend_help(const char * the_3rd_argv) {
             : "Little");
       printf(_("\tBuild host Architecture: %s\n"), HOST_ARCH);
       printf(_("\tCompile time (GMT): %s\n"), CURRENT_TIME);
-      printf(_("\tCMake version: %s\n"), CMAKE_VERSION);
+      printf(_("\tCMake version: %s\n"), WINDHAM_USING_CMAKE);
 
-#else // #if defined(CMAKE_VERSION)
+#else // #if defined(WINDHAM_USING_CMAKE)
       printf(_("Windham is using ISO C profile, hence the system information is not avaliable.\n"));
-#endif // #if defined(CMAKE_VERSION)
+#endif // #if defined(WINDHAM_USING_CMAKE)
    } else if (strcmp("--license", the_3rd_argv) == 0) {
       printf(
          _(
@@ -177,7 +175,8 @@ void frontend_help(const char * the_3rd_argv) {
             "\t--allow-discards: Allow TRIM commands being sent to the crypt device.\n"
             "\t--no-read-workqueue: Process read requests synchronously by bypassing internal workqueue.\n"
             "\t--no-write-workqueue: Process write requests synchronously by bypassing internal workqueue.\n"
-            "\t--no-map-partition: do not map the partition table that reside inside the crypt device after unlock.\n"));
+            "\t--no-map-partition: do not map the partition table that reside inside the crypt device after unlock.\n"
+            "\t--no-aux: do not probe aux entries after unlock.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Close", the_3rd_argv) == 0) {
@@ -288,6 +287,25 @@ void frontend_help(const char * the_3rd_argv) {
          _(
             "Bench: Performing Argon2 benchmark\n"
             "\n"));
+   } else if (strcmp("Aux", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Aux <target>: Manage auxiliary data entries in the aux zone of a Windham partition.\n"
+            "Aux entries are small data slots that can be individually encrypted with different keys.\n"
+            "The aux slot key is derived from the keyslot (inited_key). For anonymous keys, the\n"
+            "derived inited_key is still used (keyslot_key is zeroed but inited_key is recomputed).\n"
+            "If unlocked with --master-key, the aux slot key is zero (public/unencrypted entries only).\n"
+            "Public (zero-key) entries are always visible during --probe.\n"
+            "\n"
+            "options:\n"
+            "\t--add=<content>: Add a new aux entry with the given content, encrypted with the derived aux slot key.\n"
+            "\t       Content is converted from multibyte (UTF-8) to char32_t. On platforms without\n"
+            "\t       __STDC_UTF_32__, only ASCII content is allowed.\n"
+            "\t       If unlocked with --master-key, the entry is stored as a public (unencrypted) entry.\n"
+            "\t--del: Delete aux entries matching the derived aux slot key.\n"
+            "\t--probe: List aux entries matching the derived key, plus all public entries.\n"));
+      frontend_print_unlock_args();
+      frontend_print_common_args();
    } else if (strcmp("Destory", the_3rd_argv) == 0) {
       printf(
          _(

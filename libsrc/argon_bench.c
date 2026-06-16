@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
+#ifndef __STDC_NO_THREADS__
 #include <threads.h>
+#endif
 
 #include "../include/argon2.h"
 

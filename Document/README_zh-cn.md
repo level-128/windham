@@ -189,7 +189,12 @@ hexedit /windham/bin/location
 | 内核头文件               | `linux-headers-$(uname -r)` | `kernel-devel` | `linux-headers` | 
 | GNU Gettext              | `libgettextpo-dev` | `gettext-runtime`    | `gettext`     |
 | libblkid 库              | `libblkid-dev`     | `libblkid-devel`     | `util-linux`  |
-| 内核密钥保留服务（可选） | `libkeyutils-dev`  | `keyutils-libs-devel`| `keyutils`    | 
+| 内核密钥保留服务（可选） | `libkeyutils-dev`  | `keyutils-libs-devel`| `keyutils`    |
+
+Loop 设备管理通过 `<linux/loop.h>` 使用内核 ioctl（`LOOP_SET_FD`、`LOOP_SET_STATUS64`、
+`LOOP_CTL_GET_FREE` 等），该头文件由上方的内核头文件包提供。若编译时内核头文件不可用
+或缺少这些定义，Windham 会回退到调用 `losetup` 命令。这是编译时决定——不存在从 ioctl
+到 losetup 的运行时回退。
 
 其他可选用户空间程序（缺失时部分选项不可用）：
 - `clevis`：自动化加解密的插件框架。

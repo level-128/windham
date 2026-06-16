@@ -795,7 +795,12 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
 #endif
 
     struct BitBucket codewords;
+#ifdef __STDC_NO_VLA__
+    uint8_t * codewordBytes = malloc(bb_getBufferSizeBytes(moduleCount));
+#else
     uint8_t codewordBytes[bb_getBufferSizeBytes(moduleCount)];
+#endif
+
     bb_initBuffer(&codewords, codewordBytes, (int32_t)sizeof(codewordBytes));
 
     // Place the data code words into the buffer
@@ -848,6 +853,10 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
 
     // Apply the final choice of mask
     applyMask(&modulesGrid, &isFunctionGrid, mask);
+
+#ifdef __STDC_NO_VLA__
+    free(codewordBytes);
+#endif
 
     return 0;
 }

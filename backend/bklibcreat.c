@@ -1,12 +1,13 @@
 #pragma once
 
-#include "../libsrc/mapper.c"
 #include "bklibkey.c"
 #include "bksrclib.c"
+#include "../libsrc/auxlib.c"
 #include "../include/windham_const.h"
 
 #include "../libplat/chk_enc_supp_stat.c"
 #include "../libplat/get_entropy.c"
+#include "../libplat/loopctl.c"
 
 
 
@@ -20,6 +21,7 @@ void action_create(
    const int      target_level,
    const size_t   block_size,
    const uint64_t decoy_size,
+   const uint64_t aux_sector_size,
    const bool     is_no_detect_entropy,
    const bool     is_anonymous_key,
    const bool     is_allow_nolock) {
@@ -63,10 +65,11 @@ void action_create(
                  : DEFAULT_DISK_ENC_MODE;
    action_new_check_crypt_support_status(enc_type);
 
-   Data    data;
-   uint8_t master_key[HASHLEN];
-   size_t  start_sector, end_sector;
-   int     ret_target_level;
+   Data      data;
+   uint8_t * aux_zone = NULL;
+   uint8_t   master_key[HASHLEN];
+   size_t    start_sector, end_sector;
+   int       ret_target_level;
 
    fill_secure_random_bits(master_key, HASHLEN);
 
@@ -78,9 +81,14 @@ void action_create(
          &start_sector,
          &end_sector,
          block_size,
-         decoy_size);
+         decoy_size,
+         aux_sector_size);
 
-   initialize_new_header(&data, master_key, enc_type, start_sector, end_sector, block_size);
+   initialize_new_header(&data, master_key, enc_type, start_sector, end_sector, block_size, aux_sector_size);
+   if (aux_sector_size != 0) {
+      aux_zone = malloc(aux_sector_size * 512);
+      init_aux_zone(aux_zone, aux_sector_size * 512);
+   }
 
    add_key_to_keyslot(
       &data,
@@ -98,8 +106,8 @@ void action_create(
 
    ask_for_conformation(_("Creating encrypt partition on device: %s, All content will be lost. Continue?"), device);
 
-#ifndef WINDHAM_NO_SHEBANG_ENTRY
-   if (STR_device->is_block == false) {
+#if !defined(WINDHAM_NO_SHEBANG_ENTRY) && !defined(WINDHAM_ISOC)
+   if (STR_device->is_block == false && is_skip_conformation == false) {
       int res = ask_option(_("It seems that you are creating Windham on a file, not device. Do you want to add shebang line "
                    "thus making the file itself as a self-decrypt executable?"),
                    _("No"),
@@ -107,9 +115,10 @@ void action_create(
                    NULL);
       if (res == 2) {
          memcpy(data.head, shebang_line, sizeof(shebang_line));
+         chmod(device, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
       }
-#endif
    }
+#endif
 
 
    // fill random data to first 128K.
@@ -133,5 +142,8 @@ void action_create(
    }
 #endif
 
+   encrypt_aux_zone_using_master_key(&data, aux_zone, aux_sector_size * 512, master_key);
+   write_aux_zone_to_device(device, &data, aux_zone, aux_sector_size * 512);
    OPERATION_LOCK_AND_WRITE
+   free(aux_zone);
 }

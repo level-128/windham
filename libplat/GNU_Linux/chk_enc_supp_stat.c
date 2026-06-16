@@ -52,6 +52,8 @@ void action_new_check_crypt_support_status(const char * str) {
    int64_t idx[3];
    check_encryption_mode_arg(str, idx);
 
+   Device STR_device_copy;
+   memcpy(&STR_device_copy, STR_device, sizeof(Device));
 
    char tempfile[] = "/tmp/windham-temp-test-XXXXXX";
 
@@ -90,9 +92,6 @@ void action_new_check_crypt_support_status(const char * str) {
 
    dup_stdout[dup_stdout_len - 1] = 0;
 
-   Device STR_device_copy;
-   memcpy(&STR_device_copy, STR_device, sizeof(Device));
-
    // modify STR_device because it will clean loop device when exit or interrupt.
    memcpy(STR_device->name, dup_stdout, dup_stdout_len - 1);
    STR_device->is_loop = true;
@@ -118,6 +117,9 @@ void action_new_check_crypt_support_status(const char * str) {
          "access the device. Do you wish to proceed?"),
       str);
    }
+
+   // Free the test loop device before restoring STR_device
+   free_loop(STR_device->name);
 
    memcpy(STR_device, &STR_device_copy, sizeof(Device));
    return;

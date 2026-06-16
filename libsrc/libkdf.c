@@ -74,7 +74,40 @@ bool is_allow_nolock;
 #ifndef WINDHAM_ISOC
 
 #include <sys/mman.h>
-#include <sys/sysinfo.h>
+#include <stdio.h>
+#include <string.h>
+
+// Read MemAvailable and SwapFree from /proc/meminfo (values in KiB).
+// Returns 0 on success, -1 if /proc/meminfo cannot be read or parsed.
+// MemAvailable is the kernel's own estimate of how much memory is available
+// for new allocations without swapping, accounting for reclaimable cache
+// and watermark reserves — unlike sysinfo.freeram which only counts free pages.
+static int get_mem_available(size_t * mem_available, size_t * swap_free) {
+   FILE * fp = fopen("/proc/meminfo", "r");
+   if (fp == NULL) {
+      return -1;
+   }
+
+   *mem_available = 0;
+   *swap_free     = 0;
+
+   char line[256];
+   while (fgets(line, sizeof(line), fp)) {
+      unsigned long val = 0;
+      if (strncmp(line, "MemAvailable:", 13) == 0) {
+         if (sscanf(line + 13, " %lu", &val) == 1) {
+            *mem_available = (size_t)val * 1024; // KiB to bytes
+         }
+      } else if (strncmp(line, "SwapFree:", 9) == 0) {
+         if (sscanf(line + 9, " %lu", &val) == 1) {
+            *swap_free = (size_t)val * 1024; // KiB to bytes
+         }
+      }
+   }
+
+   fclose(fp);
+   return (*mem_available != 0) ? 0 : -1;
+}
 
 // side channel attack defence
 size_t search_mem_upper_bound(size_t mem) {
@@ -102,19 +135,18 @@ int kdf_memalloc(uint8_t ** result, size_t target_mem) {
 
    target_mem = search_mem_upper_bound(target_mem);
 
-   struct sysinfo info;
-
-   if (sysinfo(&info) != -1 && is_allow_nolock == false) {
-      size_t real_free_mem = info.freeram - info.totalram / 100 + 131072;
-
-      if (real_free_mem < target_mem) {
-         *result = NULL;
-         if (real_free_mem + info.freeswap < target_mem) {
-            Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
-         } else {
-            Kdf_step_result = NMOBJ_Enclib_alloc_failed_policy_nolock;
+   if (is_allow_nolock == false) {
+      size_t mem_available, swap_free;
+      if (get_mem_available(&mem_available, &swap_free) == 0) {
+         if (mem_available < target_mem) {
+            *result = NULL;
+            if (mem_available + swap_free < target_mem) {
+               Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
+            } else {
+               Kdf_step_result = NMOBJ_Enclib_alloc_failed_policy_nolock;
+            }
+            return 1;
          }
-         return 1;
       }
    }
 
@@ -124,26 +156,27 @@ int kdf_memalloc(uint8_t ** result, size_t target_mem) {
    *result = mmap(NULL, target_mem, prot, flags, -1, 0);
    if (*result == MAP_FAILED) {
       *result = NULL;
-      if (errno == ENOMEM) {
-         Kdf_step_result = NMOBJ_Enclib_alloc_failed_no_free_mem;
-         return 1;
-      }
+      Kdf_step_result = (errno == ENOMEM)
+                        ? NMOBJ_Enclib_alloc_failed_no_free_mem
+                        : NMOBJ_Enclib_alloc_failed_lock_error;
+      return 1;
    }
    if (is_allow_nolock == false) {
       if (mlock(*result, target_mem) == -1) {
-         if (errno == EAGAIN) { // no mem
-            munmap(*result, target_mem);
-            *result         = NULL;
+         int lock_errno = errno; // save before munmap potentially modifies it
+         munmap(*result, target_mem);
+         *result = NULL;
+         if (lock_errno == EAGAIN) { // no mem
             Kdf_step_result = NMOBJ_Enclib_alloc_failed_policy_nolock;
-         } else if (errno == EPERM || errno == ENOMEM) {
+         } else if (lock_errno == EPERM || lock_errno == ENOMEM) {
             //   ENOMEM: the caller had a nonzero
             //   RLIMIT_MEMLOCK soft resource limit, but tried to lock more
             //   memory than the limit permitted.  This limit is not
             //   enforced if the process is privileged (CAP_IPC_LOCK).
             //   EPERM: The caller is not privileged, but needs privilege
             //   (CAP_IPC_LOCK) to perform the requested operation.
-            munmap(*result, target_mem);
-            *result         = NULL;
+            Kdf_step_result = NMOBJ_Enclib_alloc_failed_lock_error;
+         } else {
             Kdf_step_result = NMOBJ_Enclib_alloc_failed_lock_error;
          }
          return 1;

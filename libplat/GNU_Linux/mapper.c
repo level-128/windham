@@ -183,10 +183,12 @@ int create_crypt_mapping(
       print_error(_("dm_task_create failed when mapping device %s"), name);
    }
    if (! p_dm_task_set_name(dmt, name)) {
-      exit(EXIT_FAILURE);
+      p_dm_task_destroy(dmt);
+      print_error(_("dm_task_set_name failed when mapping device %s"), name);
    }
    if (! p_dm_task_set_uuid(dmt, uuid_str)) {
-      exit(EXIT_FAILURE);
+      p_dm_task_destroy(dmt);
+      print_error(_("dm_task_set_uuid failed when mapping device %s"), name);
    }
    if (! p_dm_task_add_target(dmt, 0, end_sector - start_sector, "crypt", params_crypt)) {
       print_error(_("dm_task_add_target crypt failed when mapping device %s"), name);
@@ -300,9 +302,11 @@ int try_create_crypt_mapping(const char * file_name, const char * enc_type, cons
    }
 
    if (! p_dm_task_set_name(dmt, name)) {
+      p_dm_task_destroy(dmt);
       return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
    }
    if (! p_dm_task_add_target(dmt, 0, 8, "crypt", params_crypt)) {
+      p_dm_task_destroy(dmt);
       return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
    }
 
@@ -318,6 +322,7 @@ int try_create_crypt_mapping(const char * file_name, const char * enc_type, cons
    p_dm_task_set_name(dmt, name);
 
    if (! p_dm_task_run(dmt)) {
+      p_dm_task_destroy(dmt);
       return EMOBJ_try_create_crypt_mapping_FAILED_INIT;
    }
    p_dm_task_destroy(dmt);

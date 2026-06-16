@@ -14,6 +14,7 @@
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 #endif
 
 

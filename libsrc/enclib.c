@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+#include <float.h>
 #include <threads.h>
 
 #include "endian.c"
@@ -18,12 +19,12 @@
 
 
 extern inline bool is_header_suspended(const Data encrypted_header) {
-   return memcmp(encrypted_header.hint.tag, suspend_hint_tag, sizeof(suspend_hint_tag)) == 0;
+   return memcmp(encrypted_header.hint.windham_partition_magic_area, suspend_hint_tag, sizeof(suspend_hint_tag)) == 0;
 }
 
 
-uint64_t generate_memory_based_on_hash_value(const uint8_t hash[restrict HASHLEN],
-   const uint8_t master_key_mask[restrict KEY_SLOT_EXP_MAX], int level_minus_one) {
+uint64_t generate_memory_based_on_hash_value(const uint8_t hash[HASHLEN],
+   const uint8_t master_key_mask[KEY_SLOT_EXP_MAX], int level_minus_one) {
    uint64_t diff = kdf_mem_bounds[level_minus_one][1] - kdf_mem_bounds[level_minus_one][0] + 1;
    if (diff == 1) {
       return kdf_mem_bounds[level_minus_one][0];
@@ -475,7 +476,7 @@ void get_metadata_key_or_disk_key_from_master_key(
    const uint8_t master_key[HASHLEN],
    const uint8_t mask[HASHLEN],
    const uint8_t data$uuid_and_salt[16],
-   uint8_t       key[HASHLEN]) {
+   uint8_t       result_key[HASHLEN]) {
    uint8_t inter_key[HASHLEN];
    xor_with_len(HASHLEN, master_key, mask, inter_key);
    int result = kdf_hash(
@@ -486,7 +487,7 @@ void get_metadata_key_or_disk_key_from_master_key(
       HASHLEN,
       data$uuid_and_salt,
       16,
-      key,
+      result_key,
       HASHLEN,
       true);
    // shouldn't fail, because m_cost is small enough for KDF.
@@ -529,12 +530,12 @@ bool unlock_metadata_using_master_key(Data * data, const uint8_t master_key[HASH
 }
 
 void lock_metadata_using_master_key(Data * data, const uint8_t master_key[HASHLEN]) {
-   uint8_t key[HASHLEN];
+   uint8_t metadata_key[HASHLEN];
 
-   get_metadata_key_or_disk_key_from_master_key(master_key, data->master_key_mask, data->uuid_and_salt, key);
+   get_metadata_key_or_disk_key_from_master_key(master_key, data->master_key_mask, data->uuid_and_salt, metadata_key);
 
    struct AES_ctx ctx;
-   AES_init_ctx_iv(&ctx, key, data->master_key_mask);
+   AES_init_ctx_iv(&ctx, metadata_key, data->master_key_mask);
 
    convert_metadata_endianness_to_le(&data->metadata);
    AES_CBC_encrypt_buffer(&ctx, (uint8_t *) &data->metadata, sizeof(EncMetadata));
@@ -547,7 +548,8 @@ void initialize_new_header(
    const char *  enc_type,
    size_t        start_sector,
    size_t        end_sector,
-   size_t        block_size) {
+   size_t        block_size,
+   uint64_t      aux_sector_size) {
    fill_secure_random_bits((uint8_t *) uninitialized_header, sizeof(*uninitialized_header));
 
    uninitialized_header->metadata.start_sector = htole64(start_sector);
@@ -560,8 +562,11 @@ void initialize_new_header(
    memset(uninitialized_header->metadata.keyslot_location, 0, sizeof(uninitialized_header->metadata.keyslot_location));
    uninitialized_header->metadata.keyslot_location_area = 0;
 
-   uninitialized_header->metadata.check_key_magic_number = htole64(CHECK_KEY_MAGIC_NUMBER);
+   uninitialized_header->metadata.start_aux_sector = aux_sector_size == 0 ? 0 : HEADER_AREA_IN_SECTOR;
+   uninitialized_header->metadata.aux_sector_size = aux_sector_size;
+   uninitialized_header->metadata.disk_key_size_in_bits_div_64 = DEFAULT_DISK_ENC_KEY_SIZE * 8 / 64;
 
+   uninitialized_header->metadata.check_key_magic_number = htole64(CHECK_KEY_MAGIC_NUMBER);
    set_master_key_check(uninitialized_header, master_key);
 }
 
@@ -591,7 +596,7 @@ void register_key_slot_as_used2(
 
 void suspend_encryption(Data * encrypted_header, const uint8_t master_key[HASHLEN]) {
    // tag header as suspended
-   memcpy(encrypted_header->hint.tag, suspend_hint_tag, sizeof(suspend_hint_tag));
+   memcpy(encrypted_header->hint.windham_partition_magic_area, suspend_hint_tag, sizeof(suspend_hint_tag));
    uint8_t key[HASHLEN];
 
    get_metadata_key_or_disk_key_from_master_key(
@@ -618,7 +623,7 @@ bool resume_encryption(
    uint8_t        key[HASHLEN];
 
    // untag header as suspended.
-   fill_secure_random_bits(encrypted_header->hint.tag, sizeof(encrypted_header->hint.tag));
+   fill_secure_random_bits(encrypted_header->hint.windham_partition_magic_area, sizeof(encrypted_header->hint.windham_partition_magic_area));
 
    xor_with_len(HASHLEN, master_key, encrypted_header->metadata.disk_key_mask, encrypted_header->metadata.disk_key_mask);
 

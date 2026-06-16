@@ -7,8 +7,10 @@
 #include <errno.h>
 #include <float.h>
 #include <wchar.h>
+#include <uchar.h>
 
 #include "bksrclib.c"
+#include "../libsrc/auxlib.c"
 #include "../include/windham_const.h"
 #include "../include/huffman.h"
 #include "../include/sha256.h"
@@ -86,346 +88,167 @@ bool master_key_to_byte_array(const char * hex_string, uint8_t byte_array[HASHLE
    return true;
 }
 
-int wcwidth(wchar_t c);
+static void password_to_sha256(const char32_t *password, unsigned char_count, uint8_t out[HASHLEN]) {
+   SHA256_CTX ctx;
+   sha256_init(&ctx);
 
-int get_char_display_width(const char * mbchar) {
-   // This function is possible only under POSIX context.
-#ifndef WINDHAM_ISOC
-   wchar_t wch;
-
-   int len = mbtowc(&wch, mbchar, MB_CUR_MAX);
-   if (len <= 0) {
-      return 0; // Invalid multibyte character or conversion error
+   for (unsigned i = 0; i < char_count; i++) {
+      char32_t ch = password[i];
+      uint8_t be[4] = {
+         (uint8_t)((ch >> 24) & 0xFF),
+         (uint8_t)((ch >> 16) & 0xFF),
+         (uint8_t)((ch >> 8) & 0xFF),
+         (uint8_t)(ch & 0xFF)
+      };
+      sha256_update(&ctx, be, 4);
    }
 
-   // Get the display width of the wide character
-   int width = wcwidth(wch);
-   if (width < 0) {
-      return 0; // Non-printable character
-   }
-
-   return width;
-#else
-   return 1;
-#endif
-}
-
-int bklibkey_check_hex(int ch) {
-   if (ch >= 'A' && ch <= 'F') {
-      return ch - 'A' + 10;
-   }
-   if (ch >= '0' && ch <= '9') {
-      return ch - '0';
-   }
-   if (ch >= 'a' && ch <= 'f') {
-      return ch - 'a' + 10;
-   }
-   return -1;
-}
-
-void get_password_input(char input[MAX_PASSWORD_INPUT_LEN]) {
-   // no frontend entry does not modify terminal mode.
-#if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
-   struct termios raw = oldt;
-   raw.c_lflag &= ~(ICANON | ECHO);
-   tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-#endif
-   bool is_echo = false;
-   bool is_raw  = false;
-
-   static_assert(UINT_FAST16_MAX > MAX_PASSWORD_INPUT_LEN, "max password len is too large");
-
-   for (uint_fast16_t index = 0; index + 1 < MAX_PASSWORD_INPUT_LEN; index ++) {
-      int ch = getchar();
-
-      if (is_raw) {
-         if (ch == '\n') {
-            if (index == 0) {
-               print_error(
-                  _("Empty input. Password required, input password as 2 hexadecimal lower "
-                     "case characters."));
-            }
-            input[index] = '\00';
-            goto END;
-         }
-         if (ch == '\x7f') {
-            index -= 2;
-            printf("\b\b\b   \b\b\b");
-            continue;
-         }
-         int ch_num = bklibkey_check_hex(ch);
-         if (ch_num == -1) {
-            putchar(7);
-            index --;
-            continue;
-         }
-         putchar(ch);
-
-         const int ch2     = getchar();
-         int       ch2_num = bklibkey_check_hex(ch2);
-         if (ch2_num == -1) {
-            printf("\b \b");
-            putchar(7);
-            index --;
-            continue;
-         }
-         putchar(ch2);
-
-         if (ch_num == 0 && ch2_num == 0) {
-            printf("\b\b  \b\b");
-            putchar(7);
-            index --;
-            continue;
-         }
-         input[index] = (ch_num << 4) + ch2_num;
-         putchar(' ');
-         continue;
-      }
-
-      if (ch == '\n') {
-         if (index == 0) {
-            print_error(_("Empty input. Password required."));
-         }
-         input[index] = '\00';
-         goto END;
-      }
-
-      if (ch == '\t') {
-         if (is_echo == true) {
-            putchar(7);
-            index --;
-            continue;
-         }
-         char * msg;
-         if (index == 0) {
-            msg = _("press tab to echo; press space for hex mode");
-         } else {
-            msg = _("press tab to echo");
-         }
-
-         printf("%s", msg);
-         fflush(stdout);
-         ch = getchar();
-
-         printf("\r");
-         for (unsigned i = 0; i < strlen(msg); i ++) {
-            printf(" ");
-         }
-         printf("\r");
-         fflush(stdout);
-
-         if (ch == '\t') {
-            input[index] = '\x00';
-            printf("%s", input);
-            fflush(stdout);
-            is_echo = true;
-         }
-         if (ch == ' ' && index == 0) {
-            printf(_("Hex mode: enter 2 hexadecimal lower case characters to represent a byte. 0x00 is not allowed.\n"));
-            is_raw = true;
-         }
-         index --;
-         continue;
-      }
-
-      if (ch == '\x7f') {
-         if (index == 0) {
-            putchar(7);
-            index --;
-            continue;
-         }
-         // delete multibyte for utf-8
-         for (int i = 0; index - i != 1 && input[index - i - 1] >= '\x80' && input[index - i - 1] <= '\xbf'; i ++) {
-            index --;
-         }
-
-         printf("\b \b");
-         index --;
-         input[index] = 0;
-         index --;
-         continue;
-      }
-
-      if (is_echo) {
-         putchar(ch);
-      }
-
-      input[index] = ch;
-   }
-   printf("\n");
-   print_warning(
-      _("The max password input size is %i bytes. No new input will be accepted. Consider key file instead."
-      ),
-      MAX_PASSWORD_INPUT_LEN - 1);
-   printf(_("press enter to proceed."));
-   while (getchar() != '\n') { }
-   input[MAX_PASSWORD_INPUT_LEN - 1] = '\00';
-
-END:
-#if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
-
-   tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-#endif
-
-   if (strcmp(input, "level-128") == 0) {
-      print_error("👿");
-   }
+   sha256_final(&ctx, out);
 }
 
 
-void get_key_input_from_the_console(const char * device, char password[MAX_PASSWORD_INPUT_LEN], const bool is_new_key) {
+unsigned get_key_input_from_the_console(const char *device, char32_t password[MAX_PASSWORD_INPUT_LEN], const bool is_new_key) {
    printf(_("Password for %s:\n"), device);
-   get_password_input(password);
-   if (is_new_key == true) {
-      char password2[MAX_PASSWORD_INPUT_LEN];
+   bool is_unicode_input = false;
+   unsigned count = get_password_input(password, &is_unicode_input);
+   if (is_new_key == true && !is_unicode_input) {
+      char32_t password2[MAX_PASSWORD_INPUT_LEN];
       printf(_("\nConfirm password:\n"));
-      get_password_input(password2);
-      if (strcmp(password, password2) != 0) {
+      bool dummy_unicode;
+      unsigned count2 = get_password_input(password2, &dummy_unicode);
+      if (count != count2) {
          print_error(_("Passwords do not match."));
       }
-      if (strlen(password) < MIN_KEY_CHAR) {
+      for (unsigned i = 0; i < count; i++) {
+         if (password[i] != password2[i]) {
+            print_error(_("Passwords do not match."));
+         }
+      }
+      if (count < MIN_KEY_CHAR) {
          print_error(
-            _("the provided password is too short (%zu characters), which is not recommended. To bypass this restriction, use "
+            _("the provided password is too short (%u characters), which is not recommended. To bypass this restriction, use "
                "argument --key instead."),
-            strlen(password));
+            count);
       }
    }
-
-   if (is_new_key) { }
+   return count;
 }
 
 
-void get_key_input_from_the_console_systemd(const char * device, char password[MAX_PASSWORD_INPUT_LEN]) {
-#ifndef WINDHAM_ISOC
-   int    exec_ret_val;
-   char * dup_stdout = NULL;
-   char * exec_dir[] = {"/bin", "/usr/bin", "/sbin", "/usr/sbin", NULL};
-   size_t dup_stdout_len;
-   char   password_prompt[strlen("password for ") + strlen(device) + strlen(":") + 1];
-   sprintf(password_prompt, "password for %s:", device);
 
-   if (exec_name(
-          "systemd-ask-password",
-          exec_dir,
-          -1,
-          &dup_stdout,
-          &dup_stdout_len,
-          &exec_ret_val,
-          NMOBJ_exec_name_wait_child,
-          password_prompt,
-          NULL) == false) {
-      if (errno == ENOENT) {
-         print_error(
-            _(
-               "\"systemd-ask-password\" is not available. Param \"--systemd-dialog\" only supports system with systemd as init."
-            ));
-      } else {
-         print_error(_("failed to call \"systemd-ask-password\"."));
-      }
-   } else if (exec_ret_val != 0) {
-      print_error(_("Cannot get password from systemd service"));
-   }
-   dup_stdout[dup_stdout_len - 1] = '\x00';
-   strncpy(password, dup_stdout, MAX_PASSWORD_INPUT_LEN);
-   free(dup_stdout);
-#else
-   exit(2);
-#endif
-}
 
 
 void read_key_file(const Key key, uint8_t inited_key[HASHLEN]) {
    const char *filename = key.key_or_keyfile_location;
-   uint8_t buffer[1024];
-   SHA256_CTX sha_256_ctx;
-   size_t bytes_read;
+   uint8_t *fdata;
 
    FILE *fp = fopen(filename, "rb");
    if (fp == NULL) {
       print_error(_("Cannot open keyfile %s. Reason: %s"), filename, strerror(errno));
    }
 
-   sha256_init(&sha_256_ctx);
+   fseek(fp, 0, SEEK_END);
+   long fsize = ftell(fp);
+   fseek(fp, 0, SEEK_SET);
 
-   while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp))) {
-       sha256_update(&sha_256_ctx, buffer, bytes_read);
+   fdata = malloc(fsize);
+   if (fread(fdata, 1, fsize, fp) != (size_t)fsize) {
+      print_error(_("Error reading keyfile %s"), filename);
    }
-
-   // exit due to error
-   if (ferror(fp)) {
-       print_error(_("Error reading keyfile %s: %s"), filename, strerror(errno));
-       fclose(fp);
-       return;
-   }
-
-   sha256_final(&sha_256_ctx, inited_key);
    fclose(fp);
+
+   unsigned ccount = (fsize + 3) / 4;
+   char32_t *pw = malloc(ccount * sizeof(char32_t));
+   for (unsigned i = 0; i < ccount; i++) {
+      char32_t val = 0;
+      unsigned base = i * 4;
+      if (base < (unsigned)fsize)       val |= (char32_t)fdata[base] << 24;
+      if (base + 1 < (unsigned)fsize)   val |= (char32_t)fdata[base + 1] << 16;
+      if (base + 2 < (unsigned)fsize)   val |= (char32_t)fdata[base + 2] << 8;
+      if (base + 3 < (unsigned)fsize)   val |= (char32_t)fdata[base + 3];
+      pw[i] = val;
+   }
+   free(fdata);
+   password_to_sha256(pw, ccount, inited_key);
+   free(pw);
 }
 
 
 void read_key_stdin(uint8_t inited_key[HASHLEN]) {
 #ifndef WINDHAM_ISOC
-   char buffer[1024];
+   char buffer[4096];
+   ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
+   if (n <= 0) print_error(_("Failed to read from stdin for --keystdin: %s"), strerror(errno));
+   buffer[n] = '\0';
 
-   int fd = open("/dev/stdin", O_RDONLY);
-   if (fd == -1) {
-      perror("open");
-      windham_exit(1);
-   }
+   while (n > 0 && (buffer[n-1] == '\n' || buffer[n-1] == '\r'))
+      buffer[--n] = '\0';
 
-   ssize_t bytes_read = read(fd, buffer, sizeof(buffer) - 1);
-   if (bytes_read == -1) {
-      perror("read");
-      windham_exit(1);
-   }
-   if (bytes_read == sizeof(buffer)) {
-      print_error(_("input is too long!"));
-   }
-   buffer[bytes_read] = '\0';
-   close(fd);
-   if (master_key_to_byte_array(buffer, inited_key) == false) {
-      print_error(_("error when parsing key: invalid length"));
-   }
+   unsigned out_len = 0;
+   char32_t *pw = convert_key_to_unicode(buffer, &out_len);
+   password_to_sha256(pw, out_len, inited_key);
+   free(pw);
 #else
-print_error(_("--keystdin is not available under ISO C."))
+   print_error(_("--keystdin is not available under ISO C."));
 #endif
 }
 
 
-bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char * device, bool is_new_key) {
-   size_t key_size = 0;
-   char   password[MAX_PASSWORD_INPUT_LEN];
+bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char *device, bool is_new_key) {
+   unsigned char_count = 0;
+   char32_t password[MAX_PASSWORD_INPUT_LEN];
+   char32_t *heap_password = NULL;
 
    switch (key.key_type) {
    case NMOBJ_key_file_type_masterkey:
       return false;
    case NMOBJ_key_file_type_input:
-      get_key_input_from_the_console(device, password, is_new_key);
-      key_size = strlen(password);
-      sha256_digest_all(password, key_size, inited_key);
+      char_count = get_key_input_from_the_console(device, password, is_new_key);
+      password_to_sha256(password, char_count, inited_key);
       break;
    case NMOBJ_key_file_type_input_systemd:
-      get_key_input_from_the_console_systemd(device, password);
-      key_size = strlen(password);
-      sha256_digest_all(password, key_size, inited_key);
+      char_count = get_key_input_from_the_console_systemd(device, password);
+      password_to_sha256(password, char_count, inited_key);
       break;
    case NMOBJ_key_file_type_file:
       read_key_file(key, inited_key);
       return true;
-   case NMOBJ_key_file_type_key:
-      key_size = strlen(key.key_or_keyfile_location);
-      sha256_digest_all(key.key_or_keyfile_location, key_size, inited_key);
+   case NMOBJ_key_file_type_key: {
+      unsigned out_len = 0;
+      heap_password = convert_key_to_unicode(key.key_or_keyfile_location, &out_len);
+      char_count = out_len;
+      password_to_sha256(heap_password, char_count, inited_key);
       break;
+   }
    case NMOBJ_key_file_type_input_stdin:
       read_key_stdin(inited_key);
-      return true; // the key has high entropy
+      break;
    case NMOBJ_key_file_type_key_raw:
       memcpy(inited_key, key.key_or_keyfile_location, HASHLEN);
       return true;
    default:
       exit(2);
    }
-   const bool result = get_is_high_entropy(key_size, (uint8_t *) password);
+
+   const char32_t *pw = heap_password ? heap_password : password;
+   bool result;
+   if (char_count == 0) {
+      result = false;
+   } else if (char_count * 4 > 1024) {
+      result = true;
+   } else {
+      uint8_t be_bytes[MAX_PASSWORD_INPUT_LEN * 4];
+      for (unsigned i = 0; i < char_count; i++) {
+         char32_t ch = pw[i];
+         be_bytes[i * 4 + 0] = (uint8_t)((ch >> 24) & 0xFF);
+         be_bytes[i * 4 + 1] = (uint8_t)((ch >> 16) & 0xFF);
+         be_bytes[i * 4 + 2] = (uint8_t)((ch >> 8) & 0xFF);
+         be_bytes[i * 4 + 3] = (uint8_t)(ch & 0xFF);
+      }
+      result = get_is_high_entropy(char_count * 4, be_bytes);
+   }
+
+   free(heap_password);
    return result;
 }
 
@@ -484,15 +307,18 @@ void get_master_key(
    const bool   is_allow_nolock,
    unsigned *   ret_level,
    unsigned *   ret_key_zone,
-   uint16_t *   ret_key_location) {
+   uint16_t *   ret_key_location,
+   uint8_t      ret_inited_key[HASHLEN]) {
    if (key.key_type == NMOBJ_key_file_type_masterkey) { // do nothing
       if (check_master_key_check(self, master_key) == false) {
          print_error(_("Wrong master key."));
       }
+      memset(ret_inited_key, 0, HASHLEN);
       return;
    }
    uint8_t inited_key[HASHLEN];
    prepare_key(key, inited_key, device, false);
+   memcpy(ret_inited_key, inited_key, HASHLEN);
 
    *ret_key_location = get_keypool_location_candidate(self.master_key_mask, inited_key);
 
