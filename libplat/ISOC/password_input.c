@@ -137,7 +137,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 					/* Display the character */
 					printf(" ");
 #ifdef __STDC_UTF_32__
-					char utf8_out[MB_CUR_MAX + 1];
+					char utf8_out[8]; // MB_CUR_MAX <= 6, + 1 for NUL
 					mbstate_t mbs = {0};
 					size_t len = c32rtomb(utf8_out, (char32_t)val, &mbs);
 					if (len != (size_t)-1) {

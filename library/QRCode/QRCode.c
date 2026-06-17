@@ -88,7 +88,7 @@ static const uint16_t NUM_RAW_DATA_MODULES = 567;
 #endif
 
 
-static int max(int a, int b) {
+static int qr_max(int a, int b) {
     if (a > b) { return a; }
     return b;
 }
@@ -304,7 +304,7 @@ static void drawFinderPattern(BitBucket *modules, BitBucket *isFunction, uint8_t
 static void drawAlignmentPattern(BitBucket *modules, BitBucket *isFunction, uint8_t x, uint8_t y) {
     for (int8_t i = -2; i <= 2; i++) {
         for (int8_t j = -2; j <= 2; j++) {
-            setFunctionModule(modules, isFunction, x + j, y + i, max(abs(i), abs(j)) != 1);
+            setFunctionModule(modules, isFunction, x + j, y + i, qr_max(abs(i), abs(j)) != 1);
         }
     }
 }
