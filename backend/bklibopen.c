@@ -33,14 +33,20 @@ static void build_uuid_map(const char *restrict_paths) {
 
     // If paths are provided, probe only those paths
     if (restrict_paths != NULL && restrict_paths[0] != '\0') {
-        char *buf = strdup(restrict_paths);
-        if (!buf) { print_error(_("Out of memory")); }
-        char *saveptr;
-        char *token = strtok_r(buf, ",", &saveptr);
-        while (token && uuid_map_count < UUID_MAP_MAX) {
-            while (*token == ' ') token++;
-            char *end = token + strlen(token) - 1;
-            while (end > token && *end == ' ') *end-- = '\0';
+        const char *p = restrict_paths;
+        while (*p && uuid_map_count < UUID_MAP_MAX) {
+            while (*p == ' ' || *p == ',') p++;
+            if (*p == '\0') break;
+
+            const char *start = p;
+            while (*p != '\0' && *p != ',' && *p != ' ') p++;
+            size_t len = (size_t)(p - start);
+            if (len == 0) continue;
+            if (len > FILENAME_MAX) len = FILENAME_MAX;
+
+            char token[FILENAME_MAX + 1];
+            memcpy(token, start, len);
+            token[len] = '\0';
 
             uint8_t probe_uuid[16];
             int     probe_type;
@@ -54,9 +60,7 @@ static void build_uuid_map(const char *restrict_paths) {
                     uuid_map_count++;
                 }
             }
-            token = strtok_r(NULL, ",", &saveptr);
         }
-        free(buf);
         return;
     }
 

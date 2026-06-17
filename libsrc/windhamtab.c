@@ -319,37 +319,37 @@ void free_entities(WindhamtabEntity *entities, int entity_count) {
 }
 
 void append_entity(const char *windhamtab_location, const char *device, const char *clevis_path, char *options, unsigned short pass) {
-   char *device_cpy;
+   char  device_buf[FILENAME_MAX + 32];
+   char  clevis_buf[FILENAME_MAX + 32];
 
    if (starts_with(device, "/dev/disk/by-partuuid/")) {
-      device_cpy = alloca(strlen(device) + 1);
-      memcpy(device_cpy, "UUID=", strlen("UUID="));
-      strcpy(device_cpy + strlen("UUID="), device + strlen("/dev/disk/by-partuuid/"));
+      size_t n = snprintf(device_buf, sizeof(device_buf), "UUID=%s",
+                          device + strlen("/dev/disk/by-partuuid/"));
+      if (n >= sizeof(device_buf)) device_buf[sizeof(device_buf) - 1] = '\0';
    } else if (starts_with(device, "/dev/disk/by-path/")) {
-      device_cpy = alloca(strlen(device) + 1);
-      memcpy(device_cpy, "PATH=", strlen("PATH="));
-      strcpy(device_cpy + strlen("PATH="), device + strlen("/dev/disk/by-path/"));
+      size_t n = snprintf(device_buf, sizeof(device_buf), "PATH=%s",
+                          device + strlen("/dev/disk/by-path/"));
+      if (n >= sizeof(device_buf)) device_buf[sizeof(device_buf) - 1] = '\0';
    } else {
-      device_cpy = alloca(strlen(device) + strlen("DEV=") + 1);
-      memcpy(device_cpy, "DEV=", strlen("DEV="));
-      strcpy(device_cpy + strlen("DEV="), device);
+      size_t n = snprintf(device_buf, sizeof(device_buf), "DEV=%s", device);
+      if (n >= sizeof(device_buf)) device_buf[sizeof(device_buf) - 1] = '\0';
    }
 
-   char *clevis_path_cpy;
    if (clevis_path == NULL) {
-      clevis_path_cpy = "ASK";
+      memcpy(clevis_buf, "ASK", sizeof("ASK"));
    } else {
-      clevis_path_cpy = alloca(strlen(clevis_path) + strlen("CLEVIS=") + 1);
-      memcpy(clevis_path_cpy, "CLEVIS=", strlen("CLEVIS="));
-      strcpy(clevis_path_cpy + strlen("CLEVIS="), clevis_path);
+      size_t n = snprintf(clevis_buf, sizeof(clevis_buf), "CLEVIS=%s", clevis_path);
+      if (n >= sizeof(clevis_buf)) clevis_buf[sizeof(clevis_buf) - 1] = '\0';
    }
 
-   char buf[snprintf(NULL, 0, "\n%s %s %s %hu\n", device_cpy, clevis_path_cpy, options, pass) + 1];
-   sprintf(buf, "\n%s %s %s %hu\n", device_cpy, clevis_path_cpy, options, pass);
+   char buf[FILENAME_MAX * 3];
+   int len = snprintf(buf, sizeof(buf), "\n%s %s %s %hu\n",
+                      device_buf, clevis_buf, options, pass);
+   if (len < 0 || (size_t)len >= sizeof(buf)) len = (int)sizeof(buf) - 1;
 
    int fd = open_windhamtab(windhamtab_location);
    lseek(fd, 0, SEEK_END);
-   if (write(fd, buf, sizeof(buf) - 1) != (ssize_t) sizeof(buf) - 1) {
+   if (write(fd, buf, (size_t)len) != len) {
       print_error(_("Cannot open windhamtab file."));
    }
    close(fd);
