@@ -412,7 +412,7 @@ static void drawFunctionPatterns(BitBucket *modules, BitBucket *isFunction, uint
         }
 
         uint8_t alignPositionIndex = alignCount - 1;
-        uint8_t alignPosition[alignCount];
+        uint8_t alignPosition[7]; // max alignCount = 7 (version 40)
 
         alignPosition[0] = 6;
 
@@ -710,10 +710,12 @@ static void performErrorCorrection(uint8_t version, uint8_t ecc, BitBucket *data
 
     uint8_t shortDataBlockLen = shortBlockLen - blockEccLen;
 
-    uint8_t result[data->capacityBytes];
-    memset(result, 0, sizeof(result));
+    uint8_t *result = calloc(1, data->capacityBytes);
+    if (!result) return;
 
-    uint8_t coeff[blockEccLen];
+    uint16_t coeff_capacity = (uint16_t)blockEccLen;
+    uint8_t *coeff = malloc(coeff_capacity);
+    if (!coeff) { free(result); return; }
     rs_init(blockEccLen, coeff);
 
     uint16_t offset = 0;
@@ -761,6 +763,8 @@ static void performErrorCorrection(uint8_t version, uint8_t ecc, BitBucket *data
     }
 
     memcpy(data->data, result, data->capacityBytes);
+    free(result);
+    free(coeff);
     data->bitOffsetOrWidth = moduleCount;
 }
 
