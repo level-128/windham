@@ -7,20 +7,19 @@ void frontend_print_unlock_args() {
 
    printf(
       _("\nUnlock options:\n"
-      "\t--key <characters>: password input as argument instead of asking in the terminal interactively.\n"
-      "\t--key-file <location>: password input as key file. The key file will be read as key (exclude EOF character). Option '--key', "
-      "'--key-file' and '--keystdin' are mutually exclusive.\n"
-      "\t--keystdin: read key from standard input. the key format must be 32-byte bit stream encoded using hexadecimal format. "
-      "spaces are ignored. Useful when integrating with Clevis\n"
-      "\t--master-key <characters>: use master key to unlock.\n"
-      "\t--decoy: Open a decoy device.\n"
-      "\t--max-unlock-memory <int>: total maximum available memory (KiB) available for decryption. \n"
-      "\t--max-unlock-time <float>: the suggested max time (sec) for unlock, \"-\" for unlimited.\n"
-      "\t--max-unlock-level <int>: the target derivation level for decryption.\n"
-	   "\t--allow-swap: Allocate all possible memory for KDF. Only physical memory (does not include swap space) is "
-      "allowed to allocate by default. DO NOT ENABLE THIS OPTION IF THE SWAP SPACE STORES AS PLAINTEXT ON NON-VOLATILE "
-      "DEVICE!\n"
-      "\t--systemd-dialog: use systemd password dialog.\n")
+      "\t--key <string>:          password input as argument instead of asking interactively.\n"
+      "\t--key-file <path>:       read password from a key file (excludes EOF). Mutually exclusive\n"
+      "\t                         with --key and --keystdin.\n"
+      "\t--keystdin:              read 32-byte hex-encoded key from standard input. Spaces ignored.\n"
+      "\t                         Useful when integrating with Clevis.\n"
+      "\t--master-key <hex>:      use master key (32 hex bytes) to unlock directly.\n"
+      "\t--decoy:                 operate on a decoy partition.\n"
+      "\t--max-unlock-memory <n>: total max memory (KiB) available for unlock KDF.\n"
+      "\t--max-unlock-time <n>:   max unlock time (sec); use \"-\" for unlimited.\n"
+      "\t--max-unlock-level <n>:  max KDF derivation level for unlock.\n"
+      "\t--allow-swap:            allow allocation from swap space for KDF. Only physical memory\n"
+      "\t                         is used by default. DO NOT enable if swap stores plaintext!\n"
+      "\t--systemd-dialog:        use systemd password dialog for interactive input.\n")
       );
 #ifndef CONFIG_USE_SWAP
    print_warning(_("--allow-swap disabled by compile configuration."));
@@ -32,29 +31,28 @@ void frontend_print_common_args() {
    printf(
       _(
          "\nCommon options:\n"
-         "\t--no-admin: forfeit checking root privileges, may produces undefined behavior. \n"
-         "\t--yes: do not ask for explicit conformation to potential destructive operations.\n"
-         "\t--nofail: exit normally without error message when the device does not exist.\n"
-         "\t--help: print this message.\n"));
+         "\t--no-admin:    skip root-privilege check (may cause undefined behavior).\n"
+         "\t--yes:         skip confirmation prompts for destructive operations.\n"
+         "\t--nofail:      exit normally (rc=0) when the target device does not exist.\n"
+         "\t--help:        print this help message.\n"
+         "\t--print-debug: enable debug output.\n"));
 }
 
 void frontend_print_newpw_args() {
    printf(
       _(
-         "\nNew passphrase options:\n"
-         "\t--target-memory <int>: total maximum memory (KiB) available to use for key derivation. \n"
-         "\t--target-time <float>: total time (sec) for key derivation. A "
-         "larger value provides more security for a weak password. A strong key which contains high "
-         "entropy does not affect by this option, since it will not be derivated more than 1 "
-         "pass by default. To disable this behavior, use \"--no-detect-entropy\"\n"
-         "\t--target-level <int>: max derivation level for this passphrase."
-         "\t--no-detect-entropy: run full key derivation process regardless of the passphrase/keyfile's estimate entropy. may increase "
-         "unlock time when the key/keyfile itself is entropy-rich, which is enough to "
-         "ensure security without the key derivation process (e.g. random generated passphrase).\n"
-         "\t--anonymous-key: create an anonymous key. An anonymous key will be removed using AddKey without "
-         "\"--rapid-add\". This is designed for users that requires enhanced protection under scenario where untrust "
-         "entities are allowed to unlock the device. Non-anonymized passphrase would be more easily brute-forced "
-         "to acquire the original passphrase via the identifiers recorded in the metadata area.\n"));
+         "\nNew passphrase (KDF) options:\n"
+         "\t--target-memory <n>:    total max memory (KiB) for key derivation.\n"
+         "\t--target-time <n>:      target time (sec) for key derivation. Larger values\n"
+         "\t                        strengthen weak passwords. High-entropy keys are not\n"
+         "\t                        derived beyond 1 pass by default; use --no-detect-entropy\n"
+         "\t                        to override.\n"
+         "\t--target-level <n>:     max KDF derivation level for this passphrase.\n"
+         "\t--no-detect-entropy:    run full KDF regardless of password entropy estimate.\n"
+         "\t--anonymous-key:        store an anonymous key (no identifier in metadata).\n"
+         "\t                        Anonymous keys are removed by AddKey without --rapid-add\n"
+         "\t                        and resist brute-force identification better.\n"
+         "\t--allow-swap:           allow KDF to allocate from swap space.\n"));
 }
 
 void frontend_help(const char * the_3rd_argv) {
@@ -159,105 +157,172 @@ void frontend_help(const char * the_3rd_argv) {
    } else if (strcmp("Open", the_3rd_argv) == 0) {
       printf(
          _(
-            "Open <target>: Unlock <target> and create a mapper (decrypted crypt device) under /dev/mapper/<location>. The key will be "
-            "provided from the standard input.\n"
+            "Open <target>: Unlock a Windham partition and create a decrypted mapper device\n"
+            "under /dev/mapper/<name>. The key is provided interactively unless --key,\n"
+            "--key-file, or --keystdin is used. If <target> is \"TAB\", entries from\n"
+            "/etc/windhamtab (or --windhamtab-location) are processed.\n"
             "\n"
             "options:\n"
-            "\t--to <name>: the target name of the mapper. The mapper will be named as <name>, locate under "
-            "/dev/mapper/<name>\n"
-            "\t--timeout <int>: set unlock timeout (sec, default = 0) for password re-prompt when open. Keys are stored in the Linux "
-            "Kernel Key Retention service (keyring service).\n"
-            "\t--dry-run: run without mapping the block device then print the master key and device parameters.\n"
-            "\t--windhamtab-location <path>: Use a alternate windhamtab file instead of \"/etc/windhamtab\"\n"
-            "\t--windhamtab-pass <int>: Only execute the givin pass in windhamtab file.\n"
-            "\t--nokeyring: do not attempt to use keys in the Linux Kernel Key Retention service (keyring service).\n"
-            "\t--readonly: Create read only mapper device.\n"
-            "\t--allow-discards: Allow TRIM commands being sent to the crypt device.\n"
-            "\t--no-read-workqueue: Process read requests synchronously by bypassing internal workqueue.\n"
-            "\t--no-write-workqueue: Process write requests synchronously by bypassing internal workqueue.\n"
-            "\t--no-map-partition: do not map the partition table that reside inside the crypt device after unlock.\n"
-            "\t--no-aux: do not probe aux entries after unlock.\n"));
+            "\t--to <name>:               mapper target name under /dev/mapper/<name>.\n"
+            "\t                            Default: windham-<UUID>.\n"
+            "\t--timeout <sec>:            keyring timeout; stores disk key in kernel keyring\n"
+            "\t                            for re-open without password (0 = no keyring).\n"
+            "\t--dry-run:                  unlock and validate, but do not create mapper.\n"
+            "\t                            Prints master key and device parameters.\n"
+            "\t--windhamtab-location <p>:  use alternate windhamtab file path.\n"
+            "\t--windhamtab-pass <n>:      execute only the specified pass number from\n"
+            "\t                            windhamtab.\n"
+            "\t--nokeyring:                do not use kernel key retention service.\n"
+            "\t--readonly:                 create read-only mapper device.\n"
+            "\t--allow-discards:           allow TRIM/DISCARD passthrough to crypt device.\n"
+            "\t--no-read-workqueue:        bypass dm-crypt read workqueue (lower latency).\n"
+            "\t--no-write-workqueue:       bypass dm-crypt write workqueue.\n"
+            "\t--no-map-partition:         do not map partition table inside crypt device.\n"
+            "\t--no-aux:                   do not probe or print aux entries after unlock.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Close", the_3rd_argv) == 0) {
       printf(
          _(
-            "Close <name> close the encrypt block device. the path of the device shoule be \"/dev/mapper/<name>\"\n"
+            "Close <name>: Close (remove) an active dm-crypt mapper device. The name\n"
+            "refers to the entry under /dev/mapper/<name>.\n"
             "\n"
             "options:\n"
-            "\t--defer: Defer closing the device until the device is free.\n"));
+            "\t--defer: defer removal until the device is no longer in use.\n"));
       frontend_print_common_args();
    } else if (strcmp("New", the_3rd_argv) == 0) {
       printf(
          _(
-            "New <target>: create a windham header on the device and add a new key. DO NOT COPY THE HEADER FROM OTHER ENCRYPTED "
-            "DEVICES, BECAUSE THEY "
-            "COULD BE UNLOCKED USING THE SAME MASTER KEY. \n"
+            "New <target>: Create a Windham header on <target> and enroll an initial\n"
+            "passphrase. DO NOT copy headers between devices — they would share the\n"
+            "same master key.\n"
             "\n"
             "options:\n"
-            "\t--key <characters>: password input as argument instead of asking in the terminal interactively.\n"
-            "\t--key-file <location>: password input as key file. The key file will be read as password (exclude EOF character). Option "
-            "'--key' "
-            "and '--key-file' are mutually exclusive\n"
-            "\t--keystdin: read key from standard input. the key format must be 32-byte bit stream encoded using hexadecimal format. "
-            "spaces are ignored. Useful when intergrating with Clevis\n"
-            "\t--diskfile <size> create a disk file with size <size> at <target>. Disk file will overcommit if possible: will occupy "
-            "the smallest possible size required to meet the upper-layer file system's needs.\n"
-            "\t--encrypt-type <string>: designate an encryption scheme for the new header instead of the default one. It is not "
-            "recommended nor necessary to do so, unless"
-            " you have a specific reason. the encryption scheme should obey the format: \"*cipher*-*chainmode*-*ivmode*\".\n"
-            "\t--block-size <int>: designate the encryption sector size. Size must be 512, 1024, 2048 or 4096.\n"
-            "\t--decoy-size: Create a decoy partition instead; designate a size for decoy partition.\n"));
+            "\t--key <string>:       password as command-line argument.\n"
+            "\t--key-file <path>:    read password from a key file. Mutually exclusive\n"
+            "\t                       with --key and --keystdin.\n"
+            "\t--keystdin:           read 32-byte hex key from standard input.\n"
+            "\t--diskfile <size>:    create a sparse disk file of <size> bytes as target.\n"
+            "\t                       Uses overcommit; only allocates blocks on write.\n"
+            "\t--encrypt-type <s>:   encryption scheme: \"cipher-chainmode-ivmode\".\n"
+            "\t                       Default: \"aes-xts-plain64\".\n"
+            "\t--block-size <n>:     encryption sector size: 512, 1024, 2048, or 4096.\n"
+            "\t--decoy-size <n>:     create a decoy partition of <n> MiB instead.\n"
+            "\t--aux-sector-size <n>: size of the aux metadata zone, in 512-byte sectors.\n"));
       frontend_print_newpw_args();
       frontend_print_common_args();
       printf(
          _(
-            "A list of supported encryption mode on your system is located at file \"/proc/crypto\". If the provided encryption "
-            "scheme contains an unsupported "
-            "but valid mode, a warning will appear that indicates the partition cannot be opened using your system.\n"));
+            "\nSupported encryption modes are listed in /proc/crypto. If the chosen scheme\n"
+            "is valid but unsupported on your kernel, a warning is issued — the partition\n"
+            "will not be openable on this system.\n"));
    } else if (strcmp("AddKey", the_3rd_argv) == 0) {
       printf(
          _(
-            "AddKey <target>: Add a new key or passphrase to the existing windham header. The new passphrase will be asked after a "
-            "successful unlock from "
-            "the given key or passphrase.\n"
+            "AddKey <target>: Enroll a new passphrase on an existing Windham partition.\n"
+            "You must unlock with an existing passphrase first, then provide the new one.\n"
             "\n"
             "options:\n"
-            "\t--generate-random-key: generate a random key that can only be unlocked using --keystdin; then print this key to stdout. "
-            "It is designed to incorporate with clevis.\n"
-            "\t--rapid-add: adding a key faster by not recalculating the keypool and header vector.\n"));
+            "\t--generate-random-key:    generate a random 32-byte hex key, print to stdout,\n"
+            "\t                           and enroll it. Designed for use with Clevis.\n"
+            "\t--rapid-add:              skip header re-transform for speed.\n"
+            "\t                           Safe when no adversary can observe the device\n"
+            "\t                           between transactions.\n"
+            "\t--anonymous-key:          enroll an anonymous key (no identifier stored).\n"));
       frontend_print_unlock_args();
       frontend_print_newpw_args();
       frontend_print_common_args();
-      printf(
-         _(
-            "\nEach AddKey will \"transform\" the Windham partition header by default. to \"transform\" a header means to convert "
-            "the header into an equivalent form while changing most of its bytes to hide the detail of each transaction. "
-            "Without the key, there is no clue to deduce whether two headers are equivalent (but you might just looking "
-            "for the UUID to conclude, but this is not deterministic, and the key here is to protect the passphrase) or whether a header is "
-            "valid. This is a feature which designed to prevent adversaries who can access the device before and after each transaction. "
-            "If they could, they will be informed by the changing portion, then the possible key space will be dramatically shrinked since "
-            "only a tiny fraction of keys are possible to produce a designate changing portion. "
-            "However, the transform time is proportional to the "
-            "enrolled passphrases: that is why option \"--rapid-add\" exists. \"--rapid-add\" is always safe if such adversaries does "
-            "not exist under your threat model.\n"));
    } else if (strcmp("DelKey", the_3rd_argv) == 0) {
       printf(
          _(
-            "DelKey <target>: remove a existing key or passphrase from the header.\n"
+            "DelKey <target>: Remove a passphrase from the Windham header.\n"
+            "The passphrase to remove must be provided via --key or interactive input.\n"
             "\n"
             "options:\n"
-            "\t--anonymous-key: turning a non anonymous key to anonymous key.\n"
-            "\t--no-fill-pattern: Not filling random pattern after this action. "));
+            "\t--anonymous-key:        convert the matching key to anonymous instead\n"
+            "\t                         of removing it (key identifier is zeroed).\n"
+            "\t--no-fill-pattern:      skip filling random pattern after deletion.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Backup", the_3rd_argv) == 0) {
       printf(
          _(
-            "Backup <target>: Backup the header into a separate file.\n"
+            "Backup <target>: Copy the Windham header to a backup file.\n"
             "\n"
             "options:\n"
-            "\t--to <location>: REQUIRED; the location of the file.\n"));
+            "\t--to <path>:  REQUIRED; destination file for the header backup.\n"));
+      frontend_print_common_args();
+   } else if (strcmp("Restore", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Restore <target>: Restore a Windham header from a backup file.\n"
+            "\n"
+            "options:\n"
+            "\t--to <path>:  REQUIRED; source backup file.\n"));
+      frontend_print_common_args();
+   } else if (strcmp("Suspend", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Suspend <target>: Clear the encryption keys from the header so the\n"
+            "device can be opened without a password. In suspended state, only\n"
+            "Open and Close are available. Use Resume to restore normal operation.\n"));
+      frontend_print_unlock_args();
+      frontend_print_common_args();
+   } else if (strcmp("Resume", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Resume <target>: Restore the encryption keys into the header so the\n"
+            "device requires a password again. Reverses Suspend.\n"));
+      frontend_print_unlock_args();
+      frontend_print_common_args();
+   } else if (strcmp("Bench", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Bench: Run the Argon2 KDF benchmark to determine optimal unlock parameters.\n"));
+      frontend_print_common_args();
+   } else if (strcmp("Destory", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Destory <target>: Wipe the Windham header from the device, permanently\n"
+            "destroying all passphrase and encryption metadata.\n"
+            "\n"
+            "options:\n"
+            "\t--decoy:  target is a decoy partition (header at GPT end).\n"));
+      frontend_print_common_args();
+   } else if (strcmp("Aux", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Aux <target>: Manage auxiliary data entries stored in the aux zone of a\n"
+            "Windham partition. Each entry is encrypted with a key derived from the\n"
+            "keyslot used to unlock the device.\n"
+            "\n"
+            "Action options (exactly one required):\n"
+            "\t--add=<content>:         add a plaintext entry (multibyte/UTF-8 → char32_t).\n"
+            "\t                           On platforms without __STDC_UTF_32__, ASCII only.\n"
+            "\t--add-command=<cmd>:     add a SHELL command entry. Executed on Open.\n"
+            "\t--add-link=<path>:       add a LINK_OPEN entry targeting another Windham\n"
+            "\t                           partition at <path>. On Open, the linked device\n"
+            "\t                           is automatically unlocked in cascade.\n"
+            "\t--del:                   delete all aux entries matching the current key.\n"
+            "\t--probe:                 list all aux entries matching the current key,\n"
+            "\t                           plus all public (unencrypted) entries.\n"
+            "\n"
+            "LINK_OPEN options (used with --add-link):\n"
+            "\t--target-key=<string>:   password for the linked device (non-interactive).\n"
+            "\t--target-keyfile=<path>: read linked device password from a key file.\n"
+            "\t--link-flag=SHORTCUT:    set STOP_EXEC_NEXT_IF_SUCC — if this link opens\n"
+            "\t                           successfully, skip remaining sibling links at the\n"
+            "\t                           same cascade level.\n"
+            "\t--link-prio=<0-255>:     set priority for ordering within this device's\n"
+            "\t                           aux zone (default 128; lower = processed first).\n"
+            "\n"
+            "Shell options (used with --add-command):\n"
+            "\t--flag=BLCKOPEN:         block the parent Open if the command fails.\n"
+            "\t--flag=SHORTCUT:         (LINK_OPEN only, see above).\n"
+            "\n"
+            "Other options:\n"
+            "\t--aux-type=<name>:       set entry type identifier for --add.\n"));
+      frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Restore", the_3rd_argv) == 0) {
       printf(
