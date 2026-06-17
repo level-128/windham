@@ -23,7 +23,7 @@ endif ()
 # --------------------------------------------------------------------
 # define CPU arch and version number
 
-file(READ "Document/version.txt" WINDHAM_VERSION)
+file(READ "build_misc/version.txt" WINDHAM_VERSION)
 string(STRIP "${WINDHAM_VERSION}" WINDHAM_VERSION)
 add_compile_definitions(WINDHAM_VERSION=\"${WINDHAM_VERSION}\")
 
@@ -398,3 +398,11 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
     add_compile_definitions(WINDHAM_TEST)
 
 endif()
+
+# ── Install ──
+install(TARGETS windham RUNTIME DESTINATION bin)
+install(FILES README.md DESTINATION share/doc/windham)
+install(DIRECTORY docs/ DESTINATION share/doc/windham/docs
+        FILES_MATCHING PATTERN "*.md")
+install(PROGRAMS scripts/windham-raid-setup.sh
+        DESTINATION share/windham)
