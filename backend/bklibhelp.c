@@ -182,7 +182,11 @@ void frontend_help(const char * the_3rd_argv) {
             "\t--no-read-workqueue:        bypass dm-crypt read workqueue (lower latency).\n"
             "\t--no-write-workqueue:       bypass dm-crypt write workqueue.\n"
             "\t--no-map-partition:         do not map partition table inside crypt device.\n"
-            "\t--no-aux:                   do not probe or print aux entries after unlock.\n"));
+            "\t--no-aux:                   do not probe or print aux entries after unlock.\n"
+            "\t--aux-link[=paths]:         restrict linked-partition UUID resolution to the\n"
+            "\t                             given comma-separated device paths instead of\n"
+            "\t                             scanning /proc/partitions. Without a value,\n"
+            "\t                             the default system-wide scan is used.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Close", the_3rd_argv) == 0) {

@@ -74,6 +74,7 @@ enum {
 	NMOBJ_link_prio,
 	NMOBJ_target_key,
 	NMOBJ_target_key_file,
+	NMOBJ_aux_link_paths,
 	NMOBJ_target_SIZE
 };
 
@@ -174,6 +175,7 @@ const struct option long_options[] = {
 	{"link-prio", required_argument, &options[NMOBJ_link_prio], 1},
 	{"target-key", required_argument, &options[NMOBJ_target_key], 1},
 	{"target-keyfile", required_argument, &options[NMOBJ_target_key_file], 1},
+	{"aux-link", optional_argument, &options[NMOBJ_aux_link_paths], 1},
 	{0, 0, 0, 0}
 };
 
@@ -221,6 +223,7 @@ void frontend_check_invalid_param(int action_num) {
 			             NMOBJ_is_no_aux,
 			             NMOBJ_windhamtab_location,
 			             NMOBJ_windhamtab_pass,
+			             NMOBJ_aux_link_paths,
 			             CHECK_COMMON})
 		}
 		case NMOBJ_action_close: {
@@ -578,7 +581,8 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				options[NMOBJ_is_nokeyring],
 				options[NMOBJ_is_nofail],
 				options[NMOBJ_windhamtab_pass],
-				options[NMOBJ_is_no_aux]);
+				options[NMOBJ_is_no_aux],
+				params[NMOBJ_aux_link_paths]);
 
 			break;
 		case NMOBJ_action_close:

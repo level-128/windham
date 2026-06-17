@@ -27,10 +27,40 @@ static int          uuid_map_count = 0;
 static bool         uuid_map_built = false;
 
 
-static void build_uuid_map(void) {
+static void build_uuid_map(const char *restrict_paths) {
     if (uuid_map_built) return;
     uuid_map_built = true;
 
+    // If paths are provided, probe only those paths
+    if (restrict_paths != NULL && restrict_paths[0] != '\0') {
+        char *buf = strdup(restrict_paths);
+        if (!buf) { print_error(_("Out of memory")); }
+        char *saveptr;
+        char *token = strtok_r(buf, ",", &saveptr);
+        while (token && uuid_map_count < UUID_MAP_MAX) {
+            while (*token == ' ') token++;
+            char *end = token + strlen(token) - 1;
+            while (end > token && *end == ' ') *end-- = '\0';
+
+            uint8_t probe_uuid[16];
+            int     probe_type;
+            if (probe_single_device(token, probe_uuid, &probe_type)) {
+                if (memcmp(probe_uuid, (uint8_t[16]){0}, 16) != 0) {
+                    memcpy(uuid_map[uuid_map_count].uuid, probe_uuid, 16);
+                    strncpy(uuid_map[uuid_map_count].device_path, token, FILENAME_MAX);
+                    uuid_map[uuid_map_count].device_path[FILENAME_MAX] = '\0';
+                    uuid_map[uuid_map_count].is_opened = false;
+                    uuid_map[uuid_map_count].is_failed = false;
+                    uuid_map_count++;
+                }
+            }
+            token = strtok_r(NULL, ",", &saveptr);
+        }
+        free(buf);
+        return;
+    }
+
+    // Default: scan /proc/partitions
     FILE *pp = fopen("/proc/partitions", "r");
     if (!pp) {
         print_warning(_("Cannot open /proc/partitions — linked partition resolution disabled."));
@@ -740,9 +770,10 @@ void action_open_(
    bool is_nokeyring,
    bool is_nofail,
    bool is_selected_windhamtab_pass,
-   bool is_no_aux) {
+   bool is_no_aux,
+   const char * aux_link_paths) {
 
-   build_uuid_map();
+   build_uuid_map(aux_link_paths);
 
    if (strcmp(uninit_device, "TAB") == 0) {
 #ifndef WINDHAM_ISOC
