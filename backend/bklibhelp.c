@@ -112,7 +112,11 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\tDefault decryption target time (per slot): %i\n"), MAX_UNLOCK_TIME_FACTOR);
       printf(_("\tDefault encryption capped memory: %i\n"), DEFAULT_DISK_ENC_MEM_RATIO_CAP);
       printf(_("\tDefault encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
-
+#ifdef __STDC_UTF_32__
+      printf(_("\tchar32_t encoding:       UTF-32\n"));
+#else
+      printf(_("\tchar32_t encoding:       unspecified, system reduced to ASCII support!\n"));
+#endif
       printf(_("\nSystem and compiler information:\n"));
 #ifdef __clang__
       printf(_("\tCompiler: Clang %d.%d.%d\n"), __clang_major__, __clang_minor__, __clang_patchlevel__);

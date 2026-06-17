@@ -289,7 +289,12 @@ static bool action_open_single(
 
    switch (header_type) {
 
-   case NMOBJ_MAPPER_DEVSTAT_SUSP: {
+    case NMOBJ_MAPPER_DEVSTAT_SUSP: {
+      if (entry->is_link_open) {
+         print_warning(_("Linked device %s is suspended. Cannot cascade further links from a suspended device."),
+                       entry->device_path);
+         return false;
+      }
       convert_metadata_endianness_to_h(&data.metadata);
       check_sector_size_for_resize(entry->device_path, &data, NULL, true);
 
