@@ -77,7 +77,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 						/* Empty line: display all characters in-place, then resume */
 						printf("\r\033[K");
 						if (index > 0) {
-							char utf8_out[MB_CUR_MAX + 1];
+							char utf8_out[8]; // MB_CUR_MAX <= 6, + 1 for NUL
 							mbstate_t mbs;
 							for (unsigned i = 0; i < index; i++) {
 								if (i > 0) printf(" ");

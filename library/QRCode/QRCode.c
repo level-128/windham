@@ -38,7 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#pragma mark - Error Correction Lookup tables
+// section break
 
 #if LOCK_VERSION == 0
 
@@ -101,7 +101,7 @@ static int abs(int value) {
 */
 
 
-#pragma mark - Mode testing and conversion
+// section - Mode testing and conversion
 
 static int8_t getAlphanumeric(char c) {
 
@@ -140,7 +140,7 @@ static bool isNumeric(const char *text, uint16_t length) {
 }
 
 
-#pragma mark - Counting
+// section - Counting
 
 // We store the following tightly packed (less 8) in modeInfo
 //               <=9  <=26  <= 40
@@ -167,7 +167,7 @@ static char getModeBits(uint8_t version, uint8_t mode) {
 }
 
 
-#pragma mark - BitBucket
+// section - BitBucket
 
 typedef struct BitBucket {
     uint32_t bitOffsetOrWidth;
@@ -251,7 +251,7 @@ static bool bb_getBit(BitBucket *bitGrid, uint8_t x, uint8_t y) {
 }
 
 
-#pragma mark - Drawing Patterns
+// section - Drawing Patterns
 
 // XORs the data modules in this QR Code with the given mask pattern. Due to XOR's mathematical
 // properties, calling applyMask(m) twice with the same value is equivalent to no change at all.
@@ -474,7 +474,7 @@ static void drawCodewords(BitBucket *modules, BitBucket *isFunction, BitBucket *
 
 
 
-#pragma mark - Penalty Calculation
+// section - Penalty Calculation
 
 #define PENALTY_N1      3
 #define PENALTY_N2      3
@@ -574,7 +574,7 @@ static uint32_t getPenaltyScore(BitBucket *modules) {
 }
 
 
-#pragma mark - Reed-Solomon Generator
+// section - Reed-Solomon Generator
 
 static uint8_t rs_multiply(uint8_t x, uint8_t y) {
     // Russian peasant multiplication
@@ -628,7 +628,7 @@ static void rs_getRemainder(uint8_t degree, uint8_t *coeff, uint8_t *data, uint8
 
 
 
-#pragma mark - QrCode
+// section - QrCode
 
 static int8_t encodeDataCodewords(BitBucket *dataCodewords, const uint8_t *text, uint16_t length, uint8_t version) {
     int8_t mode = MODE_BYTE;
@@ -773,7 +773,7 @@ static void performErrorCorrection(uint8_t version, uint8_t ecc, BitBucket *data
 static const uint8_t ECC_FORMAT_BITS = (0x02 << 6) | (0x03 << 4) | (0x00 << 2) | (0x01 << 0);
 
 
-#pragma mark - Public QRCode functions
+// section - Public QRCode functions
 
 uint16_t qrcode_getBufferSize(uint8_t version) {
     return bb_getGridSizeBytes(4 * version + 17);
@@ -800,12 +800,14 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
 
     struct BitBucket codewords;
 #ifdef __STDC_NO_VLA__
-    uint8_t * codewordBytes = malloc(bb_getBufferSizeBytes(moduleCount));
+    int32_t codewordBufSize = (int32_t)bb_getBufferSizeBytes(moduleCount);
+    uint8_t * codewordBytes = malloc((size_t)codewordBufSize);
 #else
     uint8_t codewordBytes[bb_getBufferSizeBytes(moduleCount)];
+    #define codewordBufSize ((int32_t)sizeof(codewordBytes))
 #endif
 
-    bb_initBuffer(&codewords, codewordBytes, (int32_t)sizeof(codewordBytes));
+    bb_initBuffer(&codewords, codewordBytes, codewordBufSize);
 
     // Place the data code words into the buffer
     int8_t mode = encodeDataCodewords(&codewords, data, length, version);
@@ -828,7 +830,12 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
     bb_initGrid(&modulesGrid, modules, size);
 
     BitBucket isFunctionGrid;
+#ifdef __STDC_NO_VLA__
+    int32_t gridBufSize = (int32_t)bb_getGridSizeBytes(size);
+    uint8_t * isFunctionGridBytes = malloc((size_t)gridBufSize);
+#else
     uint8_t isFunctionGridBytes[bb_getGridSizeBytes(size)];
+#endif
     bb_initGrid(&isFunctionGrid, isFunctionGridBytes, size);
 
     // Draw function patterns, draw all codewords, do masking
@@ -860,6 +867,7 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
 
 #ifdef __STDC_NO_VLA__
     free(codewordBytes);
+    free(isFunctionGridBytes);
 #endif
 
     return 0;

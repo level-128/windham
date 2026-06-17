@@ -74,7 +74,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 						printf("\n");
 						if (index > 0) {
 #ifdef __STDC_UTF_32__
-							char utf8_out[MB_CUR_MAX + 1];
+							char utf8_out[8]; // MB_CUR_MAX <= 6, + 1 for NUL
 							mbstate_t mbs;
 							for (unsigned i = 0; i < index; i++) {
 								if (i > 0) printf(" ");
