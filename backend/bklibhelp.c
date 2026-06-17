@@ -62,7 +62,7 @@ void frontend_help(const char * the_3rd_argv) {
       printf(
          _(
             "usage: \"windham <action> <target>\"\n"
-            "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'DelKey' 'Backup' 'Restore' 'Suspend' 'Resume' 'Destory' and 'Aux'\n\n"
+            "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'DelKey' 'Backup' 'Restore' 'Suspend' 'Resume' 'Destory' 'Aux' and 'Probe'\n\n"
             "Use command \"windham Help <action>\" to view specific help text for each action.\n\n"
             "pre-compiled arguments. These arguments serve an informative purpose; changing them may render your "
             "device inaccessible.\n"));
@@ -311,6 +311,30 @@ void frontend_help(const char * the_3rd_argv) {
          _(
             "Destory <target>: Wipe the windham partition header.\n"
             "\n"));
+   } else if (strcmp("Probe", the_3rd_argv) == 0) {
+      printf(
+         _(
+            "Probe <target>: Detect Windham partitions and display their UUIDs.\n"
+            "If <target> is a device path, probe that single device. If <target> is a\n"
+            "directory, probe all regular files under it. If <target> is omitted, scan\n"
+            "all block devices on the system (/proc/partitions).\n"
+            "\n"
+            "options:\n"
+            "\t--dir=<path>:       Probe a single device file or directory.\n"
+            "\t--probe-linux:      Scan /proc/partitions for all block devices (default\n"
+            "\t                     behaviour when no target given). Shows size and mount\n"
+            "\t                     points for each detected Windham partition.\n"
+            "\t--probe-pattern=<n>: Filter partitions to those matching a specific status:\n"
+            "\t                     'suspend', 'decoy', or 'normal/regular'.\n"
+            "\n"
+            "Windham partitions are identified in three ways:\n"
+            "  - Shebang line '#!/bin/windham\\n' at the start of the header\n"
+            "  - Windham partition magic tag in the hint area\n"
+            "  - Entropic statistical tests on the header data\n"
+            "\n"
+            "Each detected partition prints its: UUID, status (normal/suspend/decoy),\n"
+            "start sector, end sector, block size, and encryption type.\n"));
+      frontend_print_common_args();
    } else {
       print_error("<action> not recognized. type 'windham Help' to view help");
    }
