@@ -25,11 +25,13 @@ typedef struct {
 static UuidMapEntry uuid_map[UUID_MAP_MAX];
 static int          uuid_map_count = 0;
 static bool         uuid_map_built = false;
+static const char * aux_link_paths_global = NULL;
 
 
 static void build_uuid_map(const char *restrict_paths) {
     if (uuid_map_built) return;
     uuid_map_built = true;
+    aux_link_paths_global = restrict_paths;
 
     // If paths are provided, probe only those paths
     if (restrict_paths != NULL && restrict_paths[0] != '\0') {
@@ -131,6 +133,7 @@ static bool uuid_map_is_processed(const uint8_t uuid[16]) {
 
 
 static const char *uuid_map_get_path(const uint8_t uuid[16]) {
+    if (!uuid_map_built) build_uuid_map(aux_link_paths_global);
     int idx = find_uuid_in_map(uuid);
     return (idx >= 0) ? uuid_map[idx].device_path : NULL;
 }
@@ -777,7 +780,7 @@ void action_open_(
    bool is_no_aux,
    const char * aux_link_paths) {
 
-   build_uuid_map(aux_link_paths);
+   aux_link_paths_global = aux_link_paths;
 
    if (strcmp(uninit_device, "TAB") == 0) {
 #ifndef WINDHAM_ISOC
