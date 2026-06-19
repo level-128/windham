@@ -16,6 +16,9 @@ def test_destroy(binary, device):
 
 def test_backup(binary, device):
     """Backup requires root — skip gracefully if not root."""
+    # Clean up leftover backup from previous runs
+    if os.path.exists("windham_backup"):
+        os.remove("windham_backup")
     create_test_device(device)
     assert_success(_NEW(device), binary)
     bkf = device + ".backup"

@@ -59,8 +59,8 @@
 #define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
 #endif
 
-#ifndef DEFAULT_DISK_ENC_KEY_SIZE
-#define DEFAULT_DISK_ENC_KEY_SIZE 64
+#ifndef DEFAULT_DISK_KEY_SIZE_BYTES
+#define DEFAULT_DISK_KEY_SIZE_BYTES 32  // 256 bits; use 64 for 512-bit keys
 #endif
 
 #ifndef DEFAULT_DISK_ENC_MEM_RATIO_CAP

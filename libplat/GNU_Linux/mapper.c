@@ -1,7 +1,7 @@
 #include <libdevmapper.h>
 #include <sys/utsname.h>
 #include <dlfcn.h>
-
+#include <stdbool.h>
 
 bool linear_map(const char * device, const char * name, const uint64_t start, const uint64_t size, const char uuid_str[37]) {
 
@@ -125,7 +125,7 @@ int create_crypt_mapping(
    const char * device,
    const char * name,
    const char * enc_type,
-   const char   password[HASHLEN * 2 + 1],
+   const char * password,
    char         uuid_str[37],
    size_t       start_sector,
    size_t       end_sector,
@@ -145,41 +145,36 @@ int create_crypt_mapping(
    // allow_discards
    // fix_padding must be used.
 
-   // make crypt params
-   int  param_cnt_crypt = 1;
-   char params_crypt[540];
-   char format_crypt[70] = "%s %s 0 %s %zu %i sector_size:%zu %s %s %s";
-   if (is_allow_discards) {
-      param_cnt_crypt ++;
-   }
-   if (is_no_read_workqueue) {
-      param_cnt_crypt ++;
-   }
-   if (is_no_write_workqueue) {
-      param_cnt_crypt ++;
-   }
+    // make crypt params
+    int  param_cnt_crypt = 1; // sector_size is always present
+    char params_crypt[540];
+    char format_crypt[96] = "%s %s 0 %s %zu %i sector_size:%zu";
+    char *p = format_crypt + strlen(format_crypt);
+    if (is_allow_discards) {
+       param_cnt_crypt++;
+       p += snprintf(p, sizeof(format_crypt) - (p - format_crypt), " allow_discards");
+    }
+    if (is_no_read_workqueue) {
+       param_cnt_crypt++;
+       p += snprintf(p, sizeof(format_crypt) - (p - format_crypt), " no_read_workqueue");
+    }
+    if (is_no_write_workqueue) {
+       param_cnt_crypt++;
+       p += snprintf(p, sizeof(format_crypt) - (p - format_crypt), " no_write_workqueue");
+    }
 
-   snprintf(
-      params_crypt,
-      sizeof(params_crypt),
-      format_crypt,
-      enc_type,
-      password,
-      device,
-      start_sector,
-      param_cnt_crypt,
-      block_size,
-      is_allow_discards
-         ? "allow_discards"
-         : "",
-      is_no_read_workqueue
-         ? "no_read_workqueue"
-         : "",
-      is_no_write_workqueue
-         ? "no_write_workqueue"
-         : "");
-
-   if (! (dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
+    snprintf(
+       params_crypt,
+       sizeof(params_crypt),
+       format_crypt,
+       enc_type,
+       password,
+       device,
+       start_sector,
+       param_cnt_crypt,
+       block_size);
+ 
+    if (! (dmt = p_dm_task_create(DM_DEVICE_CREATE))) {
       print_error(_("dm_task_create failed when mapping device %s"), name);
    }
    if (! p_dm_task_set_name(dmt, name)) {
@@ -190,9 +185,9 @@ int create_crypt_mapping(
       p_dm_task_destroy(dmt);
       print_error(_("dm_task_set_uuid failed when mapping device %s"), name);
    }
-   if (! p_dm_task_add_target(dmt, 0, end_sector - start_sector, "crypt", params_crypt)) {
-      print_error(_("dm_task_add_target crypt failed when mapping device %s"), name);
-   }
+    if (! p_dm_task_add_target(dmt, 0, end_sector - start_sector, "crypt", params_crypt)) {
+       print_error(_("dm_task_add_target crypt failed when mapping device %s"), name);
+    }
    if (is_read_only) {
       assert(p_dm_task_set_ro(dmt));
    }
@@ -238,8 +233,9 @@ void create_crypt_mapping_from_disk_key(
    const char * target_name,
    const char * enc_type,
 
-   const uint8_t disk_key[HASHLEN],
-   uint8_t       uuid[16],
+   const uint8_t *disk_key,
+   size_t         disk_key_size,
+   uint8_t        uuid[16],
 
    size_t start_sector,
    size_t end_sector,
@@ -250,8 +246,12 @@ void create_crypt_mapping_from_disk_key(
    bool is_no_read_workqueue,
    bool is_no_write_workqueue,
    bool is_no_map_partition) {
-   char password[HASHLEN * 2 + 1];
-   convert_disk_key_to_hex_format(disk_key, password);
+   char *password = malloc(disk_key_size * 2 + 1);
+   if (!password) { 
+      perror("malloc");
+      exit(1);
+   }
+   convert_disk_key_to_hex_format(disk_key, disk_key_size, password);
 
    char uuid_str[37];
    generate_UUID_from_bytes(uuid, uuid_str);
@@ -269,6 +269,7 @@ void create_crypt_mapping_from_disk_key(
       is_allow_discards,
       is_no_read_workqueue,
       is_no_write_workqueue);
+   free(password);
 
    if (! is_no_map_partition) {
       map_partition_table(target_name, true);
@@ -391,8 +392,13 @@ void mapper_init() {
       p_dm_task_destroy          = dlsym(handle, "dm_task_destroy");
       p_dm_task_add_target       = dlsym(handle, "dm_task_add_target");
       p_dm_task_update_nodes     = dlsym(handle, "dm_task_update_nodes");
-      p_dm_task_deferred_remove  = dlsym(handle, "dm_task_deferred_remove");
-      is_device_mapper_available = true;
+       p_dm_task_deferred_remove  = dlsym(handle, "dm_task_deferred_remove");
+       p_dm_task_get_names       = dlsym(handle, "dm_task_get_names");
+       p_dm_task_get_info        = dlsym(handle, "dm_task_get_info");
+       p_dm_task_get_uuid        = dlsym(handle, "dm_task_get_uuid");
+       p_dm_task_get_deps        = dlsym(handle, "dm_task_get_deps");
+       p_dm_get_next_target      = dlsym(handle, "dm_get_next_target");
+       is_device_mapper_available = true;
    }
 }
 

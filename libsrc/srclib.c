@@ -36,36 +36,42 @@
 
 #ifndef WINDHAM_ISOC
 #define print_error(...)			\
-  if (is_pid1){					\
-    printk("ERROR: \n");			\
-    printk(__VA_ARGS__);			\
+  do {						\
+    if (is_pid1){					\
+      printk("ERROR: \n");			\
+      printk(__VA_ARGS__);			\
+      windham_exit(1);				\
+    }						\
+    printf("\033[1;31m%s: ", _("ERROR"));		\
+    printf(__VA_ARGS__);				\
+    printf("\033[0m\n");				\
     windham_exit(1);				\
-  }						\
-  printf("\033[1;31m%s: ", _("ERROR"));		\
-  printf(__VA_ARGS__);				\
-  printf("\033[0m\n");				\
-  windham_exit(1);				\
-  __builtin_unreachable()
+    __builtin_unreachable();				\
+  } while (0)
 
 
 #define print_error_no_exit(...)		\
-  if (is_pid1){					\
-    printk("ERROR: \n");			\
-    printk(__VA_ARGS__);			\
-  } else {					\
-    printf("\033[1;31m%s: ", _("ERROR"));	\
-    printf(__VA_ARGS__);			\
-    printf("\033[0m\n");			\
-  }
+  do {						\
+    if (is_pid1){					\
+      printk("ERROR: \n");			\
+      printk(__VA_ARGS__);			\
+    } else {					\
+      printf("\033[1;31m%s: ", _("ERROR"));	\
+      printf(__VA_ARGS__);			\
+      printf("\033[0m\n");			\
+    }						\
+  } while (0)
 
 #define print_warning(...)			\
-  if (is_pid1){					\
-    printk("WARNING: \n");			\
-    printk(__VA_ARGS__);			\
-  }						\
-  printf("\033[1;33m%s: ", _("WARNING"));	\
-  printf(__VA_ARGS__);				\
-  printf("\033[0m\n");
+  do {						\
+    if (is_pid1){					\
+      printk("WARNING: \n");			\
+      printk(__VA_ARGS__);			\
+    }						\
+    printf("\033[1;33m%s: ", _("WARNING"));	\
+    printf(__VA_ARGS__);				\
+    printf("\033[0m\n");				\
+  } while (0)
 
 #else
 

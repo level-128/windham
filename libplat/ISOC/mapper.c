@@ -93,7 +93,7 @@ char * parse_cmd(
    const char * device,
    const char * name,
    const char * enc_type,
-   const char   password[HASHLEN * 2 + 1],
+   const char * password,
    char         uuid_str[37],
    size_t       start_sector,
    size_t       end_sector,
@@ -164,7 +164,7 @@ int create_crypt_mapping(
    const char * device,
    const char * name,
    const char * enc_type,
-   const char   password[HASHLEN * 2 + 1],
+   const char * password,
    char         uuid_str[37],
    size_t       start_sector,
    size_t       end_sector,
@@ -233,7 +233,8 @@ void create_crypt_mapping_from_disk_key(
    const char * target_name,
    const char * enc_type,
 
-   const uint8_t disk_key[HASHLEN],
+   const uint8_t *disk_key,
+   size_t         disk_key_size,
    uint8_t       uuid[16],
 
    size_t start_sector,
@@ -245,18 +246,20 @@ void create_crypt_mapping_from_disk_key(
    bool is_no_read_workqueue,
    bool is_no_write_workqueue,
    bool is_no_map_partition) {
-   char password[HASHLEN * 2 + 1];
-   convert_disk_key_to_hex_format(disk_key, password);
+    char *password = malloc(disk_key_size * 2 + 1);
+    if (!password) { print_error(_("Out of memory")); }
+    convert_disk_key_to_hex_format(disk_key, disk_key_size, password);
 
    char uuid_str[37];
    generate_UUID_from_bytes(uuid, uuid_str);
 
-   create_crypt_mapping(
-      device,
-      target_name,
-      enc_type,
-      password,
-      uuid_str,
+    create_crypt_mapping(
+       device,
+       target_name,
+       enc_type,
+       password,
+       0,       // disk_key_size (unused in ISOC)
+       uuid_str,
       start_sector,
       end_sector,
       block_size,

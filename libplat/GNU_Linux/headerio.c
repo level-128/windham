@@ -13,23 +13,17 @@ void operate_header_on_device(Data * data, const char * device, int64_t offset, 
       O_DSYNC | (is_read
                     ? O_RDONLY
                     : O_WRONLY));
-   if (fp == 0) {
+   if (fp < 0) {
       print_error(_("Failed to open %s: %s"), device, strerror(errno));
    }
 
-   if (offset < 0) {
-      lseek(fp, offset, SEEK_END);
-   } else {
-      lseek(fp, offset, SEEK_SET);
-   }
-
    if (is_read) {
-      result = read(fp, data, sizeof(Data));
+      result = pread(fp, data, sizeof(Data), offset);
       if (result != sizeof(Data)) {
          print_error(_("Failed to read %s: %s\""), device, strerror(errno));
       }
    } else {
-      result = write(fp, data, sizeof(Data));
+      result = pwrite(fp, data, sizeof(Data), offset);
       if (result != sizeof(Data)) {
          print_error(_("Failed to write %s: %s\""), device, strerror(errno));
       }
@@ -45,19 +39,15 @@ void operate_aux_zone_on_device(uint8_t *aux_zone, size_t aux_zone_size, const c
       print_error(_("Failed to open %s for aux zone: %s"), device, strerror(errno));
    }
 
-   if (lseek(fp, offset, SEEK_SET) < 0) {
-      print_error(_("Failed to seek aux zone on %s: %s"), device, strerror(errno));
-   }
-
    ssize_t result;
    if (is_read) {
-      result = read(fp, aux_zone, aux_zone_size);
+      result = pread(fp, aux_zone, aux_zone_size, offset);
    } else {
-      result = write(fp, aux_zone, aux_zone_size);
+      result = pwrite(fp, aux_zone, aux_zone_size, offset);
    }
    if (result != (ssize_t)aux_zone_size) {
-      print_error(_("Failed to %s aux zone on %s: %s"),
-                  is_read ? "read" : "write", device, strerror(errno));
+      print_error(_("Failed to %s aux zone on %s: %s (offset=%lld)"),
+                  is_read ? "read" : "write", device, strerror(errno), (long long)offset);
    }
    close(fp);
 }

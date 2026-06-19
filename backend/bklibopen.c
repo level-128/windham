@@ -113,7 +113,26 @@ static int find_uuid_in_map(const uint8_t uuid[16]) {
 }
 
 
+#define SEEN_UUID_MAX 128
+static uint8_t seen_uuids[SEEN_UUID_MAX][16];
+static int     seen_uuid_count = 0;
+
+static bool uuid_is_seen(const uint8_t uuid[16]) {
+    for (int i = 0; i < seen_uuid_count; i++) {
+        if (memcmp(seen_uuids[i], uuid, 16) == 0) return true;
+    }
+    return false;
+}
+
+static void uuid_mark_seen(const uint8_t uuid[16]) {
+    if (!uuid_is_seen(uuid) && seen_uuid_count < SEEN_UUID_MAX) {
+        memcpy(seen_uuids[seen_uuid_count], uuid, 16);
+        seen_uuid_count++;
+    }
+}
+
 static void uuid_map_mark_opened(const uint8_t uuid[16]) {
+    uuid_mark_seen(uuid);
     int idx = find_uuid_in_map(uuid);
     if (idx >= 0) uuid_map[idx].is_opened = true;
 }
@@ -293,9 +312,10 @@ static bool action_open_single(
    LinkOpenList *out_links,
    uint8_t       out_uuid[16])
 {
-   Data    data;
-   int64_t offset;
-   uint8_t disk_key[HASHLEN];
+    Data    data;
+    int64_t offset;
+    uint8_t *disk_key = NULL;
+    size_t   dk_size = 0;
 
    out_links->count = 0;
    memset(out_uuid, 0, 16);
@@ -305,12 +325,14 @@ static bool action_open_single(
    uint16_t ret_key_location;
    uint8_t  ret_inited_key[HASHLEN];
 
-   ENUM_MAPPER_DEVSTAT header_type = load_header_by_device(entry->device_path, &data, &offset, entry->is_decoy);
+    ENUM_MAPPER_DEVSTAT header_type = load_header_by_device(entry->device_path, &data, &offset, entry->is_decoy);
 
-   if (entry->is_link_open && header_type == NMOBJ_MAPPER_DEVSTAT_DECOY) {
-      print_warning(_("Skipping linked decoy partition %s."), entry->device_path);
-      return false;
-   }
+    if (uuid_is_seen(data.uuid_and_salt) && !entry->is_dry_run) {
+       return false;
+    }
+
+    assert(!entry->is_link_open || header_type != NMOBJ_MAPPER_DEVSTAT_DECOY && "decoy partition should not be "
+       "linked and be detected!");
 
    memcpy(out_uuid, data.uuid_and_salt, 16);
 
@@ -326,20 +348,27 @@ static bool action_open_single(
 
    switch (header_type) {
 
-    case NMOBJ_MAPPER_DEVSTAT_SUSP: {
+   case NMOBJ_MAPPER_DEVSTAT_SUSP: 
       if (entry->is_link_open) {
          print_warning(_("Linked device %s is suspended. Cannot cascade further links from a suspended device."),
-                       entry->device_path);
+                        entry->device_path);
          return false;
       }
       convert_metadata_endianness_to_h(&data.metadata);
-      check_sector_size_for_resize(entry->device_path, &data, NULL, true);
 
-      if (! entry->is_dry_run) {
-         uint8_t zeros[HASHLEN] = {0};
-         get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key);
-         create_crypt_mapping_from_disk_key(
-            entry->device_path, effective_target_name, data.metadata.enc_type, disk_key,
+      dk_size = (size_t)data.metadata.disk_key_size_in_bits_div_64 * 64 / 8;
+      disk_key = calloc(1, dk_size);
+      if (!disk_key) {
+         perror("malloc");
+         exit(1);
+      }
+         check_sector_size_for_resize(entry->device_path, &data, NULL, true);
+
+         if (! entry->is_dry_run) {
+            uint8_t zeros[HASHLEN] = {0};
+            get_metadata_key_or_disk_key_from_master_key(data.metadata.disk_key_mask, zeros, data.uuid_and_salt, disk_key, dk_size);
+            create_crypt_mapping_from_disk_key(
+               entry->device_path, effective_target_name, data.metadata.enc_type, disk_key, dk_size,
             data.uuid_and_salt, data.metadata.start_sector, data.metadata.end_sector,
             data.metadata.block_size,
             entry->is_readonly, entry->is_allow_discards,
@@ -347,13 +376,14 @@ static bool action_open_single(
             entry->is_no_map_partition);
          if (!entry->is_link_open) {
             print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."),
-                          entry->device_path);
+                           entry->device_path);
          }
       }
+      free(disk_key);
       return true;
-   }
-
+   
    case NMOBJ_MAPPER_DEVSTAT_NORM:
+   // kernel key retension service
       if (mapper_keyring_get_disk_serial(data.uuid_and_salt, disk_key) == true) {
          if (!entry->is_link_open) printf(_("Found kernel keyring key\n"));
          size_t start_sector, end_sector;
@@ -361,12 +391,13 @@ static bool action_open_single(
             entry->device_path, STR_device->block_count,
             &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0,
             DEFAULT_AUX_SECTOR_SIZE * 512);
-         create_crypt_mapping_from_disk_key(
-            entry->device_path, effective_target_name, DEFAULT_DISK_ENC_MODE, disk_key,
+          create_crypt_mapping_from_disk_key(
+             entry->device_path, effective_target_name, DEFAULT_DISK_ENC_MODE, disk_key, DEFAULT_DISK_KEY_SIZE_BYTES,
             data.uuid_and_salt, start_sector, end_sector, DEFAULT_BLOCK_SIZE,
             entry->is_readonly, entry->is_allow_discards,
             entry->is_no_read_wq, entry->is_no_write_wq,
             entry->is_no_map_partition);
+         free(disk_key);
          return true;
       }
    // falls through
@@ -377,47 +408,26 @@ static bool action_open_single(
             printf(_("Unlocking %s\n"), entry->device_path);
          }
       } else {
-         printf(_("Unlocking %s%s to /dev/mapper/%s...\n"),
+         printf(_("Unlocking %s%s as %s...\n"),
                 entry->is_link_open ? _("linked device ") : "",
                 entry->device_path, effective_target_name);
       }
 
       if (entry->is_link_open) {
-         // Derive inited_key from pre-hashed char32_t password
-         uint8_t inited_key[HASHLEN];
-         password_to_sha256(entry->link_key, entry->link_key_len, inited_key);
-         memcpy(ret_inited_key, inited_key, HASHLEN);
-
-         ret_key_location = get_keypool_location_candidate(data.master_key_mask, inited_key);
-
-         uint64_t user_mem = check_target_mem(entry->max_unlock_mem, false, entry->is_allow_nolock);
-
-         int unlocked_slot = read_key_from_data(
-            data, inited_key, ret_key_location,
-            entry->max_unlock_time, user_mem,
+         // Use get_master_key with pre-hashed char32_t password
+         Key link_key = {
+            .key_or_keyfile_location = (char *)entry->link_key,
+            .key_type                = NMOBJ_key_file_type_key_char32_t_str,
+            .key_data_len            = entry->link_key_len,
+         };
+         uint8_t link_master_key[HASHLEN] = {0};
+         get_master_key(
+            data, link_master_key, link_key, entry->device_path,
+            entry->max_unlock_mem, entry->max_unlock_time,
             entry->link_unlock_level,
             entry->is_allow_nolock,
-            &ret_key_zone, &ret_level, master_key);
-
-         if (unlocked_slot != NMOBJ_Enclib_calc_okay) {
-            switch (unlocked_slot) {
-            case NMOBJ_Enclib_calc_failed_no_time:
-            case NMOBJ_Enclib_calc_failed_level_exceeded:
-            case NMOBJ_Enclib_calc_failed_reached_max_mem:
-               print_warning(_("Cannot unlock linked device %s — possibly incorrect key or insufficient time/memory."),
-                             entry->device_path);
-               break;
-            case NMOBJ_Enclib_alloc_failed_no_free_mem:
-            case NMOBJ_Enclib_alloc_failed_policy_nolock:
-            case NMOBJ_Enclib_alloc_failed_lock_error:
-               print_warning(_("Cannot unlock linked device %s — insufficient memory."), entry->device_path);
-               break;
-            default:
-               print_warning(_("Cannot unlock linked device %s."), entry->device_path);
-               break;
-            }
-            return false;
-         }
+            &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
+         memcpy(master_key, link_master_key, HASHLEN);
 
          if (!unlock_metadata_using_master_key(&data, master_key)) {
             print_warning(_("Linked device %s header may be damaged."), entry->device_path);
@@ -445,6 +455,14 @@ static bool action_open_single(
             check_sector_size_for_resize(entry->device_path, &data, master_key, false);
          }
       }
+      // Metadata is now decrypted — compute actual disk key size
+      dk_size = (size_t)data.metadata.disk_key_size_in_bits_div_64 * 64 / 8;
+      disk_key = calloc(1, dk_size);
+      if (!disk_key) { 
+         perror("malloc");
+         exit(1);
+      }
+
 
       // Probe aux zone
       if (!entry->is_no_aux) {
@@ -514,50 +532,60 @@ static bool action_open_single(
       }
 
       if (! entry->is_dry_run) {
-         get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key);
+          get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key, dk_size);
          if (entry->timeout && !entry->is_decoy) {
             mapper_keyring_add_disk_key(disk_key, data.uuid_and_salt, data.metadata, entry->timeout);
          }
-         create_crypt_mapping_from_disk_key(
-            entry->device_path, effective_target_name, data.metadata.enc_type, disk_key,
-            data.uuid_and_salt, data.metadata.start_sector, data.metadata.end_sector,
+          create_crypt_mapping_from_disk_key(
+             entry->device_path, effective_target_name, data.metadata.enc_type, disk_key, dk_size,
+             data.uuid_and_salt, data.metadata.start_sector, data.metadata.end_sector,
             data.metadata.block_size,
             entry->is_readonly, entry->is_allow_discards,
             entry->is_no_read_wq, entry->is_no_write_wq,
             entry->is_no_map_partition);
       } else {
-         if (!entry->is_link_open) {
-            char uuid_str[37];
-            generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
-            printf(_("dry run complete, opened with master key:\n"));
-            print_hex_array(HASHLEN, master_key);
-            printf(
-               _("\nAdditional device parameters: \n"
-                 "UUID: %s\nSize (MiB): %"PRIu64"\nCrypto algorithm: %s\n"
-                 "Start sector %"PRIu64"\nEnd sector %"PRIu64"\nBlock size %hu\n"),
-               uuid_str,
-               (data.metadata.end_sector - data.metadata.start_sector) / 2 / 1024,
-               data.metadata.enc_type,
-               data.metadata.start_sector, data.metadata.end_sector,
-               data.metadata.block_size);
-            printf(_("\nkey slot status:\n"));
-            for (int i = 0; i < KEY_SLOT_COUNT; i++) {
-               if (data.metadata.keyslot_level[i] == 0) {
-                  printf(_("Slot %i is empty.\n"), i);
+         char uuid_str[37];
+         generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
+         printf(_("dry run complete%s%s, opened with master key:\n"), 
+               entry->is_link_open ? _(" for linked device: "): "", 
+               entry->is_link_open ? entry->device_path: "");
+         print_hex_array(HASHLEN, master_key);
+
+         printf(
+            _("\nAdditional device parameters: \n"
+               "UUID: %s\nSize (MiB): %"PRIu64"\nCrypto algorithm: %s\nKey Length: %zu"
+               "Start sector %"PRIu64"\nEnd sector %"PRIu64"\nBlock size %hu\n"),
+            uuid_str,
+            (data.metadata.end_sector - data.metadata.start_sector) / 2 / 1024,
+            data.metadata.enc_type,
+            dk_size,
+            data.metadata.start_sector,
+            data.metadata.end_sector,
+            data.metadata.block_size);
+
+         printf(_("\nkey slot status:\n"));
+         bool is_no_key = true;
+         for (int i = 0; i < KEY_SLOT_COUNT; i++) {
+            if (data.metadata.keyslot_level[i] != 0) {
+               is_no_key = false;
+               if (memcmp(data.metadata.keyslot_key[i], (uint8_t[HASHLEN]){0}, HASHLEN) == 0) {
+                  printf(_("Slot %i used by anonymous key.\n"), i);
                } else {
-                  if (memcmp(data.metadata.keyslot_key[i], (uint8_t[HASHLEN]){0}, HASHLEN) == 0) {
-                     printf(_("Slot %i used by anonymous key.\n"), i);
-                  } else {
-                     printf(_("Slot %i used; identifier: "), i);
-                     print_hex_array(HASHLEN / 4, data.metadata.keyslot_key[i]);
-                  }
+                  printf(_("Slot %i used; identifier: "), i);
+                  print_hex_array(HASHLEN / 4, data.metadata.keyslot_key[i]);
                }
             }
          }
+         if (is_no_key){
+            printf(_("All slots are EMPTY! this device is accessible only by master key.\n"));
+         }
+         
       }
+      free(disk_key);
       return true;
    }
    }
+   free(disk_key);
    return false;
 }
 
@@ -659,14 +687,6 @@ void action_open(
    while (!fifo_is_empty()) {
       FifoEntry entry = fifo_pop_front();
 
-      // Check if device is already processed
-      Data probe_data;
-      int64_t probe_offset;
-      ENUM_MAPPER_DEVSTAT WINDHAM_ATTRIBUTE(maybe_unused) probe_type = load_header_by_device(entry.device_path, &probe_data, &probe_offset, entry.is_decoy);
-      if (uuid_map_is_processed(probe_data.uuid_and_salt)) {
-         continue;
-      }
-
       LinkOpenList links;
       uint8_t      device_uuid[16];
       bool success = action_open_single(&entry, &links, device_uuid);
@@ -716,13 +736,13 @@ void action_open(
          child.max_unlock_time    = entry.max_unlock_time;
          child.max_unlock_level   = entry.max_unlock_level;
          child.is_allow_nolock    = entry.is_allow_nolock;
-         child.is_decoy           = false;
+         child.is_decoy           = false; // no decoy is allowed during LINK_OPEN cascade
          child.is_readonly        = entry.is_readonly;
          child.is_allow_discards  = entry.is_allow_discards;
          child.is_no_read_wq      = entry.is_no_read_wq;
          child.is_no_write_wq     = entry.is_no_write_wq;
          child.is_no_map_partition = entry.is_no_map_partition;
-         child.is_nokeyring       = entry.is_nokeyring;
+         child.is_nokeyring       = true; 
          child.is_no_aux          = entry.is_no_aux;
          child.is_dry_run         = entry.is_dry_run;
          child.timeout            = entry.timeout;

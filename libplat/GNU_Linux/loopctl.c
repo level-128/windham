@@ -197,7 +197,7 @@ void create_sparse_file(const char * path, size_t size) {
          print_warning(
             _("File size exceeds file system size (%zu bytes). I/O may fail due to "
                "insufficient space."),
-            filesystem_size)
+            filesystem_size);
       }
    } else {
       if (size > filesystem_size) {
@@ -386,6 +386,12 @@ void init_path_device(const char * path, bool is_readonly, bool is_nofail, bool 
    open_and_check_file(STR_device->name, is_readonly, is_nofail, is_bypass_fs_check);
 }
 
+#define MAX_LOOP_DEVICES 128
+static char loop_device_names[MAX_LOOP_DEVICES][FILENAME_MAX + 1];
+static int  loop_device_count = 0;
+
+static void track_loop_device(const char *loop_path);
+
 bool init_file_device(const char * filename, bool is_map_block, bool is_readonly, bool is_nofail, bool is_bypass_fs_check) {
    struct stat st = open_and_check_file(filename, is_readonly, is_nofail, is_bypass_fs_check);
 
@@ -483,10 +489,12 @@ bool init_file_device(const char * filename, bool is_map_block, bool is_readonly
          print_error(_("Failed to set block size on loop device %s: %s"), loop_path, strerror(errno));
       }
 
-      // loop_fd remains open for the autoclear ref; close file_fd as the loop holds it
+      // dm-crypt will hold its own reference to the block device once mapped.
+      // Close file_fd to avoid fd leak; loop_fd also stays open as a cleanup ref.
       close(file_fd);
 
       STR_device->is_loop = true;
+      track_loop_device(loop_path);
       strncpy(STR_device->name, loop_path, sizeof(STR_device->name) - 1);
       STR_device->name[sizeof(STR_device->name) - 1] = '\0';
 
@@ -502,8 +510,7 @@ bool init_file_device(const char * filename, bool is_map_block, bool is_readonly
          windham_exit(1);
       }
 
-      close(fd);
-
+      // keep fd open, fin_device() detaches later
       return true;
    }
    STR_device->is_loop = false;
@@ -605,9 +612,21 @@ void free_loop(const char * name) {
 
 
 void fin_device() {
-   if (STR_device->is_loop == true) {
-      free_loop(STR_device->name);
-   }
+    for (int i = 0; i < loop_device_count; i++) {
+        free_loop(loop_device_names[i]);
+    }
+    loop_device_count = 0;
+}
+
+static void track_loop_device(const char *loop_path) {
+    for (int i = 0; i < loop_device_count; i++) {
+        if (strcmp(loop_device_names[i], loop_path) == 0) return;
+    }
+    if (loop_device_count < MAX_LOOP_DEVICES) {
+        strncpy(loop_device_names[loop_device_count], loop_path, FILENAME_MAX);
+        loop_device_names[loop_device_count][FILENAME_MAX] = '\0';
+        loop_device_count++;
+    }
 }
 
 

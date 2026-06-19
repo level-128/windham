@@ -43,6 +43,22 @@ void (*p_dm_task_update_nodes)(void);
 
 int (*p_dm_task_deferred_remove)(struct dm_task * dmt);
 
+struct dm_names * (*p_dm_task_get_names)(struct dm_task * dmt);
+
+int (*p_dm_task_get_info)(struct dm_task * dmt, struct dm_info * info);
+
+const char * (*p_dm_task_get_uuid)(struct dm_task * dmt);
+
+struct dm_deps * (*p_dm_task_get_deps)(struct dm_task * dmt);
+
+int (*p_dm_get_next_target)(
+   struct dm_task * dmt,
+   struct dm_task * next,
+   uint64_t *       start,
+   uint64_t *       length,
+   char **          target_type,
+   char **          params);
+
 
 bool is_device_mapper_available;
 
@@ -291,16 +307,16 @@ bool read_GPT_header(
 }
 
 
-void convert_disk_key_to_hex_format(const uint8_t master_key[32], char key[HASHLEN * 2 + 1]) {
+void convert_disk_key_to_hex_format(const uint8_t *master_key, size_t key_size, char *out_hex) {
    const char * hex_chars = "0123456789abcdef";
 
-   for (size_t i = 0; i < HASHLEN; ++i) {
+   for (size_t i = 0; i < key_size; ++i) {
       uint8_t byte   = master_key[i];
-      key[i * 2]     = hex_chars[(byte >> 4) & 0xF];
-      key[i * 2 + 1] = hex_chars[byte & 0xF];
+      out_hex[i * 2]     = hex_chars[(byte >> 4) & 0xF];
+      out_hex[i * 2 + 1] = hex_chars[byte & 0xF];
    }
 
-   key[HASHLEN * 2] = '\0'; // Null-terminate the string
+   out_hex[key_size * 2] = '\0'; // Null-terminate the string
 }
 #include "../libplat/mapper.c"
 #endif

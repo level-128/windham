@@ -9,7 +9,7 @@ int create_crypt_mapping(
    const char * device,
    const char * name,
    const char * enc_type,
-   const char password[HASHLEN * 2 + 1],
+   const char * password,
    char         uuid_str[37],
    size_t       start_sector,
    size_t       end_sector,
@@ -24,8 +24,9 @@ void create_crypt_mapping_from_disk_key(
    const char * target_name,
    const char * enc_type,
 
-   const uint8_t disk_key[HASHLEN],
-   uint8_t       uuid[16],
+   const uint8_t *disk_key,
+   size_t         disk_key_size,
+   uint8_t        uuid[16],
 
    size_t start_sector,
    size_t end_sector,

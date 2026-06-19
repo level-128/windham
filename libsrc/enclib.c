@@ -476,20 +476,28 @@ void get_metadata_key_or_disk_key_from_master_key(
    const uint8_t master_key[HASHLEN],
    const uint8_t mask[HASHLEN],
    const uint8_t data$uuid_and_salt[16],
-   uint8_t       result_key[HASHLEN]) {
-   uint8_t inter_key[HASHLEN];
-   xor_with_len(HASHLEN, master_key, mask, inter_key);
+   uint8_t       result_key[],
+   size_t        key_size) {
+   uint8_t *inter_key = calloc(1, key_size);
+   if (!inter_key) {
+      perror("malloc");
+      exit(1);
+   }
+   // master_key and mask are HASHLEN=32 bytes. XOR them for the first
+   // HASHLEN bytes; Argon2 will extend to key_size bytes in output.
+   xor_with_len((key_size < HASHLEN ? key_size : HASHLEN), master_key, mask, inter_key);
    int result = kdf_hash(
       1,
       BASE_MEM_COST * 2,
       PARALLELISM,
       inter_key,
-      HASHLEN,
+      (int)(key_size < HASHLEN ? key_size : HASHLEN),  // password length
       data$uuid_and_salt,
       16,
       result_key,
-      HASHLEN,
+      (int)key_size,
       true);
+   free(inter_key);
    // shouldn't fail, because m_cost is small enough for KDF.
    if (result != NMOBJ_Enclib_calc_okay) {
       perror("kdf");
@@ -515,7 +523,7 @@ void convert_metadata_endianness_to_h(EncMetadata * data$metadata) {
 bool unlock_metadata_using_master_key(Data * data, const uint8_t master_key[HASHLEN]) {
    uint8_t key[HASHLEN];
 
-   get_metadata_key_or_disk_key_from_master_key(master_key, data->master_key_mask, data->uuid_and_salt, key);
+    get_metadata_key_or_disk_key_from_master_key(master_key, data->master_key_mask, data->uuid_and_salt, key, HASHLEN);
 
    struct AES_ctx ctx;
    AES_init_ctx_iv(&ctx, key, data->master_key_mask);
@@ -532,7 +540,7 @@ bool unlock_metadata_using_master_key(Data * data, const uint8_t master_key[HASH
 void lock_metadata_using_master_key(Data * data, const uint8_t master_key[HASHLEN]) {
    uint8_t metadata_key[HASHLEN];
 
-   get_metadata_key_or_disk_key_from_master_key(master_key, data->master_key_mask, data->uuid_and_salt, metadata_key);
+    get_metadata_key_or_disk_key_from_master_key(master_key, data->master_key_mask, data->uuid_and_salt, metadata_key, HASHLEN);
 
    struct AES_ctx ctx;
    AES_init_ctx_iv(&ctx, metadata_key, data->master_key_mask);
@@ -564,7 +572,7 @@ void initialize_new_header(
 
    uninitialized_header->metadata.start_aux_sector = aux_sector_size == 0 ? 0 : HEADER_AREA_IN_SECTOR;
    uninitialized_header->metadata.aux_sector_size = aux_sector_size;
-   uninitialized_header->metadata.disk_key_size_in_bits_div_64 = DEFAULT_DISK_ENC_KEY_SIZE * 8 / 64;
+   uninitialized_header->metadata.disk_key_size_in_bits_div_64 = (uint8_t)(DEFAULT_DISK_KEY_SIZE_BYTES * 8 / 64);
 
    uninitialized_header->metadata.check_key_magic_number = htole64(CHECK_KEY_MAGIC_NUMBER);
    set_master_key_check(uninitialized_header, master_key);
@@ -603,7 +611,7 @@ void suspend_encryption(Data * encrypted_header, const uint8_t master_key[HASHLE
       master_key,
       encrypted_header->master_key_mask,
       encrypted_header->uuid_and_salt,
-      key);
+      key, HASHLEN);
 
    struct AES_ctx ctx;
    AES_init_ctx_iv(&ctx, key, encrypted_header->master_key_mask);
@@ -633,7 +641,7 @@ bool resume_encryption(
       master_key,
       encrypted_header->master_key_mask,
       encrypted_header->uuid_and_salt,
-      key);
+      key, HASHLEN);
 
    struct AES_ctx ctx;
    AES_init_ctx_iv(&ctx, key, encrypted_header->master_key_mask);

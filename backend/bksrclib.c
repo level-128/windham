@@ -175,9 +175,9 @@ int64_t get_new_header_range_and_offset_based_on_size(
 
    int64_t return_val;
 
-   if (device_block_count < (8 << 10) / 512 && device_block_count != -1) {
-      print_error(_("Device %s is too small; Windham requires at least %i KiB."), device, 8);
-   }
+    if (device_block_count < (8 << 10) / 512 && device_block_count != -1) {
+       print_error(_("Device %s is too small; Windham requires at least %i KiB."), device, 8);
+    }
    if ((int) block_size != STR_device->block_size && STR_device->block_size != -1) {
       print_warning(
          _("The device has blocksize of %i bytes, while Windham has been configured to use %zu bytes. This may decrease "
@@ -288,10 +288,10 @@ int64_t get_new_header_range_and_offset_based_on_size(
             (gpt_header_ret.lba_end + 1) - HEADER_AREA_IN_SECTOR);
          return_val = (gpt_header_ret.lba_end + 1 - HEADER_AREA_IN_SECTOR) * 512;
       }
-   } else {
-      *start_sector = WINDHAM_FIRST_USEABLE_LGA(aux_sector_size * 512);
-      *end_sector   = device_block_count - device_block_count % (block_size / 512);
-      return_val    = 0;
+    } else {
+       *start_sector = WINDHAM_FIRST_USEABLE_LGA(aux_sector_size * 512);
+       *end_sector   = device_block_count - device_block_count % (block_size / 512);
+       return_val    = 0;
    }
    return return_val;
 }

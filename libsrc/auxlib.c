@@ -145,7 +145,7 @@ void encrypt_aux_zone_using_master_key(Data * data,
         assert(false);
     }
     uint8_t aux_key[HASHLEN];
-    get_metadata_key_or_disk_key_from_master_key(master_key, data->metadata.aux_key_mask, data->uuid_and_salt, aux_key);
+    get_metadata_key_or_disk_key_from_master_key(master_key, data->metadata.aux_key_mask, data->uuid_and_salt, aux_key, HASHLEN);
     encrypt_aux_zone(aux_zone, aux_zone_size, aux_key, data->master_key_mask);
 }
 
@@ -170,7 +170,7 @@ bool decrypt_aux_zone_using_master_key(Data * data,
         return true;
     }
     uint8_t aux_key[HASHLEN];
-    get_metadata_key_or_disk_key_from_master_key(master_key, data->metadata.aux_key_mask, data->uuid_and_salt, aux_key);
+    get_metadata_key_or_disk_key_from_master_key(master_key, data->metadata.aux_key_mask, data->uuid_and_salt, aux_key, HASHLEN);
     return decrypt_aux_zone(aux_zone, aux_zone_size, aux_key, data->master_key_mask);
 }
 

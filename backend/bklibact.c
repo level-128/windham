@@ -149,7 +149,7 @@ int action_addkey(
       uint8_t *aux_zone = read_aux_zone_from_device(device, &data, &aux_zone_size);
       if (aux_zone_size != 0) {
          uint8_t aux_key[HASHLEN];
-         get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.aux_key_mask, data.uuid_and_salt, aux_key);
+          get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.aux_key_mask, data.uuid_and_salt, aux_key, HASHLEN);
          if (!decrypt_aux_zone(aux_zone, aux_zone_size, aux_key, old_master_key_mask)) {
             print_warning(_("Aux zone cannot be decrypted with old header IV; aux data may be lost."));
          }
@@ -494,4 +494,124 @@ void action_destory(const char * device, bool is_decoy) {
    }
 
    fclose(fp);
+}
+
+void action_list(void) {
+#ifndef WINDHAM_ISOC
+   if (!is_device_mapper_available) {
+      print_error(_("Device mapper library is not available."));
+   }
+
+   struct dm_task *dmt;
+   struct dm_names *names;
+   unsigned next = 0;
+
+   if (!(dmt = p_dm_task_create(DM_DEVICE_LIST))) {
+      print_error(_("Failed to create dm_task for listing devices."));
+   }
+   if (!p_dm_task_run(dmt)) {
+      p_dm_task_destroy(dmt);
+      print_error(_("Failed to query device mapper."));
+   }
+
+   names = p_dm_task_get_names(dmt);
+   if (!names) {
+      printf(_("No device mapper devices found.\n"));
+      p_dm_task_destroy(dmt);
+      return;
+   }
+
+   int count = 0;
+   do {
+      names = (struct dm_names *)((char *)names + next);
+      if (strncmp(names->name, "windham-", 8) != 0) {
+         next = names->next;
+         continue;
+      }
+
+      struct dm_task *info_task = p_dm_task_create(DM_DEVICE_INFO);
+      if (!info_task) continue;
+      if (!p_dm_task_set_name(info_task, names->name)) {
+         p_dm_task_destroy(info_task);
+         next = names->next;
+         continue;
+      }
+      if (!p_dm_task_run(info_task)) {
+         p_dm_task_destroy(info_task);
+         next = names->next;
+         continue;
+      }
+
+      struct dm_info info;
+      if (!p_dm_task_get_info(info_task, &info)) {
+         p_dm_task_destroy(info_task);
+         next = names->next;
+         continue;
+      }
+
+      const char *uuid = p_dm_task_get_uuid(info_task);
+      printf("%s\n", names->name);
+      printf("  UUID:     %s\n", uuid ? uuid : "(none)");
+      printf("  State:    %s%s\n",
+             info.exists ? "ACTIVE" : "INACTIVE",
+             info.read_only ? " (read-only)" : "");
+      printf("  Open:     %d\n", info.open_count);
+
+      // Get underlying device via deps
+      struct dm_task *deps_task = p_dm_task_create(DM_DEVICE_DEPS);
+      if (deps_task && p_dm_task_set_name(deps_task, names->name) && p_dm_task_run(deps_task)) {
+         struct dm_deps *deps = p_dm_task_get_deps(deps_task);
+         if (deps && deps->count > 0) {
+            printf("  Device:   %u:%u\n",
+                   (unsigned)(deps->device[0] >> 8), (unsigned)(deps->device[0] & 0xFF));
+         }
+         p_dm_task_destroy(deps_task);
+      }
+
+      // Get encryption table info
+      struct dm_task *table_task = p_dm_task_create(DM_DEVICE_TABLE);
+      if (table_task && p_dm_task_set_name(table_task, names->name) && p_dm_task_run(table_task)) {
+         uint64_t start, length;
+         char *target_type, *params;
+         if (p_dm_get_next_target(table_task, NULL, &start, &length, &target_type, &params)) {
+            printf("  Target:   %s\n", target_type);
+            printf("  Sector:   %"PRIu64" + %"PRIu64"\n", start, length);
+            // Parse crypt params: <cipher> <key> <iv_offset> <device> <offset> [opts...]
+            if (strcmp(target_type, "crypt") == 0 && params) {
+               char *p = params;
+               // skip cipher
+               while (*p && *p != ' ') p++;
+               if (*p) p++;
+               // skip key (don't print it)
+               while (*p && *p != ' ') p++;
+               if (*p) p++;
+               // skip iv_offset
+               while (*p && *p != ' ') p++;
+               if (*p) p++;
+               // skip device path
+               while (*p && *p != ' ') p++;
+               if (*p) p++;
+               // skip start_offset
+               while (*p && *p != ' ') p++;
+               // remaining are optional params
+               if (*p) {
+                  printf("  Options:  %s\n", p + 1); // skip leading space
+               }
+            }
+         }
+         p_dm_task_destroy(table_task);
+      }
+
+      p_dm_task_destroy(info_task);
+      count++;
+      next = names->next;
+   } while (next);
+
+   p_dm_task_destroy(dmt);
+   if (count == 0) {
+      printf(_("No active Windham devices found.\n"));
+   }
+#else
+   print_error(_("List is not available in ISO C mode."));
+#endif
 }

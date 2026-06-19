@@ -151,14 +151,21 @@ void init_device(
 			print_error("File %s is too small to contain Windham disk format, double check your file.", filename);
 		}
 	} else {
-		// Still get file size so end_sector can be computed correctly
 		STR_device->block_size  = DEFAULT_BLOCK_SIZE;
-		uint64_t fsize = isoc_get_file_size(file);
-		if (fsize > 0) {
-			STR_device->block_count = (int64_t)(fsize / DEFAULT_BLOCK_SIZE * (DEFAULT_BLOCK_SIZE / 512));
+		if (disk_file_size == 0) {
+			// when filename is a regular
+			// file and is_map_block is false, still compute block_count from
+			// the actual file size so that end_sector is correct during New.
+			uint64_t fsize = isoc_get_file_size(file);
+			if (fsize > 0) {
+				STR_device->block_count = (int64_t)(fsize / DEFAULT_BLOCK_SIZE * (DEFAULT_BLOCK_SIZE / 512));
+			} else {
+				STR_device->block_count = -1;
+			}
 		} else {
 			STR_device->block_count = -1;
 		}
 	}
+
    fclose(file);
 }

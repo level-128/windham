@@ -105,7 +105,7 @@ void action_new_check_crypt_support_status(const char * str) {
    if (result == EMOBJ_try_create_crypt_mapping_FAILED_INIT) {
       print_warning(_("dm-crypt initialization failed: create device-mapper mapping failed. Windham "
                       "is unable to test encryption compatibility, and the current running system will fail to open "
-                      "the header that you are currently creating."))
+                      "the header that you are currently creating."));
    } else if (result == EMOBJ_try_create_crypt_mapping_FAILED_MAPPING) {
          ask_for_conformation(
       _("dm-crypt failed using the test parameter. "

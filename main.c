@@ -95,7 +95,8 @@ const char *const actions[] = {
 	"Destroy",
 	"Bench",
 	"Aux",
-	"Probe"
+	"Probe",
+	"List"
 };
 
 enum actions_type {
@@ -113,6 +114,7 @@ enum actions_type {
 	NMOBJ_action_bench,
 	NMOBJ_action_aux,
 	NMOBJ_action_probe,
+	NMOBJ_action_list,
 	NMOBJ_action_ALL = -1
 };
 
@@ -305,6 +307,9 @@ void frontend_check_invalid_param(int action_num) {
 			             NMOBJ_probe_linux,
 			             NMOBJ_probe_pattern,
 			             CHECK_COMMON})
+		}
+		case NMOBJ_action_list: {
+			check_action({CHECK_COMMON})
 		}
 		default: ;
 	}
@@ -780,6 +785,10 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 			}
 #endif
 			action_probe(dir_path, probe_linux, pattern);
+			break;
+		}
+		case NMOBJ_action_list: {
+			action_list();
 			break;
 		}
 		default:
