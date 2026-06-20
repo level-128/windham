@@ -824,7 +824,7 @@ int main_(int argc, char *argv[]) {
 	if (argc == 2) {
 		if (action_num == NMOBJ_action_bench) {
 			benchmark();
-		} else if (action_num == NMOBJ_action_probe) {
+		} else if (action_num == NMOBJ_action_probe || action_num == NMOBJ_action_list) {
 			char *params[NMOBJ_target_SIZE] = {NULL};
 			frontend_check_validity_and_execute(action_num, NULL, params);
 		} else {

@@ -13,8 +13,6 @@
  * UUID → device path map
  * ─────────────────────────────────────────── */
 
-#define UUID_MAP_MAX 512
-
 typedef struct {
     uint8_t uuid[16];
     char   device_path[FILENAME_MAX + 1];
@@ -22,8 +20,7 @@ typedef struct {
     bool   is_failed;
 } UuidMapEntry;
 
-static UuidMapEntry uuid_map[UUID_MAP_MAX];
-static int          uuid_map_count = 0;
+static DynBuf       uuid_map;
 static bool         uuid_map_built = false;
 static const char * aux_link_paths_global = NULL;
 
@@ -32,11 +29,12 @@ static void build_uuid_map(const char *restrict_paths) {
     if (uuid_map_built) return;
     uuid_map_built = true;
     aux_link_paths_global = restrict_paths;
+    db_init(&uuid_map, sizeof(UuidMapEntry));
 
     // If paths are provided, probe only those paths
     if (restrict_paths != NULL && restrict_paths[0] != '\0') {
         const char *p = restrict_paths;
-        while (*p && uuid_map_count < UUID_MAP_MAX) {
+        while (*p) {
             while (*p == ' ' || *p == ',') p++;
             if (*p == '\0') break;
 
@@ -54,12 +52,11 @@ static void build_uuid_map(const char *restrict_paths) {
             int     probe_type;
             if (probe_single_device(token, probe_uuid, &probe_type)) {
                 if (memcmp(probe_uuid, (uint8_t[16]){0}, 16) != 0) {
-                    memcpy(uuid_map[uuid_map_count].uuid, probe_uuid, 16);
-                    strncpy(uuid_map[uuid_map_count].device_path, token, FILENAME_MAX);
-                    uuid_map[uuid_map_count].device_path[FILENAME_MAX] = '\0';
-                    uuid_map[uuid_map_count].is_opened = false;
-                    uuid_map[uuid_map_count].is_failed = false;
-                    uuid_map_count++;
+                    UuidMapEntry e = { .is_opened = false, .is_failed = false };
+                    memcpy(e.uuid, probe_uuid, 16);
+                    strncpy(e.device_path, token, FILENAME_MAX);
+                    e.device_path[FILENAME_MAX] = '\0';
+                    db_add(&uuid_map, &e);
                 }
             }
         }
@@ -77,7 +74,7 @@ static void build_uuid_map(const char *restrict_paths) {
     fgets(line, sizeof(line), pp);
     fgets(line, sizeof(line), pp);
 
-    while (fgets(line, sizeof(line), pp) && uuid_map_count < UUID_MAP_MAX) {
+    while (fgets(line, sizeof(line), pp)) {
         unsigned      major_num = 0, minor_num = 0;
         unsigned long blocks    = 0;
         char          name[128] = {0};
@@ -92,12 +89,11 @@ static void build_uuid_map(const char *restrict_paths) {
         int     probe_type;
         if (probe_single_device(dev_path, probe_uuid, &probe_type)) {
             if (memcmp(probe_uuid, (uint8_t[16]){0}, 16) != 0) {
-                memcpy(uuid_map[uuid_map_count].uuid, probe_uuid, 16);
-                strncpy(uuid_map[uuid_map_count].device_path, dev_path, FILENAME_MAX);
-                uuid_map[uuid_map_count].device_path[FILENAME_MAX] = '\0';
-                uuid_map[uuid_map_count].is_opened = false;
-                uuid_map[uuid_map_count].is_failed = false;
-                uuid_map_count++;
+                UuidMapEntry e = { .is_opened = false, .is_failed = false };
+                memcpy(e.uuid, probe_uuid, 16);
+                strncpy(e.device_path, dev_path, FILENAME_MAX);
+                e.device_path[FILENAME_MAX] = '\0';
+                db_add(&uuid_map, &e);
             }
         }
     }
@@ -106,55 +102,50 @@ static void build_uuid_map(const char *restrict_paths) {
 
 
 static int find_uuid_in_map(const uint8_t uuid[16]) {
-    for (int i = 0; i < uuid_map_count; i++) {
-        if (memcmp(uuid_map[i].uuid, uuid, 16) == 0) return i;
+    for (size_t i = 0; i < db_count(&uuid_map); i++) {
+        if (memcmp(((UuidMapEntry *)db_get(&uuid_map, i))->uuid, uuid, 16) == 0) return (int)i;
     }
     return -1;
 }
 
-
-#define SEEN_UUID_MAX 128
-static uint8_t seen_uuids[SEEN_UUID_MAX][16];
-static int     seen_uuid_count = 0;
+static DynBuf seen_uuids;
 
 static bool uuid_is_seen(const uint8_t uuid[16]) {
-    for (int i = 0; i < seen_uuid_count; i++) {
-        if (memcmp(seen_uuids[i], uuid, 16) == 0) return true;
+    if (seen_uuids.elem_size == 0) db_init(&seen_uuids, 16);
+    for (size_t i = 0; i < db_count(&seen_uuids); i++) {
+        if (memcmp((uint8_t *)db_get(&seen_uuids, i), uuid, 16) == 0) return true;
     }
     return false;
 }
 
 static void uuid_mark_seen(const uint8_t uuid[16]) {
-    if (!uuid_is_seen(uuid) && seen_uuid_count < SEEN_UUID_MAX) {
-        memcpy(seen_uuids[seen_uuid_count], uuid, 16);
-        seen_uuid_count++;
+    if (!uuid_is_seen(uuid)) {
+        db_add(&seen_uuids, uuid);
     }
 }
 
 static void uuid_map_mark_opened(const uint8_t uuid[16]) {
     uuid_mark_seen(uuid);
     int idx = find_uuid_in_map(uuid);
-    if (idx >= 0) uuid_map[idx].is_opened = true;
+    if (idx >= 0) ((UuidMapEntry *)db_get(&uuid_map, (size_t)idx))->is_opened = true;
 }
-
 
 static void uuid_map_mark_failed(const uint8_t uuid[16]) {
     int idx = find_uuid_in_map(uuid);
-    if (idx >= 0) uuid_map[idx].is_failed = true;
+    if (idx >= 0) ((UuidMapEntry *)db_get(&uuid_map, (size_t)idx))->is_failed = true;
 }
-
 
 static bool uuid_map_is_processed(const uint8_t uuid[16]) {
     int idx = find_uuid_in_map(uuid);
     if (idx < 0) return false;
-    return uuid_map[idx].is_opened || uuid_map[idx].is_failed;
+    UuidMapEntry *e = db_get(&uuid_map, (size_t)idx);
+    return e->is_opened || e->is_failed;
 }
-
 
 static const char *uuid_map_get_path(const uint8_t uuid[16]) {
     if (!uuid_map_built) build_uuid_map(aux_link_paths_global);
     int idx = find_uuid_in_map(uuid);
-    return (idx >= 0) ? uuid_map[idx].device_path : NULL;
+    return (idx >= 0) ? ((UuidMapEntry *)db_get(&uuid_map, (size_t)idx))->device_path : NULL;
 }
 
 
@@ -191,27 +182,29 @@ typedef struct {
     unsigned timeout;
 } FifoEntry;
 
-static FifoEntry fifo[FIFO_MAX];
-static int       fifo_count = 0;
-
+#define FIFO_DEF_CAPACITY 16
+static FifoEntry *fifo_data;
+static size_t     fifo_count;
+static size_t     fifo_capacity;
 
 static void fifo_push_front(FifoEntry e) {
-    if (fifo_count >= FIFO_MAX) {
-        print_error(_("FIFO overflow — too many linked partitions."));
+    if (fifo_count >= fifo_capacity) {
+        fifo_capacity = fifo_capacity ? fifo_capacity * 2 : FIFO_DEF_CAPACITY;
+        fifo_data = realloc(fifo_data, fifo_capacity * sizeof(FifoEntry));
+        if (!fifo_data) print_error(_("Out of memory"));
     }
-    memmove(&fifo[1], &fifo[0], fifo_count * sizeof(FifoEntry));
-    fifo[0] = e;
+    memmove(&fifo_data[1], &fifo_data[0], fifo_count * sizeof(FifoEntry));
+    fifo_data[0] = e;
     fifo_count++;
 }
 
 
 static FifoEntry fifo_pop_front(void) {
-    FifoEntry e = fifo[0];
+    FifoEntry e = fifo_data[0];
     fifo_count--;
-    memmove(&fifo[0], &fifo[1], fifo_count * sizeof(FifoEntry));
+    memmove(&fifo_data[0], &fifo_data[1], fifo_count * sizeof(FifoEntry));
     return e;
 }
-
 
 static bool fifo_is_empty(void) {
     return fifo_count == 0;
@@ -234,8 +227,7 @@ typedef struct {
 #define MAX_LINK_OPEN 256
 
 typedef struct {
-    LinkOpenEntry entries[MAX_LINK_OPEN];
-    int           count;
+    DynBuf entries;
 } LinkOpenList;
 
 
@@ -317,7 +309,7 @@ static bool action_open_single(
     uint8_t *disk_key = NULL;
     size_t   dk_size = 0;
 
-   out_links->count = 0;
+   db_init(&out_links->entries, sizeof(LinkOpenEntry));
    memset(out_uuid, 0, 16);
 
    uint8_t  master_key[HASHLEN];
@@ -497,17 +489,14 @@ static bool action_open_single(
                      if (get_aux_link_open_data(slot, link_uuid,
                                                 &link_unlock_level, &link_prio, &link_flags,
                                                 &target_key, &target_key_len)) {
-                        if (out_links->count < MAX_LINK_OPEN) {
-                           LinkOpenEntry *le = &out_links->entries[out_links->count++];
-                           le->target_key         = target_key;
-                           le->target_key_len     = target_key_len;
-                           memcpy(le->target_uuid, link_uuid, 16);
-                           le->target_unlock_level = link_unlock_level;
-                           le->flags              = link_flags;
-                           le->prio               = link_prio;
-                        } else {
-                           free(target_key);
-                        }
+                        LinkOpenEntry le_copy;
+                        le_copy.target_key         = target_key;
+                        le_copy.target_key_len     = target_key_len;
+                        memcpy(le_copy.target_uuid, link_uuid, 16);
+                        le_copy.target_unlock_level = link_unlock_level;
+                        le_copy.flags              = link_flags;
+                        le_copy.prio               = link_prio;
+                        db_add(&out_links->entries, &le_copy);
                      }
                   } else {
                      print_aux_entry(slot, slot_offset, is_public, aux_count);
@@ -700,10 +689,10 @@ void action_open(
       // STOP_EXEC: on success, discard remaining siblings at this index
       if (success && entry.has_stop_flag) {
          int skipped = 0;
-         while (fifo_count > 0 && fifo[0].index == entry.index) {
-            skipped++;
-            fifo_count--;
-            memmove(&fifo[0], &fifo[1], fifo_count * sizeof(FifoEntry));
+          while (fifo_count > 0 && fifo_data[0].index == entry.index) {
+             skipped++;
+             fifo_count--;
+             memmove(&fifo_data[0], &fifo_data[1], fifo_count * sizeof(FifoEntry));
          }
          if (skipped > 0) {
             printf(_("SHORTCUT: linked device %s opened, skipping %d remaining sibling(s)\n"),
@@ -712,10 +701,10 @@ void action_open(
       }
 
       // Sort by prio DESC, then push in order so lowest prio ends up at FIFO front
-      qsort(links.entries, links.count, sizeof(LinkOpenEntry), link_open_prio_cmp_desc);
+      qsort(links.entries.data, db_count(&links.entries), sizeof(LinkOpenEntry), link_open_prio_cmp_desc);
 
-      for (int li = 0; li < links.count; li++) {
-         LinkOpenEntry *le = &links.entries[li];
+      for (size_t li = 0; li < db_count(&links.entries); li++) {
+         LinkOpenEntry *le = db_get(&links.entries, li);
 
          const char *link_path = uuid_map_get_path(le->target_uuid);
          if (link_path == NULL) {

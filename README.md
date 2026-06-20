@@ -16,7 +16,7 @@ passphrases are registered.
 - **Transparent block-level encryption** via dm-crypt (aes-xts-plain64 by default)
 - **Plausible deniability** — cryptographically random on-disk format with no signatures,
   no magic numbers, and optional Decoy Partition (steganography)
-- **16 passphrase slots** — password, key file, stdin hex key, master key. Unlock time is
+- **16 passphrase slots** — supports password, key file, master key. Unlock time is
   independent of slot count
 - **LINK_OPEN cascade** — open one device and all linked partitions unlock automatically
   in a configurable priority tree. Supports `SHORTCUT` flag to prune sibling branches,
@@ -47,6 +47,7 @@ sudo windham Open  /dev/sdb                       # unlock → /dev/mapper/windh
 sudo mkfs.ext4     /dev/mapper/windham-*          # format
 sudo mount         /dev/mapper/windham-* /mnt     # use
 sudo windham Close windham-*                      # lock
+sudo windham List                                 # list active mappings
 ```
 
 ---
@@ -67,8 +68,6 @@ sudo windham Close windham-*                      # lock
 
 For per-action option reference: `windham Help <action>` (e.g. `windham Help Open`).
 
-[中文文档](/docs/zh-cn/README.md)
-
 ---
 
 ## Supported platforms
@@ -76,7 +75,7 @@ For per-action option reference: `windham Help <action>` (e.g. `windham Help Ope
 | Tier | Requirements | Capabilities |
 |---|---|---|
 | **Full** (GNU/Linux) | Linux 2.6+, libdevmapper, libblkid, gettext, C11 compiler with GNU extensions | Everything |
-| **Basic** (ISO C11) | `stdlib.h`, `string.h`, `stdio.h`, `threads.h` (optional), ~492 KB heap | Header management, unlock, probe (no dm-crypt mapping) |
+| **Basic** (ISO C11) | `stdlib.h`, `string.h`, `stdio.h`, `threads.h` (optional), ~510 KB heap | Header management, unlock, probe (no dm-crypt mapping) |
 
 Full-support dependencies: `libdevmapper-dev`, `linux-headers`, `libgettextpo-dev`, `libblkid-dev`, `libkeyutils-dev`.
 
@@ -84,5 +83,5 @@ Full-support dependencies: `libdevmapper-dev`, `linux-headers`, `libgettextpo-de
 
 ## License
 
-GPL-3.0-or-later. Copyright (C) 2023–2025 level-128.  
+GPL-3.0-or-later. Copyright (C) 2023–2026 level-128.  
 Third-party library licenses: [library/license.md](library/license.md).

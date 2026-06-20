@@ -5,28 +5,32 @@
 Use `lsblk` or `fdisk -l` to find the block device. Examples: `/dev/sdb`, `/dev/nvme0n1p3`.
 **The device will be overwritten.**
 
+To locate **existing** Windham partitions, use `Probe`:
+
+```bash
+sudo windham Probe              # scan all block devices
+```
+
+Each detected partition shows its UUID, encryption type, sector range, block size,
+and mount status.
+
 ## 2. Create a Windham partition
 
 ```bash
-sudo windham New /dev/sdb --key="your passphrase here"
+sudo windham New /dev/sdb
 ```
 
 This creates the header and enrolls one passphrase. The default encryption is
-`aes-xts-plain64` with 4096-byte sectors.
-
-Options that affect KDF strength (relevant for weak passphrases):
-- `--target-time=<sec>` — KDF computation time (default 1.5s, higher = more secure)
-- `--target-memory=<KiB>` — max memory for KDF
-- `--target-level=<n>` — max KDF iteration level
+`aes-xts-plain64` with 4096-byte sectors, which works for most scenarios.
 
 ## 3. Open and map
 
 ```bash
-sudo windham Open /dev/sdb --key="your passphrase here"
+sudo windham Open /dev/sdb
 # Mapped at /dev/mapper/windham-<uuid>
 
 # Or specify a custom name:
-sudo windham Open /dev/sdb --key="your passphrase here" --to=mycrypt
+sudo windham Open /dev/sdb --to=mycrypt
 # Mapped at /dev/mapper/mycrypt
 ```
 
@@ -53,7 +57,7 @@ sudo windham Close mycrypt
 ## 7. Back up your master key
 
 ```bash
-sudo windham Open /dev/sdb --key="your passphrase here" --dry-run
+sudo windham Open /dev/sdb --dry-run
 # Prints the master key — back this up securely!
 ```
 
@@ -63,13 +67,23 @@ hardware security module.
 
 ---
 
+## List devices
+
+List all active Windham devices:
+
+```bash
+sudo windham List
+```
+
+---
+
 ## Managing passphrases
 
 ### Add a new passphrase
 
 ```bash
-sudo windham AddKey /dev/sdb --key="old passphrase" --target-time=2
-# Enter new passphrase when prompted
+sudo windham AddKey /dev/sdb
+# enter new passphrase when prompted
 ```
 
 By default, this performs a full header re-transform (secure but slow with many
@@ -79,13 +93,13 @@ apply to your threat model.
 ### Remove a passphrase
 
 ```bash
-sudo windham DelKey /dev/sdb --key="passphrase to remove"
+sudo windham DelKey /dev/sdb
 ```
 
 ### List registered passphrases
 
 ```bash
-sudo windham Open /dev/sdb --key="any valid passphrase" --dry-run
+sudo windham Open /dev/sdb --dry-run
 # Shows key slot status for all 16 slots
 ```
 
@@ -96,12 +110,12 @@ sudo windham Open /dev/sdb --key="any valid passphrase" --dry-run
 Suspend stores the intermediate key in the header, allowing passwordless unlock:
 
 ```bash
-sudo windham Suspend /dev/sdb --key="your passphrase"
+sudo windham Suspend /dev/sdb
 # Device can now be opened without a password
-sudo windham Open /dev/sdb
-# ...
-sudo windham Close windham-*
-sudo windham Resume /dev/sdb --key="your passphrase"
+
+# ......
+
+sudo windham Resume /dev/sdb 
 # Device requires password again
 ```
 

@@ -635,7 +635,78 @@ uint64_t parse_size(const char * size_str) {
 
    uint64_t bytes         = integer_part * base_multiplier;
    uint64_t decimal_bytes = (uint64_t) (decimal_part * decimal_multiplier); // round down
-   return bytes + decimal_bytes;
+    return bytes + decimal_bytes;
+}
+
+
+/* ── Dynamic buffer (type-erased growable array) ── */
+
+typedef struct {
+    uint8_t *data;
+    size_t   elem_size;
+    size_t   count;
+    size_t   capacity;
+} DynBuf;
+
+static void db_init(DynBuf *db, size_t elem_size) {
+    db->elem_size = elem_size;
+    db->count     = 0;
+    db->capacity  = 16;  // initial capacity
+    db->data      = malloc(elem_size * db->capacity);
+    if (!db->data) { print_error(_("Out of memory")); }
+}
+
+static void db_free(DynBuf *db) {
+    free(db->data);
+    db->data = NULL;
+    db->count = db->capacity = 0;
+}
+
+static void *db_add(DynBuf *db, const void *elem) {
+    if (db->count >= db->capacity) {
+        size_t new_cap = db->capacity * 2;
+        uint8_t *p = realloc(db->data, db->elem_size * new_cap);
+        if (!p) { print_error(_("Out of memory")); }
+        db->data     = p;
+        db->capacity = new_cap;
+    }
+    void *dst = db->data + db->count * db->elem_size;
+    if (elem) memcpy(dst, elem, db->elem_size);
+    db->count++;
+    return dst;
+}
+
+static void *db_get(DynBuf *db, size_t index) {
+    return db->data + index * db->elem_size;
+}
+
+static size_t db_count(DynBuf *db) {
+    return db->count;
+}
+
+// Remove first n elements (shift left)
+static void db_remove_front_n(DynBuf *db, size_t n) {
+    if (n >= db->count) { db->count = 0; return; }
+    size_t remaining = db->count - n;
+    memmove(db->data, db->data + n * db->elem_size, remaining * db->elem_size);
+    db->count = remaining;
+}
+
+// Remove element at index (shift left)
+static void db_remove_at(DynBuf *db, size_t index) {
+    if (index >= db->count) return;
+    size_t tail = db->count - index - 1;
+    if (tail > 0) {
+        memmove(db->data + index * db->elem_size,
+                db->data + (index + 1) * db->elem_size,
+                tail * db->elem_size);
+    }
+    db->count--;
+}
+
+// Reset count to 0 without freeing
+static void db_clear(DynBuf *db) {
+    db->count = 0;
 }
 
 #endif // #ifndef INCL_SRCLIB
