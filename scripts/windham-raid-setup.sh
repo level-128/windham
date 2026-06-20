@@ -109,12 +109,11 @@ for dev in "${DISKS[@]}"; do
         continue
     fi
     echo "  Generating random key for $dev …"
-    # AddKey --generate-random-key prints the hex key to stdout (32 bytes = 64 hex chars).
-    # We capture it and remove spaces.
-    RAW_KEY=$(sudo windham AddKey "$dev" --key="$PASS" \
-        --generate-random-key --target-time=0.2 --max-unlock-time=3 --yes)
-    # Remove spaces and trailing newline
-    KEY=$(echo "$RAW_KEY" | tr -d '[:space:]')
+    # AddKey --generate-random-key now prints a 64-char hex string to stdout.
+    # Capture it as-is (strip trailing newline only).
+    KEY=$(sudo windham AddKey "$dev" --key="$PASS" \
+        --generate-random-key --target-time=0.2 --max-unlock-time=3 --yes | head -1)
+    KEY="${KEY//[[:space:]]/}"
     if [[ -z "$KEY" || ${#KEY} -lt 60 ]]; then
         echo "ERROR: Failed to generate random key for $dev" >&2
         echo "Raw output: $RAW_KEY" >&2

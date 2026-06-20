@@ -104,28 +104,28 @@ int action_addkey(
 
    if (is_random_key_stdout == false) {
       action_addkey_interactive_prepare_key(&new_key);
-   } else { // is_random_key_stdout == true
-      uint8_t new_key_uint8[HASHLEN];
-      fill_secure_random_bits(new_key_uint8, HASHLEN);
-      new_key.key_type                = NMOBJ_key_file_type_key_raw;
-      new_key.key_or_keyfile_location = (char *) new_key_uint8;
-      // print the new_key_uint8 to the real stdout
+    } else { // is_random_key_stdout == true
+       uint8_t new_key_uint8[HASHLEN];
+       fill_secure_random_bits(new_key_uint8, HASHLEN);
+       // Encode as 64-character hex string — behaves like a normal --key=<value> password
+       static char rand_key_hex[HASHLEN * 2 + 1];
+       for (size_t i = 0; i < HASHLEN; i++) {
+          sprintf(rand_key_hex + i * 2, "%02x", new_key_uint8[i]);
+       }
+       rand_key_hex[HASHLEN * 2] = '\0';
+       new_key.key_type                = NMOBJ_key_file_type_key;
+       new_key.key_or_keyfile_location = rand_key_hex;
 #ifndef WINDHAM_ISOC
-      for (size_t i = 0; i < HASHLEN; ++i) {
-         char print_buf[4];
-         sprintf(print_buf, "%02x ", new_key_uint8[i]);
-         if (write(stdout_fd, print_buf, 3) != 3) {
-            // stdout blocked, not process group leader?
-            printk("Cannot print key to stdout: write failed.");
-            windham_exit(1);
-         };
-      }
-#else // Under ISO C, output is not redirect to stderr. print the key to the terminal.
-   printf(_("Random generated Key: "));
-      print_hex_array(HASHLEN, new_key_uint8);
-      printf(_("Copy the key to somewhere else and clear this terminal."));
+       // Print to stdout as a single hex string (no spaces), suitable for --target-key
+       if (write(stdout_fd, rand_key_hex, HASHLEN * 2) != (ssize_t)HASHLEN * 2) {
+          printk("Cannot print key to stdout: write failed.");
+          windham_exit(1);
+       }
+       if (write(stdout_fd, "\n", 1) != 1) { /* ignore */ }
+#else
+       printf("Random generated Key: %s\n", rand_key_hex);
 #endif
-   }
+    }
 
    // Save old master_key_mask before add_key_to_keyslot potentially changes it 
    uint8_t old_master_key_mask[HASHLEN];
