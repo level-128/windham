@@ -1,19 +1,16 @@
 #!/bin/bash
 # windham-raid-setup — Set up redundant LINK_OPEN cascade for RAID.
 #
-# Each disk gets two passphrases:
-#   1. The user-supplied password (for interactive unlock)
-#   2. A randomly-generated key (for cascade LINK_OPEN entries)
-#
-# The cascade links use the random keys, so reading the aux zone (which
-# requires unlocking) does not expose the user's real password.
+# All disks share a single random high-entropy key (for cascade LINK_OPEN).
+# The user's password is added as a second slot via rapid-add on each disk
+# after creation.
 #
 # Usage:
 #   sudo ./windham-raid-setup.sh /dev/sda /dev/sdb /dev/sdc
-#   sudo ./windham-raid-setup.sh --pass=raidpass /dev/sd{a,b,c}
+#   sudo ./windham-raid-setup.sh --pass=userpass /dev/sd{a,b,c}
 #
 # Options:
-#   --pass=<password>    Common password for all disks (default: prompt once)
+#   --pass=<password>    User password (default: prompt once)
 #   --open-first=<disk>  Which disk to open to trigger cascade (default: first arg)
 #   --raid=all|raid5|raid6  Link topology (default: all)
 #                          all   — every disk links to every other disk
@@ -69,7 +66,7 @@ OPEN_FIRST="${OPEN_FIRST:-${DISKS[0]}}"
 
 # Prompt for password if not given
 if [[ -z "$PASS" ]]; then
-    read -rsp "Common password for all disks: " PASS
+    read -rsp "Your password for interactive unlock: " PASS
     echo
     if [[ -z "$PASS" ]]; then
         echo "Empty password." >&2
@@ -90,40 +87,38 @@ echo "  Disks: ${DISKS[*]}"
 echo "  Open-first: $OPEN_FIRST"
 echo "  Fault tolerance: $MAX_FAIL disk(s)"
 
-# Step 1: Create Windham on each disk
+# Step 0: Generate one shared random key
 echo
-echo "--- Step 1: Create Windham partitions ---"
-for dev in "${DISKS[@]}"; do
-    echo "  Creating on $dev …"
-    run sudo windham New "$dev" --key="$PASS" --target-time=0.2 --yes
-done
-
-# Step 2: Add a random key to each disk, capture the keys
-echo
-echo "--- Step 2: Generate random cascade keys ---"
-declare -A RANDOM_KEYS
-for dev in "${DISKS[@]}"; do
-    if $DRY_RUN; then
-        RANDOM_KEYS[$dev]="DRY-RUN-HEX-KEY"
-        echo "  DRY-RUN: $dev → random key"
-        continue
-    fi
-    echo "  Generating random key for $dev …"
-    # AddKey --generate-random-key now prints a 64-char hex string to stdout.
-    # Capture it as-is (strip trailing newline only).
-    KEY=$(sudo windham AddKey "$dev" --key="$PASS" \
-        --generate-random-key --target-time=0.2 --max-unlock-time=3 --yes | head -1)
-    KEY="${KEY//[[:space:]]/}"
-    if [[ -z "$KEY" || ${#KEY} -lt 60 ]]; then
-        echo "ERROR: Failed to generate random key for $dev" >&2
-         echo "Output was: $KEY" >&2
+echo "--- Step 0: Generate shared cascade key ---"
+if $DRY_RUN; then
+    CASCADE_KEY="DRY-RUN-64-HEX-KEY"
+else
+    CASCADE_KEY=$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | od -A n -t x1 | tr -d ' \n')
+    if [[ -z "$CASCADE_KEY" || ${#CASCADE_KEY} -lt 60 ]]; then
+        echo "ERROR: Failed to generate cascade key." >&2
         exit 1
     fi
-    RANDOM_KEYS[$dev]="$KEY"
-    echo "    Key: ${KEY:0:16}..."
+fi
+echo "  Cascade key: ${CASCADE_KEY:0:16}..."
+
+# Step 1: Create Windham on each disk using the shared cascade key
+echo
+echo "--- Step 1: Create Windham partitions with cascade key ---"
+for dev in "${DISKS[@]}"; do
+    echo "  Creating on $dev …"
+    run sudo windham New "$dev" --key="$CASCADE_KEY" --target-time=0.2 --yes
 done
 
-# Step 3: Add LINK_OPEN entries based on topology
+# Step 2: Add user password to each disk via rapid-add
+echo
+echo "--- Step 2: Add user password to each disk (rapid-add) ---"
+for dev in "${DISKS[@]}"; do
+    echo "  Adding user key to $dev …"
+    run sudo windham AddKey "$dev" --key="$CASCADE_KEY" \
+        --rapid-add --target-time=0.2 --max-unlock-time=3 --yes
+done
+
+# Step 3: Add LINK_OPEN entries (all disks share the cascade key)
 echo
 echo "--- Step 3: Add LINK_OPEN entries (mode=$RAID_MODE) ---"
 prio=0
@@ -137,19 +132,18 @@ for i in "${!DISKS[@]}"; do
             prio=$((prio + 1))
             echo "  $src → $dst (prio=$prio, SHORTCUT)"
             run sudo windham Aux "$src" --add-link="$dst" \
-                --key="$PASS" --target-key="${RANDOM_KEYS[$dst]}" \
+                --key="$CASCADE_KEY" --target-key="$CASCADE_KEY" \
                 --link-prio=$prio --link-flag=SHORTCUT \
                 --max-unlock-time=3 --yes
         done
     else
-        # raid5/raid6: link to next HOPS disks clockwise (wraparound)
         for hop in $(seq 1 $HOPS); do
             dst_idx=$(( (i + hop) % N ))
             dst="${DISKS[$dst_idx]}"
             prio=$((prio + 1))
             echo "  $src → $dst (hop=$hop, prio=$prio, SHORTCUT)"
             run sudo windham Aux "$src" --add-link="$dst" \
-                --key="$PASS" --target-key="${RANDOM_KEYS[$dst]}" \
+                --key="$CASCADE_KEY" --target-key="$CASCADE_KEY" \
                 --link-prio=$prio --link-flag=SHORTCUT \
                 --max-unlock-time=3 --yes
         done
@@ -159,8 +153,11 @@ done
 echo
 echo "=== Setup complete ==="
 echo
-echo "To unlock the cascade:"
-echo "  sudo windham Open $OPEN_FIRST --key=\"\$PASS\""
+echo "To unlock the cascade with the cascade key:"
+echo "  sudo windham Open $OPEN_FIRST --key=\"$CASCADE_KEY\""
+echo
+echo "To unlock with your password:"
+echo "  sudo windham Open $OPEN_FIRST"
 echo
 echo "After all disks are mapped, assemble RAID:"
 echo "  sudo mdadm --assemble /dev/md0 /dev/mapper/windham-*"
