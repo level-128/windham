@@ -165,6 +165,7 @@ int create_crypt_mapping(
    const char * name,
    const char * enc_type,
    const char * password,
+   size_t       disk_key_size UNUSED,
    char         uuid_str[37],
    size_t       start_sector,
    size_t       end_sector,

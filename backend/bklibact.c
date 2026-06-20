@@ -17,10 +17,12 @@
 void action_close(const char * device, bool is_deferred_remove) {
 #define STARTSWITH(str, prefix) (strlen(str) >= strlen(prefix) && strncmp((str), (prefix), strlen(prefix)) == 0)
 
-   if (device[0] != '/') {
+    if (device[0] != '/') {
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-zero-length"
-      CHECK_DEVICE_TOPOLOGY(
+#endif
+       CHECK_DEVICE_TOPOLOGY(
          device,
          "/dev/mapper",
          child,
@@ -67,7 +69,9 @@ void action_close(const char * device, bool is_deferred_remove) {
          );
          CHECK_DEVICE_TOPOLOGY_FREE(child);
          return;
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
       }
       print_error(
          _("The device name is required, however path is provided. Use \"lsblk\" or \"ls -l\" to search for the correct device."
