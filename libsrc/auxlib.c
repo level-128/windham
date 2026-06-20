@@ -573,16 +573,13 @@ void compose_link_open_content(char32_t target_key[], uint16_t target_key_len,
 
 
 // Print a single aux entry returned by probe_aux_from_aux_zone.
-// slot: the probed AuxSlot (with decrypted content, no protection zero)
-// offset: byte offset of this slot within the aux zone
-// is_public: whether this entry is a public (zero-key / unencrypted) entry
-// index: 1-based entry index for display
+// Only handles PLAINTEXT — used during Open to display aux notes.
 void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int index) {
     uint16_t slot_size_le;
     memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
     uint16_t slot_size = le16toh(slot_size_le);
     size_t content_bytes = slot_size - sizeof(AuxSlot);
-    size_t content_count = content_bytes / sizeof(char32_t); // number of char32_t elements
+    size_t content_count = content_bytes / sizeof(char32_t);
 
     if (content_count == 0) {
         assert(false && "content_count == 0");
@@ -590,6 +587,7 @@ void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int 
     }
 
     uint8_t aux_type = ((uint8_t *)slot->content_char32_be)[0];
+    if (aux_type != NMOBJ_AUX_TYPE_PLAINTEXT) return;
 
     printf(_("Aux entry %d: %zu bytes, offset %u, %s\n"),
     index, content_bytes, offset,
@@ -598,56 +596,82 @@ void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int 
     printf("  IV: ");
     print_hex_array(AES_BLOCKLEN, slot->iv);
 
-    if (aux_type == NMOBJ_AUX_TYPE_LINK_OPEN) {
-        AuxContentLinkOpen lh;
-        memcpy(&lh, slot->content_char32_be, sizeof(lh));
-        printf(_("  Type:         LINK_OPEN\n"));
-        printf(_("  Priority:     %u\n"), lh.prio);
-        printf(_("  Flags:        %u"), lh.flags);
-        if (lh.flags & AUX_CONTENT_LINK_OPEN_FLG_STOP_EXEC_NEXT_IF_SUCC) printf(" (SHORTCUT)");
-        printf("\n");
-        printf(_("  Unlock level: %u\n"), lh.target_unlock_level);
-        printf(_("  Passwd chars: %u\n"), le16toh(lh.target_key_len));
-        printf(_("  Target UUID:  %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n"),
-            lh.target_uuid[0],lh.target_uuid[1],lh.target_uuid[2],lh.target_uuid[3],
-            lh.target_uuid[4],lh.target_uuid[5],lh.target_uuid[6],lh.target_uuid[7],
-            lh.target_uuid[8],lh.target_uuid[9],lh.target_uuid[10],lh.target_uuid[11],
-            lh.target_uuid[12],lh.target_uuid[13],lh.target_uuid[14],lh.target_uuid[15]);
-    } else if (aux_type == NMOBJ_AUX_TYPE_SHELL) {
-        AuxContentShell sh;
-        memcpy(&sh, slot->content_char32_be, sizeof(sh));
-        printf(_("  Type:         SHELL\n"));
-        printf(_("  Flags:        %u"), sh.flags);
-        if (sh.flags & AUX_CONTENT_SHELL_FLG_NO_OPEN_ON_FAIL) printf(" (BLCKOPEN)");
-        printf("\n");
-        printf(_("  Timeout:      %u sec\n"), le16toh(sh.timeout));
-        uint16_t cmd_len = le16toh(sh.command_len);
-        printf(_("  Command:      "));
-        if (cmd_len > 0) {
-            const char32_t *cmd_chars = slot->content_char32_be + sizeof(AuxContentShell) / sizeof(char32_t);
-            for (uint16_t i = 0; i < cmd_len; i++) {
-                char32_t c32 = cmd_chars[i];
+    printf("  Content: ");
+    for (size_t i = 0; i < content_count; i++) {
+        char32_t c32 = slot->content_char32_be[i];
 #ifdef __STDC_UTF_32__
-                mbstate_t mbs = {0};
-                char mb[MB_LEN_MAX];
-                size_t r = c32rtomb(mb, c32, &mbs);
-                if (r != (size_t)-1 && r > 0) {
-                    fwrite(mb, 1, r, stdout);
-                } else {
-                    printf("U+%04X", (unsigned int)c32);
-                }
-#else
-                printf("U+%04X", (unsigned int)c32);
-#endif
-            }
+        mbstate_t mbs = {0};
+        char mb[MB_LEN_MAX];
+        size_t r = c32rtomb(mb, c32, &mbs);
+        if (r != (size_t)-1 && r > 0) {
+            fwrite(mb, 1, r, stdout);
         } else {
-            printf(_("(empty)"));
+            printf("U+%04X", (unsigned int)c32);
         }
-        printf("\n");
-    } else {
-        printf("  Content: ");
-        for (size_t i = 0; i < content_count; i++) {
-            char32_t c32 = slot->content_char32_be[i];
+#else
+        printf("U+%04X", (unsigned int)c32);
+#endif
+    }
+    printf("\n");
+}
+
+
+// Print LINK_OPEN details — used by --aux-probe only, not during Open.
+void print_link_open_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int index) {
+    uint16_t slot_size_le;
+    memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
+    uint16_t slot_size = le16toh(slot_size_le);
+    size_t content_bytes = slot_size - sizeof(AuxSlot);
+
+    AuxContentLinkOpen lh;
+    memcpy(&lh, slot->content_char32_be, sizeof(lh));
+
+    printf(_("Aux entry %d: %zu bytes, offset %u, %s\n"),
+        index, content_bytes, offset,
+        is_public ? _("public") : _("encrypted"));
+    printf("  IV:           ");
+    print_hex_array(AES_BLOCKLEN, slot->iv);
+    printf(_("  Type:         LINK_OPEN\n"));
+    printf(_("  Priority:     %u\n"), lh.prio);
+    printf(_("  Flags:        %u"), lh.flags);
+    if (lh.flags & AUX_CONTENT_LINK_OPEN_FLG_STOP_EXEC_NEXT_IF_SUCC) printf(" (SHORTCUT)");
+    printf("\n");
+    printf(_("  Unlock level: %u\n"), lh.target_unlock_level);
+    printf(_("  Passwd chars: %u\n"), le16toh(lh.target_key_len));
+    printf(_("  Target UUID:  %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n"),
+        lh.target_uuid[0],lh.target_uuid[1],lh.target_uuid[2],lh.target_uuid[3],
+        lh.target_uuid[4],lh.target_uuid[5],lh.target_uuid[6],lh.target_uuid[7],
+        lh.target_uuid[8],lh.target_uuid[9],lh.target_uuid[10],lh.target_uuid[11],
+        lh.target_uuid[12],lh.target_uuid[13],lh.target_uuid[14],lh.target_uuid[15]);
+}
+
+
+// Print SHELL command details — used by --aux-probe only, not during Open.
+void print_shell_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int index) {
+    uint16_t slot_size_le;
+    memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
+    uint16_t slot_size = le16toh(slot_size_le);
+    size_t content_bytes = slot_size - sizeof(AuxSlot);
+
+    AuxContentShell sh;
+    memcpy(&sh, slot->content_char32_be, sizeof(sh));
+
+    printf(_("Aux entry %d: %zu bytes, offset %u, %s\n"),
+        index, content_bytes, offset,
+        is_public ? _("public") : _("encrypted"));
+    printf("  IV:           ");
+    print_hex_array(AES_BLOCKLEN, slot->iv);
+    printf(_("  Type:         SHELL\n"));
+    printf(_("  Flags:        %u"), sh.flags);
+    if (sh.flags & AUX_CONTENT_SHELL_FLG_NO_OPEN_ON_FAIL) printf(" (BLCKOPEN)");
+    printf("\n");
+    printf(_("  Timeout:      %u sec\n"), le16toh(sh.timeout));
+    uint16_t cmd_len = le16toh(sh.command_len);
+    printf(_("  Command:      "));
+    if (cmd_len > 0) {
+        const char32_t *cmd_chars = slot->content_char32_be + sizeof(AuxContentShell) / sizeof(char32_t);
+        for (uint16_t i = 0; i < cmd_len; i++) {
+            char32_t c32 = cmd_chars[i];
 #ifdef __STDC_UTF_32__
             mbstate_t mbs = {0};
             char mb[MB_LEN_MAX];
@@ -661,8 +685,10 @@ void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int 
             printf("U+%04X", (unsigned int)c32);
 #endif
         }
-        printf("\n");
+    } else {
+        printf(_("(empty)"));
     }
+    printf("\n");
 }
 
 

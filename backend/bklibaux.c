@@ -363,7 +363,14 @@ void action_aux_probe(
 		AuxSlot * slot = probe_aux_from_aux_zone(aux_zone, aux_zone_size, &pointer, aux_slot_key, &is_public, &slot_offset);
 		if (slot == NULL) break;
 		count++;
-		print_aux_entry(slot, slot_offset, is_public, count);
+		uint8_t aux_type = ((uint8_t *)slot->content_char32_be)[0];
+		if (aux_type == NMOBJ_AUX_TYPE_LINK_OPEN) {
+			print_link_open_entry(slot, slot_offset, is_public, count);
+		} else if (aux_type == NMOBJ_AUX_TYPE_SHELL) {
+			print_shell_entry(slot, slot_offset, is_public, count);
+		} else {
+			print_aux_entry(slot, slot_offset, is_public, count);
+		}
 		free(slot);
 	}
 
