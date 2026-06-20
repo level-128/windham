@@ -116,7 +116,7 @@ for dev in "${DISKS[@]}"; do
     KEY="${KEY//[[:space:]]/}"
     if [[ -z "$KEY" || ${#KEY} -lt 60 ]]; then
         echo "ERROR: Failed to generate random key for $dev" >&2
-        echo "Raw output: $RAW_KEY" >&2
+         echo "Output was: $KEY" >&2
         exit 1
     fi
     RANDOM_KEYS[$dev]="$KEY"

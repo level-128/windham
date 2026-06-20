@@ -207,24 +207,24 @@ bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char *device,
    switch (key.key_type) {
    case NMOBJ_key_file_type_masterkey:
       return false;
-   case NMOBJ_key_file_type_input:
-      char_count = get_key_input_from_the_console(device, password, is_new_key);
-      password_to_sha256(password, char_count, inited_key);
-      break;
-   case NMOBJ_key_file_type_input_systemd:
-      char_count = get_key_input_from_the_console_systemd(device, password);
-      password_to_sha256(password, char_count, inited_key);
-      break;
+    case NMOBJ_key_file_type_input:
+       char_count = get_key_input_from_the_console(device, password, is_new_key);
+       password_to_sha256(password, char_count, inited_key);
+       break;
+    case NMOBJ_key_file_type_input_systemd:
+       char_count = get_key_input_from_the_console_systemd(device, password);
+       password_to_sha256(password, char_count, inited_key);
+       break;
    case NMOBJ_key_file_type_file:
       read_key_file(key, inited_key);
       return true;
-   case NMOBJ_key_file_type_key: {
-      unsigned out_len = 0;
-      heap_password = convert_key_to_unicode(key.key_or_keyfile_location, &out_len);
-      char_count = out_len;
-      password_to_sha256(heap_password, char_count, inited_key);
-      break;
-   }
+    case NMOBJ_key_file_type_key: {
+       unsigned out_len = 0;
+       heap_password = convert_key_to_unicode(key.key_or_keyfile_location, &out_len);
+       char_count = out_len;
+       password_to_sha256(heap_password, char_count, inited_key);
+       break;
+    }
    case NMOBJ_key_file_type_input_stdin:
       read_key_stdin(inited_key);
       break;
@@ -467,10 +467,11 @@ END_LOOP:;
       }
    }
 
-   // get new key mem and time
-   if (is_high_entropy_key && ! is_no_detect_entropy) {
-      target_mem = 0;
-   } else if (target_level != KEY_SLOT_EXP_MAX) {
+    // get new key mem and time
+    if (is_high_entropy_key && ! is_no_detect_entropy) {
+       // Allow exactly one KDF pass at level 0, then stop after level 0
+       target_mem = kdf_mem_bounds[1][1];
+    } else if (target_level != KEY_SLOT_EXP_MAX) {
       // target_level will overwrite everything. in this case, target_mem does not count
       target_mem = check_target_mem(target_mem, true, is_allow_nolock);
    }
