@@ -305,31 +305,31 @@ void frontend_help(const char * the_3rd_argv) {
             "keyslot used to unlock the device.\n"
             "\n"
             "Action options (exactly one required):\n"
-            "\t--add=<content>:         add a plaintext entry (multibyte/UTF-8 → char32_t).\n"
-            "\t                           On platforms without __STDC_UTF_32__, ASCII only.\n"
-            "\t--add-command=<cmd>:     add a SHELL command entry. Executed on Open.\n"
-            "\t--add-link=<path>:       add a LINK_OPEN entry targeting another Windham\n"
-            "\t                           partition at <path>. On Open, the linked device\n"
-            "\t                           is automatically unlocked in cascade.\n"
-            "\t--del:                   delete all aux entries matching the current key.\n"
-            "\t--probe:                 list all aux entries matching the current key,\n"
-            "\t                           plus all public (unencrypted) entries.\n"
+            "\t--aux-add=<content>:      add a plaintext entry (multibyte/UTF-8 → char32_t).\n"
+            "\t                            On platforms without __STDC_UTF_32__, ASCII only.\n"
+            "\t--add-command=<cmd>:      add a SHELL command entry. Executed on Open.\n"
+            "\t--add-link=<path>:        add a LINK_OPEN entry targeting another Windham\n"
+            "\t                            partition at <path>. On Open, the linked device\n"
+            "\t                            is automatically unlocked in cascade.\n"
+            "\t--aux-del:                delete all aux entries matching the current key.\n"
+            "\t--aux-probe:              list all aux entries matching the current key,\n"
+            "\t                            plus all public (unencrypted) entries.\n"
             "\n"
             "LINK_OPEN options (used with --add-link):\n"
-            "\t--target-key=<string>:   password for the linked device (non-interactive).\n"
-            "\t--target-keyfile=<path>: read linked device password from a key file.\n"
-            "\t--link-flag=SHORTCUT:    set STOP_EXEC_NEXT_IF_SUCC — if this link opens\n"
-            "\t                           successfully, skip remaining sibling links at the\n"
-            "\t                           same cascade level.\n"
-            "\t--link-prio=<0-255>:     set priority for ordering within this device's\n"
-            "\t                           aux zone (default 128; lower = processed first).\n"
+            "\t--target-key=<string>:    password for the linked device (non-interactive).\n"
+            "\t--target-keyfile=<path>:  read linked device password from a key file.\n"
+            "\t--link-flag=SHORTCUT:     set STOP_EXEC_NEXT_IF_SUCC — if this link opens\n"
+            "\t                            successfully, skip remaining sibling links at the\n"
+            "\t                            same cascade level.\n"
+            "\t--link-prio=<0-255>:      set priority for ordering within this device's\n"
+            "\t                            aux zone (default 128; lower = processed first).\n"
             "\n"
             "Shell options (used with --add-command):\n"
-            "\t--flag=BLCKOPEN:         block the parent Open if the command fails.\n"
-            "\t--flag=SHORTCUT:         (LINK_OPEN only, see above).\n"
+            "\t--flag=BLCKOPEN:          block the parent Open if the command fails.\n"
+            "\t--flag=SHORTCUT:          (LINK_OPEN only, see above).\n"
             "\n"
             "Other options:\n"
-            "\t--aux-type=<name>:       set entry type identifier for --add.\n"));
+            "\t--aux-type=<name>:        set entry type identifier for --aux-add.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Restore", the_3rd_argv) == 0) {
@@ -355,60 +355,12 @@ void frontend_help(const char * the_3rd_argv) {
             "\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
-   } else if (strcmp("Bench", the_3rd_argv) == 0) {
-      printf(
-         _(
-            "Bench: Performing Argon2 benchmark\n"
-            "\n"));
-   } else if (strcmp("Aux", the_3rd_argv) == 0) {
-      printf(
-         _(
-            "Aux <target>: Manage auxiliary data entries in the aux zone of a Windham partition.\n"
-            "Aux entries are small data slots that can be individually encrypted with different keys.\n"
-            "The aux slot key is derived from the keyslot (inited_key). For anonymous keys, the\n"
-            "derived inited_key is still used (keyslot_key is zeroed but inited_key is recomputed).\n"
-            "If unlocked with --master-key, the aux slot key is zero (public/unencrypted entries only).\n"
-            "Public (zero-key) entries are always visible during --probe.\n"
-            "\n"
-            "options:\n"
-            "\t--add=<content>: Add a new aux entry with the given content, encrypted with the derived aux slot key.\n"
-            "\t       Content is converted from multibyte (UTF-8) to char32_t. On platforms without\n"
-            "\t       __STDC_UTF_32__, only ASCII content is allowed.\n"
-            "\t       If unlocked with --master-key, the entry is stored as a public (unencrypted) entry.\n"
-            "\t--del: Delete aux entries matching the derived aux slot key.\n"
-            "\t--probe: List aux entries matching the derived key, plus all public entries.\n"));
-      frontend_print_unlock_args();
-      frontend_print_common_args();
-   } else if (strcmp("Destory", the_3rd_argv) == 0) {
-      printf(
-         _(
-            "Destory <target>: Wipe the windham partition header.\n"
-            "\n"));
-   } else if (strcmp("Probe", the_3rd_argv) == 0) {
-      printf(
-         _(
-            "Probe <target>: Detect Windham partitions and display their UUIDs.\n"
-            "If <target> is a device path, probe that single device. If <target> is a\n"
-            "directory, probe all regular files under it. If <target> is omitted, scan\n"
-            "all block devices on the system (/proc/partitions).\n"
-            "\n"
-            "options:\n"
-            "\t--dir=<path>:       Probe a single device file or directory.\n"
-            "\t--probe-linux:      Scan /proc/partitions for all block devices (default\n"
-            "\t                     behaviour when no target given). Shows size and mount\n"
-            "\t                     points for each detected Windham partition.\n"
-            "\t--probe-pattern=<n>: Filter partitions to those matching a specific status:\n"
-            "\t                     'suspend', 'decoy', or 'normal/regular'.\n"
-            "\n"
-            "Windham partitions are identified in three ways:\n"
-            "  - Shebang line '#!/bin/windham\\n' at the start of the header\n"
-            "  - Windham partition magic tag in the hint area\n"
-            "  - Entropic statistical tests on the header data\n"
-            "\n"
-            "Each detected partition prints its: UUID, status (normal/suspend/decoy),\n"
-            "start sector, end sector, block size, and encryption type.\n"));
-      frontend_print_common_args();
-   } else {
+    } else if (strcmp("Bench", the_3rd_argv) == 0) {
+       printf(
+          _(
+             "Bench: Performing Argon2 benchmark\n"
+             "\n"));
+    } else {
       print_error("<action> not recognized. type 'windham Help' to view help");
    }
    exit(0);

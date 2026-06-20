@@ -69,7 +69,7 @@ echo
 echo "--- Step 1: Create Windham partitions ---"
 for dev in "${DISKS[@]}"; do
     echo "  $dev …"
-    run sudo windham New "$dev" --key="$PASS" --target-time=0.2 --yes --no-admin --allow-swap
+    run sudo windham New "$dev" --key="$PASS" --target-time=0.2 --yes
 done
 
 # Step 2: Add redundant LINK_OPEN entries
@@ -84,8 +84,8 @@ for src in "${DISKS[@]}"; do
         run sudo windham Aux "$src" --add-link="$dst" \
             --key="$PASS" --target-key="$PASS" \
             --link-prio=$prio --link-flag=SHORTCUT \
-            --max-unlock-time=3 --max-unlock-memory=50000 \
-            --yes --no-admin --allow-swap
+            --max-unlock-time=3 \
+            --yes
     done
 done
 

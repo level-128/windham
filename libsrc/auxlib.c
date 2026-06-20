@@ -601,17 +601,49 @@ void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int 
     if (aux_type == NMOBJ_AUX_TYPE_LINK_OPEN) {
         AuxContentLinkOpen lh;
         memcpy(&lh, slot->content_char32_be, sizeof(lh));
-        printf(_("  Type:      LINK_OPEN\n"));
-        printf(_("  Prio:      %u\n"), lh.prio);
-        printf(_("  Flags:     %u\n"), lh.flags);
-        printf(_("  Unlock lv: %u\n"), lh.target_unlock_level);
-        printf(_("  Target UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n"),
+        printf(_("  Type:         LINK_OPEN\n"));
+        printf(_("  Priority:     %u\n"), lh.prio);
+        printf(_("  Flags:        %u"), lh.flags);
+        if (lh.flags & AUX_CONTENT_LINK_OPEN_FLG_STOP_EXEC_NEXT_IF_SUCC) printf(" (SHORTCUT)");
+        printf("\n");
+        printf(_("  Unlock level: %u\n"), lh.target_unlock_level);
+        printf(_("  Passwd chars: %u\n"), le16toh(lh.target_key_len));
+        printf(_("  Target UUID:  %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n"),
             lh.target_uuid[0],lh.target_uuid[1],lh.target_uuid[2],lh.target_uuid[3],
             lh.target_uuid[4],lh.target_uuid[5],lh.target_uuid[6],lh.target_uuid[7],
             lh.target_uuid[8],lh.target_uuid[9],lh.target_uuid[10],lh.target_uuid[11],
             lh.target_uuid[12],lh.target_uuid[13],lh.target_uuid[14],lh.target_uuid[15]);
     } else if (aux_type == NMOBJ_AUX_TYPE_SHELL) {
-        printf(_("  Type:      SHELL\n"));
+        AuxContentShell sh;
+        memcpy(&sh, slot->content_char32_be, sizeof(sh));
+        printf(_("  Type:         SHELL\n"));
+        printf(_("  Flags:        %u"), sh.flags);
+        if (sh.flags & AUX_CONTENT_SHELL_FLG_NO_OPEN_ON_FAIL) printf(" (BLCKOPEN)");
+        printf("\n");
+        printf(_("  Timeout:      %u sec\n"), le16toh(sh.timeout));
+        uint16_t cmd_len = le16toh(sh.command_len);
+        printf(_("  Command:      "));
+        if (cmd_len > 0) {
+            const char32_t *cmd_chars = slot->content_char32_be + sizeof(AuxContentShell) / sizeof(char32_t);
+            for (uint16_t i = 0; i < cmd_len; i++) {
+                char32_t c32 = cmd_chars[i];
+#ifdef __STDC_UTF_32__
+                mbstate_t mbs = {0};
+                char mb[MB_LEN_MAX];
+                size_t r = c32rtomb(mb, c32, &mbs);
+                if (r != (size_t)-1 && r > 0) {
+                    fwrite(mb, 1, r, stdout);
+                } else {
+                    printf("U+%04X", (unsigned int)c32);
+                }
+#else
+                printf("U+%04X", (unsigned int)c32);
+#endif
+            }
+        } else {
+            printf(_("(empty)"));
+        }
+        printf("\n");
     } else {
         printf("  Content: ");
         for (size_t i = 0; i < content_count; i++) {
