@@ -457,7 +457,7 @@ static bool action_open_single(
 
 
       // Probe aux zone
-      if (!entry->is_no_aux) {
+      if (!entry->is_no_aux && !entry->is_dry_run) {
          size_t  aux_zone_size = 0;
          uint8_t *aux_zone = read_aux_zone_from_device(entry->device_path, &data, &aux_zone_size);
 
@@ -535,9 +535,7 @@ static bool action_open_single(
       } else {
          char uuid_str[37];
          generate_UUID_from_bytes(data.uuid_and_salt, uuid_str);
-         printf(_("dry run complete%s%s, opened with master key:\n"), 
-               entry->is_link_open ? _(" for linked device: "): "", 
-               entry->is_link_open ? entry->device_path: "");
+         printf(_("dry run complete, opened with master key:\n"));
          print_hex_array(HASHLEN, master_key);
 
          printf(
