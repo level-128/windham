@@ -157,7 +157,7 @@ def test_shell_at_replacement(binary, device):
         assert_success(_add_link, binary, timeout=60)
 
         # Add SHELL command on disk 0 that writes "@" to a file
-        # "@" will be replaced with comma-separated mapper names of all opened devices
+        # "@" will be replaced with space-separated /dev/mapper/<name> list
         assert_success(
             ["Aux", loops[0], "--aux-add-command=echo @ > " + outfile,
              "--key=123"] + _UNLOCK + _FLAGS, binary, timeout=60)
@@ -167,20 +167,20 @@ def test_shell_at_replacement(binary, device):
         if rc != 0:
             raise TestFailure(f"Open failed: {so[-300:]}\n{se[-200:]}")
 
-        # Verify output file contains two windham- mapper names separated by comma
+        # Verify output contains /dev/mapper/windham- names separated by space
         if not os.path.exists(outfile):
             raise TestFailure(f"Output file {outfile} was not created")
         with open(outfile) as f:
             content = f.read().strip()
 
-        # Should contain two windham- names joined by comma, no spaces
-        names = content.split(",")
+        # Should contain space-separated /dev/mapper/windham- names
+        names = content.split()
         if len(names) != N:
             raise TestFailure(
-                f"Expected {N} mapper names separated by comma, got: {content}")
+                f"Expected {N} /dev/mapper/ names separated by space, got: {content}")
         for n in names:
-            if not n.startswith("windham-"):
-                raise TestFailure(f"Mapper name does not start with 'windham-': {n}")
+            if not n.startswith("/dev/mapper/windham-"):
+                raise TestFailure(f"Name does not start with '/dev/mapper/windham-': {n}")
 
         # Close all active Windham devices
         for n in names:

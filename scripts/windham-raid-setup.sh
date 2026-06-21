@@ -109,6 +109,21 @@ for dev in "${DISKS[@]}"; do
     run sudo windham New "$dev" --key="$CASCADE_KEY" --target-time=0.2 --yes
 done
 
+# Step 1.5: Get master key for public aux entries
+echo
+echo "--- Step 1.5: Extract master key (for public RAID labels) ---"
+if $DRY_RUN; then
+    MASTER_KEY="DRY-RUN-MASTER-KEY"
+else
+    MASTER_KEY=$(sudo windham Open "$OPEN_FIRST" --key="$CASCADE_KEY" \
+        --dry-run --max-unlock-time=3 --yes 2>/dev/null | grep -oE '[0-9a-f]{64} ' | head -1 | tr -d ' \n')
+    if [[ -z "$MASTER_KEY" || ${#MASTER_KEY} -lt 60 ]]; then
+        echo "WARNING: Could not extract master key. Public aux labels skipped."
+        MASTER_KEY=""
+    fi
+fi
+echo "  Master key: ${MASTER_KEY:0:16}..."
+
 # Step 2: Add user password to each disk via rapid-add (non-interactive)
 echo
 echo "--- Step 2: Add user password to each disk (rapid-add) ---"
@@ -152,12 +167,37 @@ done
 
 echo
 echo "=== Setup complete ==="
+# Step 4: Add SHELL aux entry on ALL disks (BLCKOPEN ensures only one runs)
 echo
-echo "To unlock the cascade with the cascade key:"
+echo "--- Step 4: Add auto-assemble SHELL command (all disks, BLCKOPEN) ---"
+for dev in "${DISKS[@]}"; do
+    echo "  Adding mdadm assemble to $dev …"
+    run sudo windham Aux "$dev" \
+        --aux-add-command="mdadm --assemble /dev/md0 @" \
+        --aux-flag=BLCKOPEN \
+        --key="$CASCADE_KEY" \
+        --max-unlock-time=3 --yes
+done
+
+# Step 5: Add public RAID labels on each disk (visible to any unlock key)
+if [[ -n "$MASTER_KEY" ]]; then
+    echo
+    echo "--- Step 5: Add public RAID member labels ---"
+    for i in "${!DISKS[@]}"; do
+        dev="${DISKS[$i]}"
+        label="WARNING: Disk $((i+1))/$N of a Windham RAID array ($RAID_MODE, master: $OPEN_FIRST). Do not reformat."
+        echo "  Labeling $dev …"
+        run sudo windham Aux "$dev" --aux-add="$label" \
+            --master-key="$MASTER_KEY" \
+            --max-unlock-time=3 --yes
+    done
+fi
+
+echo
+echo "=== Setup complete ==="
+echo
+echo "To unlock and auto-assemble:"
 echo "  sudo windham Open $OPEN_FIRST --key=\"$CASCADE_KEY\""
 echo
-echo "To unlock with your password:"
+echo "Or with your password:"
 echo "  sudo windham Open $OPEN_FIRST"
-echo
-echo "After all disks are mapped, assemble RAID:"
-echo "  sudo mdadm --assemble /dev/md0 /dev/mapper/windham-*"

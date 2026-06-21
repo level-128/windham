@@ -11,7 +11,7 @@ is independently encrypted with a key derived from the keyslot used to unlock th
 - **Encryption**: Each entry has its own random IV and is AES-CBC encrypted. The key
   is derived from the unlocking keyslot's `inited_key`.
 - **Public entries**: If unlocked with `--master-key`, the aux slot key is all-zero
-  (no encryption). These entries are visible during `--probe` even without a valid key.
+  (no encryption). These entries are visible during `--aux-probe` even without a valid key.
 - **Cross-re-transform persistence**: The aux zone is re-encrypted with the new
   `master_key_mask` (CBC IV) during normal (non-rapid) header re-transform, so aux
   data survives header changes.
@@ -30,26 +30,26 @@ windham Aux /dev/sda --key=mypass --add="Backup passphrase hint: blue elephant"
 
 ### SHELL (type 1)
 
-A shell command executed when the device is opened. Added via `--add-command=<cmd>`.
+A shell command executed when the device is opened. Added via `--aux-add-command=<cmd>`.
 
 **Struct**: `AuxContentShell` — type marker, flags, timeout (seconds), command length,
 command string (char32_t).
 
 **Flags**:
 - `BLCKOPEN` (value 1) — block the Open operation if the command fails. This is the
-  default flag behavior for `--add-command`.
+  default flag behavior for `--aux-add-command`.
 
 ```bash
 # Assemble RAID after unlock; block open if assembly fails
 windham Aux /dev/sda --key=mypass \
-    --add-command="mdadm --assemble /dev/md0 /dev/mapper/windham-*" \
-    --flag=BLCKOPEN
+    --aux-add-command="mdadm --assemble /dev/md0 /dev/mapper/windham-*" \
+    --aux-flag=BLCKOPEN
 ```
 
 ### LINK_OPEN (type 2)
 
 A reference to another Windham partition. When the parent device is opened, the
-linked device is automatically unlocked in cascade. Added via `--add-link=<path>`.
+linked device is automatically unlocked in cascade. Added via `--aux-add-link=<path>`.
 
 **Struct**: `AuxContentLinkOpen` — type marker, flags, target unlock level, priority,
 target UUID, pre-hashed char32_t password.
@@ -58,17 +58,17 @@ target UUID, pre-hashed char32_t password.
 - `SHORTCUT` (value 4) — if this link opens successfully, skip all remaining sibling
   links at the same cascade depth level.
 
-**Priority**: `--link-prio=<0-255>` (default 128). Lower = processed earlier. Within
+**Priority**: `--aux-link-prio=<0-255>` (default 128). Lower = processed earlier. Within
 a device's aux zone, LINK_OPEN entries are sorted by priority; the lowest-priority
 entry opens first.
 
-**Target password**: Use `--target-key=<password>` (non-interactive) or
-`--target-keyfile=<path>`. If neither is given, you will be prompted interactively.
+**Target password**: Use `--aux-target-key=<password>` (non-interactive) or
+`--aux-target-keyfile=<path>`. If neither is given, you will be prompted interactively.
 
 ```bash
 # Link /dev/sdb to /dev/sda; when sda opens, sdb opens automatically
 windham Aux /dev/sda --key=mypass \
-    --add-link=/dev/sdb --target-key=otherpass --link-prio=100
+    --aux-add-link=/dev/sdb --aux-target-key=otherpass --aux-link-prio=100
 ```
 
 #### Cascade behavior
@@ -120,21 +120,21 @@ done
 # Step 2: Redundant links on every disk
 # Disk A → B (prio=50, SHORTCUT), C (prio=100, SHORTCUT)
 sudo windham Aux /dev/sda --key=raidpass \
-    --add-link=/dev/sdb --target-key=raidpass --link-prio=50 --link-flag=SHORTCUT
+    --aux-add-link=/dev/sdb --aux-target-key=raidpass --aux-link-prio=50 --aux-link-flag=SHORTCUT
 sudo windham Aux /dev/sda --key=raidpass \
-    --add-link=/dev/sdc --target-key=raidpass --link-prio=100 --link-flag=SHORTCUT
+    --aux-add-link=/dev/sdc --aux-target-key=raidpass --aux-link-prio=100 --aux-link-flag=SHORTCUT
 
 # Disk B → C (prio=50, SHORTCUT), A (prio=100, SHORTCUT)
 sudo windham Aux /dev/sdb --key=raidpass \
-    --add-link=/dev/sdc --target-key=raidpass --link-prio=50 --link-flag=SHORTCUT
+    --aux-add-link=/dev/sdc --aux-target-key=raidpass --aux-link-prio=50 --aux-link-flag=SHORTCUT
 sudo windham Aux /dev/sdb --key=raidpass \
-    --add-link=/dev/sda --target-key=raidpass --link-prio=100 --link-flag=SHORTCUT
+    --aux-add-link=/dev/sda --aux-target-key=raidpass --aux-link-prio=100 --aux-link-flag=SHORTCUT
 
 # Disk C → A (prio=50, SHORTCUT), B (prio=100, SHORTCUT)
 sudo windham Aux /dev/sdc --key=raidpass \
-    --add-link=/dev/sda --target-key=raidpass --link-prio=50 --link-flag=SHORTCUT
+    --aux-add-link=/dev/sda --aux-target-key=raidpass --aux-link-prio=50 --aux-link-flag=SHORTCUT
 sudo windham Aux /dev/sdc --key=raidpass \
-    --add-link=/dev/sdb --target-key=raidpass --link-prio=100 --link-flag=SHORTCUT
+    --aux-add-link=/dev/sdb --aux-target-key=raidpass --aux-link-prio=100 --aux-link-flag=SHORTCUT
 ```
 
 **How fault tolerance works** — opening disk A:
@@ -166,7 +166,7 @@ Link your home partition to your root partition so a single unlock cascades:
 ```bash
 # Link encrypted /home to encrypted /root
 windham Aux /dev/root --key=rootpass \
-    --add-link=/dev/home --target-key=homepass --link-prio=50 --link-flag=SHORTCUT
+    --aux-add-link=/dev/home --aux-target-key=homepass --aux-link-prio=50 --aux-link-flag=SHORTCUT
 ```
 
 ### Offline backup chain
@@ -176,18 +176,54 @@ at an offsite location (when connected):
 
 ```bash
 windham Aux /dev/primary --key=main \
-    --add-link=/dev/disk/by-uuid/<backup-uuid> --target-key=backupkey --link-prio=200
+    --aux-add-link=/dev/disk/by-uuid/<backup-uuid> --aux-target-key=backupkey --aux-link-prio=200
 ```
+
+### Automated RAID setup script
+
+`scripts/windham-raid-setup.sh` automates the entire RAID cascade setup:
+
+```bash
+# RAID6: 4 disks, each links to 3 others (tolerates 2 failures)
+sudo ./scripts/windham-raid-setup.sh --raid=raid6 --pass=raidpass /dev/sd{b,c,d,e}
+
+# RAID5: 5 disks, links to 2 others (tolerates 1 failure)
+sudo ./scripts/windham-raid-setup.sh --raid=raid5 /dev/sd{a,b,c,d,e}
+
+# Full redundancy: every disk links to every other
+sudo ./scripts/windham-raid-setup.sh --pass=mypass /dev/sd{a,b,c}
+```
+
+The script handles:
+1. Shared cascade key generation
+2. Partition creation + user passphrase enrollment
+3. Redundant LINK_OPEN entries with SHORTCUT
+4. SHELL command (`mdadm --assemble /dev/md0 @`) on every disk with BLCKOPEN
+5. Public "RAID member" warning labels on each disk
+
+After setup, opening the first disk cascades and assembles automatically:
+
+```bash
+sudo windham Open /dev/sdb
+# All disks unlock → SHELL runs → /dev/md0 ready
+```
+
+| Script Option | Values | Description |
+|---|---|---|
+| `--raid=` | `all` (default), `raid5`, `raid6` | Link topology |
+| `--pass=` | string | User password (prompts if omitted) |
+| `--open-first=` | device path | Cascade trigger disk (default: first arg) |
+| `--dry-run` | — | Print commands without executing |
 
 ## Aux zone management
 
 | Command | Description |
 |---|---|
-| `--add=<text>` | Add a PLAINTEXT entry |
-| `--add-command=<cmd> --flag=<flag>` | Add a SHELL entry |
-| `--add-link=<path> --target-key=...` | Add a LINK_OPEN entry |
-| `--del` | Delete all entries matching the current key |
-| `--probe` | List entries matching the current key + all public entries |
+| `--aux-add=<text>` | Add a PLAINTEXT entry |
+| `--aux-add-command=<cmd> --aux-flag=<flag>` | Add a SHELL entry |
+| `--aux-add-link=<path> --aux-target-key=...` | Add a LINK_OPEN entry |
+| `--aux-del` | Delete all entries matching the current key |
+| `--aux-probe` | List entries matching the current key + all public entries |
 
 All commands require unlocking the aux zone first — use `--key`, `--key-file`, or
 `--keystdin`.
@@ -196,15 +232,15 @@ All commands require unlocking the aux zone first — use `--key`, `--key-file`,
 
 ```bash
 # Show all entries (encrypted for current key + public entries)
-windham Aux /dev/sda --key=mypass --probe
+windham Aux /dev/sda --key=mypass --aux-probe
 
 # When unlocked with master key, only public entries are shown
-windham Aux /dev/sda --master-key=<hex> --probe
+windham Aux /dev/sda --master-key=<hex> --aux-probe
 ```
 
 ### Deleting all aux entries for a key
 
 ```bash
-windham Aux /dev/sda --key=mypass --del
+windham Aux /dev/sda --key=mypass --aux-del
 # Removes ALL aux entries that were encrypted with this key's inited_key
 ```

@@ -782,13 +782,15 @@ bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], si
         // Build replacement string
         size_t names_total_len = 0;
         for (size_t i = 0; i < opened_names_len; i++) {
-            names_total_len += strlen(opened_names[i]) + 1; // +1 for comma
+            // "/dev/mapper/" prefix + name + space separator
+            names_total_len += strlen("/dev/mapper/") + strlen(opened_names[i]) + 1;
         }
         char *names_str = malloc(names_total_len + 1);
         if (names_str) {
             names_str[0] = '\0';
             for (size_t i = 0; i < opened_names_len; i++) {
-                if (i > 0) strcat(names_str, ",");
+                if (i > 0) strcat(names_str, " ");
+                strcat(names_str, "/dev/mapper/");
                 strcat(names_str, opened_names[i]);
             }
             // Replace all "@" in mb_cmd with names_str
