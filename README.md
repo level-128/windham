@@ -13,7 +13,7 @@ passphrases are registered.
 
 ## Features at a glance
 
-- **Transparent block-level encryption** via dm-crypt (aes-xts-plain64 by default)
+- **Transparent block-level encryption** — Linux dm-crypt with any filesystem combination
 - **Plausible deniability** — cryptographically random on-disk format with no signatures,
   no magic numbers, and optional Decoy Partition (steganography)
 - **16 passphrase slots** — supports password, key file, master key. Unlock time is
@@ -22,15 +22,13 @@ passphrases are registered.
   in a configurable priority tree. Supports `SHORTCUT` flag to prune sibling branches,
   enabling fault-tolerant RAID setups with surviving path discovery
 - **Auxiliary data zone** — per-key encrypted metadata: plaintext notes, shell commands
-  executed on open, and LINK_OPEN entries. Survives header re-transforms
-- **Probe** — scan block devices or files for Windham partitions (shebang / magic /
-  suspend / entropy). Displays device attributes, UUID, mount info
-- **Unicode password input** — Tab+Space to enter hex code points; passwords normalized
-  to UTF-32BE before hashing for cross-platform key derivation
-- **Tamper resistance** — header modifications while suspended are detected; multiple
-  built-in integrity markers validate every open
+  executed after open, and LINK_OPEN entries. Survives header re-transforms
+- **Tamper resistance** — any modification to the header is detected; multiple built-in
+  integrity markers prevent tampering even while suspended in plaintext
 - **Self-correlated metadata** — header re-transform changes most bits to obscure
   modification history (defeats slot-history attack)
+- **Variable key derivation** — memory-hard KDF (Argon2id) with runtime-variable
+  parameters, significantly mitigating ASIC-based brute-force attacks
 
 ---
 
@@ -40,14 +38,37 @@ passphrases are registered.
 # Build
 git clone https://github.com/level-128/windham.git --depth=1 && cd windham
 cmake -B build && cmake --build build
+```
 
-# Create, open, use, close
-sudo windham New   /dev/sdb                       # create encrypted device
-sudo windham Open  /dev/sdb                       # unlock → /dev/mapper/windham-<uuid>
-sudo mkfs.ext4     /dev/mapper/windham-*          # format
-sudo mount         /dev/mapper/windham-* /mnt     # use
-sudo windham Close windham-*                      # lock
-sudo windham List                                 # list active mappings
+### Supported platforms
+
+| Tier | Requirements | Capabilities |
+|---|---|---|
+| **Full** (GNU/Linux) | Linux 2.6+, libdevmapper, libblkid, gettext, C11 compiler with GNU extensions | Everything |
+| **Basic** (ISO C11) | `stdlib.h`, `string.h`, `stdio.h`, `threads.h` (optional), ~510 KB heap | Header management, unlock, probe (no dm-crypt mapping) |
+
+Full-support dependencies: `libdevmapper-dev`, `linux-headers`, `libgettextpo-dev`, `libblkid-dev`, `libkeyutils-dev`. See [install guide](docs/install.md).
+
+
+```bash
+# Create:
+sudo windham New   /dev/sdb                        # create encrypted device
+# For existing devices:
+sudo windham Probe                                 # list Windham partitions
+
+# Unlock:
+sudo windham Open  /dev/sdb --to=<name>            # unlock → /dev/mapper/<name>
+# Without --to, the name defaults to "windham-<UUID>"
+sudo mkfs.ext4     /dev/mapper/windham-*           # format (EXT4 example)
+sudo mount         /dev/mapper/windham-* /mnt      # mount and use
+```
+
+```bash
+sudo windham List                                  # list active mappings
+
+sudo windham Close <name>                          # lock
+# or
+sudo windham Close --all                           # lock all devices
 ```
 
 ---
@@ -67,17 +88,6 @@ sudo windham List                                 # list active mappings
 | [scripts/windham-raid-setup.sh](scripts/windham-raid-setup.sh) | One-shot RAID cascade script (N disks, redundant SHORTCUT links) |
 
 For per-action option reference: `windham Help <action>` (e.g. `windham Help Open`).
-
----
-
-## Supported platforms
-
-| Tier | Requirements | Capabilities |
-|---|---|---|
-| **Full** (GNU/Linux) | Linux 2.6+, libdevmapper, libblkid, gettext, C11 compiler with GNU extensions | Everything |
-| **Basic** (ISO C11) | `stdlib.h`, `string.h`, `stdio.h`, `threads.h` (optional), ~510 KB heap | Header management, unlock, probe (no dm-crypt mapping) |
-
-Full-support dependencies: `libdevmapper-dev`, `linux-headers`, `libgettextpo-dev`, `libblkid-dev`, `libkeyutils-dev`.
 
 ---
 
