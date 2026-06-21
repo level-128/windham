@@ -9,7 +9,7 @@
 Windham 启动时检测到自己就是 PID 1，接下来的行为会完全改变：
 
 1. 忽略所有命令行参数。
-2. 从二进制文件内的 `.windhaminit` 区段读取预编译的操作指令。
+2. 从二进制文件内的 `.windhaminit` 区段获取二进制内的操作指令。
 3. 执行该指令。
 4. 如果成功，`exec` 到预设的后续程序（默认是 `/bin/sh`）。
 5. 如果失败，内核 panic：`Kernel panic - not syncing - Attempted to kill init!`
@@ -34,9 +34,26 @@ WINDHAMINIT:\xff<成功后的 exec 路径>\xff<操作名>\xff<参数>\xff<选项
 # 查看 .windhaminit 区段
 objdump -h windham | grep windhaminit
 
+# $ objdump -h /bin/windham | grep windhaminit
+ 16 .windhaminit  00000100  00000000000416e0  00000000000416e0  000416e0  2**5
+# 其中的 000416e0就是地址
+
 # 用十六进制编辑器修改
 hexedit /path/to/windham
+# 回车 → 输入 0x416e0 → 回车 跳转到地址
+# 按 TAB 在 ASCII 和16进制之间跳转
+# 按 F2 保存，Ctrl+C 退出
 ```
+
+```
+000416E0   57 49 4E 44  48 41 4D 49  4E 49 54 3A  WINDHAMINIT:
+000416EC   FF 2F 62 69  6E 2F 73 68  FF 4F 70 65  ./bin/sh.Ope
+000416F8   6E FF 54 41  42 00 00 00  00 00 00 00  n.TAB.......
+00041704   00 00 00 00  00 00 00 00  00 00 00 00  ............
+00041710   00 00 00 00  00 00 00 00  00 00 00 00  ............
+```
+
+
 
 ### 示例：单独解锁一块盘
 
@@ -44,13 +61,15 @@ hexedit /path/to/windham
 WINDHAMINIT:\xff/bin/sh\xffOpen\xff/dev/sda\xff--key-file=/boot/key.bin\xff--nofail\x00
 ```
 
-### 示例：解锁后 exec 到 busybox
+### 示例：按照 /etc/windhamtab 解锁后 exec 到 bash
 
 ```
-WINDHAMINIT:\xff/bin/busybox sh\xffOpen\xffTAB\xff--nofail\x00
+WINDHAMINIT:\xff/bin/bash\xffOpen\xffTAB\xff--nofail\x00
 ```
 
 ## 内核命令行
+
+在内核命令行中添加：
 
 ```
 init=/path/to/windham

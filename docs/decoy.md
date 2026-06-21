@@ -46,6 +46,10 @@ When opening a decoy partition, use `--decoy`:
 sudo windham Open /dev/sdb --decoy
 ```
 
+`Windham Probe` does not handle decoy partitions specially — whether a decoy
+partition is detected by `Probe` depends on whether the leading sectors contain
+random data or a recognizable tag.
+
 ## Limitations
 
 ### Filesystem compatibility
@@ -59,7 +63,9 @@ journaling filesystems do NOT guarantee this and may overwrite the decoy area.
 SSD devices with TRIM support will periodically discard unused sectors. If the
 decoy area is not written by the visible filesystem, the SSD may mark those sectors
 as discarded, creating a visible "hole" of invalid data. This destroys plausible
-deniability. Use HDDs or USB flash drives (no TRIM) for maximum security.
+deniability. Use HDDs or USB flash drives (no TRIM) for maximum security, or
+create a non-TRIM mapping on top (e.g., a default-parameter LUKS or Windham
+partition).
 
 ### GPT modifications
 

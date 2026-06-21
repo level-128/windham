@@ -31,19 +31,21 @@ windham Aux /dev/sda --key=mypass --add="Backup passphrase hint: blue elephant"
 ### SHELL (type 1)
 
 A shell command executed when the device is opened. Added via `--aux-add-command=<cmd>`.
+The `@` character in the command is replaced by the device name(s) opened in the
+current operation. If multiple devices are opened, they are comma-separated.
 
 **Struct**: `AuxContentShell` — type marker, flags, timeout (seconds), command length,
 command string (char32_t).
 
 **Flags**:
-- `BLCKOPEN` (value 1) — block the Open operation if the command fails. This is the
-  default flag behavior for `--aux-add-command`.
+- `BLCKOPEN` — if the command succeeds, block subsequent commands. When `Open`
+  is cascaded across multiple devices (see LINK_OPEN), this blocks all further
+  commands, not just those in the current device's aux zone.
 
 ```bash
-# Assemble RAID after unlock; block open if assembly fails
-windham Aux /dev/sda --key=mypass \
-    --aux-add-command="mdadm --assemble /dev/md0 /dev/mapper/windham-*" \
-    --aux-flag=BLCKOPEN
+# Mount the opened device; @ expands to the device name
+windham Aux /dev/sda --to=mydisk \
+    --aux-add-command="mount /dev/mapper/@ /mnt/mymnt"
 ```
 
 ### LINK_OPEN (type 2)
@@ -210,7 +212,7 @@ sudo windham Open /dev/sdb
 
 | Script Option | Values | Description |
 |---|---|---|
-| `--raid=` | `all` (default), `raid5`, `raid6` | Link topology |
+| `--raid=` | `raid1` (default), `raid5`, `raid6` | Link topology |
 | `--pass=` | string | User password (prompts if omitted) |
 | `--open-first=` | device path | Cascade trigger disk (default: first arg) |
 | `--dry-run` | — | Print commands without executing |

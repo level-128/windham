@@ -112,10 +112,10 @@ Suspend stores the intermediate key in the header, allowing passwordless unlock:
 ```bash
 sudo windham Suspend /dev/sdb
 # Device can now be opened without a password
-
-# ......
-
-sudo windham Resume /dev/sdb 
+sudo windham Open /dev/sdb
+# ... use the filesystem ...
+sudo windham Close windham-*
+sudo windham Resume /dev/sdb
 # Device requires password again
 ```
 

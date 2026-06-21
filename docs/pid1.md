@@ -35,8 +35,23 @@ WINDHAMINIT:\xff<program>\xff<Action>\xff<argument>\xff<option>...
 # Find the section
 objdump -h windham | grep windhaminit
 
-# Edit
+# Example output:
+#   16 .windhaminit  00000100  00000000000416e0  00000000000416e0  000416e0  2**5
+# The address (000416e0) is where the section begins in the file.
+
+# Edit with hexedit
 hexedit /path/to/windham
+#   Enter → type 0x416e0 → Enter (jump to address)
+#   Tab to toggle between ASCII and hex views
+#   F2 to save, Ctrl+C to exit
+```
+
+```
+000416E0   57 49 4E 44  48 41 4D 49  4E 49 54 3A  WINDHAMINIT:
+000416EC   FF 2F 62 69  6E 2F 73 68  FF 4F 70 65  ./bin/sh.Ope
+000416F8   6E FF 54 41  42 00 00 00  00 00 00 00  n.TAB.......
+00041704   00 00 00 00  00 00 00 00  00 00 00 00  ............
+00041710   00 00 00 00  00 00 00 00  00 00 00 00  ............
 ```
 
 ### Example: single device unlock
@@ -45,10 +60,10 @@ hexedit /path/to/windham
 WINDHAMINIT:\xff/bin/sh\xffOpen\xff/dev/sda\xff--key-file=/boot/key.bin\xff--nofail\x00
 ```
 
-### Example: unlock then exec busybox
+### Example: unlock then exec bash
 
 ```
-WINDHAMINIT:\xff/bin/busybox sh\xffOpen\xffTAB\xff--nofail\x00
+WINDHAMINIT:\xff/bin/bash\xffOpen\xffTAB\xff--nofail\x00
 ```
 
 ## Kernel command line
