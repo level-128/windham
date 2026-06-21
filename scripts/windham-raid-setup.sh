@@ -179,22 +179,38 @@ for i in "${!DISKS[@]}"; do
 done
 
 echo
-echo "=== Setup complete ==="
-# Step 4: Add SHELL aux entry on ALL disks (BLCKOPEN ensures only one runs)
+# Step 4: Open the cascade, create the RAID array, then close
 echo
-echo "--- Step 4: Add auto-assemble SHELL command (all disks, BLCKOPEN) ---"
+echo "--- Step 4: Create RAID array ---"
+echo "  Opening cascade on $OPEN_FIRST …"
+run sudo windham Open "$OPEN_FIRST" --key="$CASCADE_KEY" --max-unlock-time=3 --yes
+echo "  Creating RAID ($RAID_MODE, $N disks) …"
+# Get mapper names for mdadm
+MAPPERS=$(sudo ./cmake-build-debug/windham_debug List --no-admin 2>/dev/null | \
+    grep '^windham-' | sed 's/^/\/dev\/mapper\//' | tr '\n' ' ')
+if [[ -z "$MAPPERS" ]]; then
+    MAPPERS=$(ls /dev/mapper/windham-* 2>/dev/null | tr '\n' ' ')
+fi
+run sudo mdadm --create /dev/md0 --assume-clean --level=${RAID_MODE#raid} --raid-devices=$N $MAPPERS
+echo "  Closing all …"
+sudo windham Close --all --yes
+run echo "  RAID created successfully."
+
+# Step 5: Add SHELL aux entry on ALL disks (BLCKOPEN ensures only one runs)
+echo
+echo "--- Step 5: Add auto-assemble SHELL command (all disks, BLCKOPEN) ---"
 for dev in "${DISKS[@]}"; do
     echo "  Adding mdadm assemble to $dev …"
     run sudo windham Aux "$dev" \
-        --aux-add-command="mdadm --assemble /dev/md0 @ 2>/dev/null || mdadm --create /dev/md0 --assume-clean --level=${RAID_MODE#raid} --raid-devices=$N @ 2>/dev/null || true" \
+        --aux-add-command="mdadm --assemble /dev/md0 @" \
         --aux-flag=BLCKOPEN \
         --master-key="${MASTER_KEYS[$dev]}" \
         --max-unlock-time=3 --yes
 done
 
-# Step 5: Add public RAID labels on each disk (visible to any unlock key)
+# Step 6: Add public RAID labels on each disk (visible to any unlock key)
 echo
-echo "--- Step 5: Add public RAID member labels ---"
+echo "--- Step 6: Add public RAID member labels ---"
 for i in "${!DISKS[@]}"; do
     dev="${DISKS[$i]}"
     label="WARNING: Disk $((i+1))/$N of a Windham RAID array ($RAID_MODE, master: $OPEN_FIRST). Do not reformat."
