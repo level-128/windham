@@ -38,6 +38,7 @@ def test_shell_exec_basic(binary, device):
     # Add a SHELL command that writes to a file
     assert_success(
         ["Aux", device, "--aux-add-command=echo hello >> " + outfile,
+         "--aux-flag=",
          "--key=123"] + _UNLOCK + _FLAGS, binary)
 
     # Probe to verify the aux entry exists

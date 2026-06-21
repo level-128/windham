@@ -12,8 +12,8 @@
 # Options:
 #   --pass=<password>    User password (default: prompt once)
 #   --open-first=<disk>  Which disk to open to trigger cascade (default: first arg)
-#   --raid=all|raid5|raid6  Link topology (default: all)
-#                          all   — every disk links to every other disk
+#   --raid=raid1|raid5|raid6  Link topology (default: raid1)
+#                          raid1 — every disk links to every other (full mirror)
 #                          raid5 — each disk links to next 2 (tolerates 1 failure)
 #                          raid6 — each disk links to next 3 (tolerates 2 failures)
 #   --dry-run            Print commands without executing
@@ -23,10 +23,10 @@ set -e
 DRY_RUN=false
 PASS=""
 OPEN_FIRST=""
-RAID_MODE="all"
+RAID_MODE="raid1"
 
 usage() {
-    echo "Usage: $0 [--pass=<pw>] [--raid=all|raid5|raid6] [--open-first=<disk>] [--dry-run] /dev/sda /dev/sdb ..."
+    echo "Usage: $0 [--pass=<pw>] [--raid=raid1|raid5|raid6] [--open-first=<disk>] [--dry-run] /dev/sda /dev/sdb ..."
     exit 1
 }
 
@@ -45,7 +45,11 @@ for arg in "$@"; do
 done
 
 N=${#DISKS[@]}
-if [[ "$RAID_MODE" == "raid5" ]]; then
+if [[ "$RAID_MODE" == "raid1" ]]; then
+    (( N >= 2 )) || { echo "raid1 needs at least 2 disks." >&2; exit 1; }
+    MAX_FAIL=$(( N-1 ))
+    HOPS=0  # 0 means "all others"
+elif [[ "$RAID_MODE" == "raid5" ]]; then
     (( N >= 3 )) || { echo "raid5 needs at least 3 disks." >&2; exit 1; }
     MAX_FAIL=1
     HOPS=2
@@ -53,16 +57,20 @@ elif [[ "$RAID_MODE" == "raid6" ]]; then
     (( N >= 4 )) || { echo "raid6 needs at least 4 disks." >&2; exit 1; }
     MAX_FAIL=2
     HOPS=3
-elif [[ "$RAID_MODE" == "all" ]]; then
-    (( N >= 3 )) || { echo "Need at least 3 disks." >&2; exit 1; }
-    MAX_FAIL=$(( (N-1)/2 ))
-    HOPS=0  # 0 means "all others"
 else
-    echo "Unknown --raid mode: $RAID_MODE (valid: all, raid5, raid6)" >&2
+    echo "Unknown --raid mode: $RAID_MODE (valid: raid1, raid5, raid6)" >&2
     exit 1
 fi
 
 OPEN_FIRST="${OPEN_FIRST:-${DISKS[0]}}"
+
+# Detect mdadm
+if ! $DRY_RUN; then
+    if ! command -v mdadm &>/dev/null; then
+        echo "ERROR: mdadm not found. Install mdadm to use RAID auto-assembly." >&2
+        exit 1
+    fi
+fi
 
 # Prompt for password if not given
 if [[ -z "$PASS" ]]; then
@@ -78,7 +86,7 @@ run() {
     if $DRY_RUN; then
         echo "  DRY-RUN: $*"
     else
-        "$@"
+        "$@" || { echo "ERROR: Command failed: $*" >&2; exit 1; }
     fi
 }
 
@@ -109,20 +117,25 @@ for dev in "${DISKS[@]}"; do
     run sudo windham New "$dev" --key="$CASCADE_KEY" --target-time=0.2 --yes
 done
 
-# Step 1.5: Get master key for public aux entries
+# Step 1.5: Extract master key from EACH disk (for public aux entries)
 echo
-echo "--- Step 1.5: Extract master key (for public RAID labels) ---"
-if $DRY_RUN; then
-    MASTER_KEY="DRY-RUN-MASTER-KEY"
-else
-    MASTER_KEY=$(sudo windham Open "$OPEN_FIRST" --key="$CASCADE_KEY" \
-        --dry-run --max-unlock-time=3 --yes 2>/dev/null | grep -oE '[0-9a-f]{64} ' | head -1 | tr -d ' \n')
-    if [[ -z "$MASTER_KEY" || ${#MASTER_KEY} -lt 60 ]]; then
-        echo "WARNING: Could not extract master key. Public aux labels skipped."
-        MASTER_KEY=""
+echo "--- Step 1.5: Extract master keys ---"
+declare -A MASTER_KEYS
+for dev in "${DISKS[@]}"; do
+    if $DRY_RUN; then
+        MASTER_KEYS[$dev]="DRY-RUN-MASTER-KEY"
+        echo "  DRY-RUN: $dev → master key"
+        continue
     fi
-fi
-echo "  Master key: ${MASTER_KEY:0:16}..."
+    MK=$(sudo windham Open "$dev" --key="$CASCADE_KEY" \
+        --dry-run --max-unlock-time=3 --yes 2>/dev/null | \
+        awk '/^[0-9a-f]{2} [0-9a-f]{2}/' | tr -d ' \n' | head -c 64)
+    if [[ -z "$MK" || ${#MK} -lt 60 ]]; then
+        echo "  ERROR: Could not extract master key for $dev." >&2; exit 1
+    fi
+    MASTER_KEYS[$dev]="$MK"
+    echo "  $dev master key: ${MK:0:16}..."
+done
 
 # Step 2: Add user password to each disk via rapid-add (non-interactive)
 echo
@@ -147,7 +160,7 @@ for i in "${!DISKS[@]}"; do
             prio=$((prio + 1))
             echo "  $src → $dst (prio=$prio, SHORTCUT)"
             run sudo windham Aux "$src" --aux-add-link="$dst" \
-                --key="$CASCADE_KEY" --aux-target-key="$CASCADE_KEY" \
+                --master-key="${MASTER_KEYS[$src]}" --aux-target-key="$CASCADE_KEY" \
                 --aux-link-prio=$prio --aux-link-flag=SHORTCUT \
                 --max-unlock-time=3 --yes
         done
@@ -158,7 +171,7 @@ for i in "${!DISKS[@]}"; do
             prio=$((prio + 1))
             echo "  $src → $dst (hop=$hop, prio=$prio, SHORTCUT)"
             run sudo windham Aux "$src" --aux-add-link="$dst" \
-                --key="$CASCADE_KEY" --aux-target-key="$CASCADE_KEY" \
+                --master-key="${MASTER_KEYS[$src]}" --aux-target-key="$CASCADE_KEY" \
                 --aux-link-prio=$prio --aux-link-flag=SHORTCUT \
                 --max-unlock-time=3 --yes
         done
@@ -173,25 +186,23 @@ echo "--- Step 4: Add auto-assemble SHELL command (all disks, BLCKOPEN) ---"
 for dev in "${DISKS[@]}"; do
     echo "  Adding mdadm assemble to $dev …"
     run sudo windham Aux "$dev" \
-        --aux-add-command="mdadm --assemble /dev/md0 @" \
+        --aux-add-command="mdadm --assemble /dev/md0 @ 2>/dev/null || mdadm --create /dev/md0 --assume-clean --level=${RAID_MODE#raid} --raid-devices=$N @ 2>/dev/null || true" \
         --aux-flag=BLCKOPEN \
-        --key="$CASCADE_KEY" \
+        --master-key="${MASTER_KEYS[$dev]}" \
         --max-unlock-time=3 --yes
 done
 
 # Step 5: Add public RAID labels on each disk (visible to any unlock key)
-if [[ -n "$MASTER_KEY" ]]; then
-    echo
-    echo "--- Step 5: Add public RAID member labels ---"
-    for i in "${!DISKS[@]}"; do
-        dev="${DISKS[$i]}"
-        label="WARNING: Disk $((i+1))/$N of a Windham RAID array ($RAID_MODE, master: $OPEN_FIRST). Do not reformat."
-        echo "  Labeling $dev …"
-        run sudo windham Aux "$dev" --aux-add="$label" \
-            --master-key="$MASTER_KEY" \
-            --max-unlock-time=3 --yes
-    done
-fi
+echo
+echo "--- Step 5: Add public RAID member labels ---"
+for i in "${!DISKS[@]}"; do
+    dev="${DISKS[$i]}"
+    label="WARNING: Disk $((i+1))/$N of a Windham RAID array ($RAID_MODE, master: $OPEN_FIRST). Do not reformat."
+    echo "  Labeling $dev …"
+    run sudo windham Aux "$dev" --aux-add="$label" \
+        --master-key="${MASTER_KEYS[$dev]}" \
+        --max-unlock-time=3 --yes
+done
 
 echo
 echo "=== Setup complete ==="

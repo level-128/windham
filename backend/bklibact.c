@@ -76,9 +76,73 @@ void action_close(const char * device, bool is_deferred_remove) {
       print_error(
          _("The device name is required, however path is provided. Use \"lsblk\" or \"ls -l\" to search for the correct device."
          ));
-   }
+    }
 }
 
+void action_close_all(bool is_deferred_remove) {
+#ifndef WINDHAM_ISOC
+    if (!is_device_mapper_available) {
+        print_error(_("Device mapper library is not available."));
+    }
+
+    struct dm_task *dmt;
+    struct dm_names *names;
+    unsigned next = 0;
+    int closed = 0, failed = 0;
+
+    if (!(dmt = p_dm_task_create(DM_DEVICE_LIST))) {
+        print_error(_("Failed to create dm_task for listing devices."));
+    }
+    if (!p_dm_task_run(dmt)) {
+        p_dm_task_destroy(dmt);
+        print_error(_("Failed to query device mapper."));
+    }
+
+    names = p_dm_task_get_names(dmt);
+    if (!names) {
+        printf(_("No device mapper devices found.\n"));
+        p_dm_task_destroy(dmt);
+        return;
+    }
+
+    do {
+        names = (struct dm_names *)((char *)names + next);
+        if (strncmp(names->name, "windham-", 8) != 0) {
+            next = names->next;
+            continue;
+        }
+
+        printf(_("Closing %s... "), names->name);
+        struct dm_task *rmt = p_dm_task_create(DM_DEVICE_REMOVE);
+        if (rmt && p_dm_task_set_name(rmt, names->name)) {
+            if (is_deferred_remove) p_dm_task_deferred_remove(rmt);
+            if (p_dm_task_run(rmt)) {
+                printf(_("OK\n"));
+                closed++;
+            } else {
+                printf(_("FAILED\n"));
+                failed++;
+            }
+        } else {
+            printf(_("FAILED\n"));
+            failed++;
+        }
+        if (rmt) p_dm_task_destroy(rmt);
+        next = names->next;
+    } while (next);
+
+    p_dm_task_destroy(dmt);
+
+    if (closed > 0 || failed > 0) {
+        printf(_("Closed %d device(s), %d failed.\n"), closed, failed);
+    } else {
+        printf(_("No active Windham devices found.\n"));
+    }
+#else
+    (void)is_deferred_remove;
+    print_error(_("--all is not available in ISO C mode."));
+#endif
+}
 
 int action_addkey(
    const char * device,

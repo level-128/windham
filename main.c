@@ -76,6 +76,7 @@ enum {
 	NMOBJ_target_key,
 	NMOBJ_target_key_file,
 	NMOBJ_aux_link_paths,
+	NMOBJ_close_all,
 	NMOBJ_target_SIZE
 };
 
@@ -180,6 +181,7 @@ const struct option long_options[] = {
 	{"aux-target-key", required_argument, &options[NMOBJ_target_key], 1},
 	{"aux-target-keyfile", required_argument, &options[NMOBJ_target_key_file], 1},
 	{"aux-link", optional_argument, &options[NMOBJ_aux_link_paths], 1},
+	{"all", no_argument, &options[NMOBJ_close_all], 1},
 	{0, 0, 0, 0}
 };
 
@@ -232,6 +234,7 @@ void frontend_check_invalid_param(int action_num) {
 		}
 		case NMOBJ_action_close: {
 			check_action({NMOBJ_is_deffered_remove,
+			             NMOBJ_close_all,
 			             CHECK_COMMON})
 		}
 		case NMOBJ_action_new: {
@@ -594,9 +597,11 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 
 			break;
 		case NMOBJ_action_close:
-			// do not init device, since the device is mapper's name.
-			action_close(device, options[NMOBJ_is_deffered_remove]);
-			// loop frees inside it
+			if (options[NMOBJ_close_all]) {
+				action_close_all(options[NMOBJ_is_deffered_remove]);
+			} else {
+				action_close(device, options[NMOBJ_is_deffered_remove]);
+			}
 			break;
 		case NMOBJ_action_new:
 			init_device(device,
