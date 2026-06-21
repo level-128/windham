@@ -850,7 +850,7 @@ int main_(int argc, char *argv[]) {
 			if (strcmp(argv[2], "--help") == 0 || strcmp(argv[2], "-h") == 0) {
 				frontend_help(argv[1]);
 			}
-			if (action_num == NMOBJ_action_probe) {
+			if (action_num == NMOBJ_action_probe || action_num == NMOBJ_action_close) {
 				device = NULL;
 				opt_start = 2;
 			} else {
