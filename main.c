@@ -21,6 +21,7 @@ enum {
 	NMOBJ_to,
 	NMOBJ_key,
 	NMOBJ_key_file,
+	NMOBJ_new_key,
 	NMOBJ_master_key,
 	NMOBJ_max_unlock_mem,
 	NMOBJ_max_unlock_time,
@@ -124,6 +125,7 @@ const struct option long_options[] = {
 	{"to", required_argument, &options[NMOBJ_to], 1},
 	{"key", required_argument, &options[NMOBJ_key], 1},
 	{"key-file", required_argument, &options[NMOBJ_key_file], 1},
+	{"new-key", required_argument, &options[NMOBJ_new_key], 1},
 	{"master-key", required_argument, &options[NMOBJ_master_key], 1},
 	{"max-unlock-memory", required_argument, &options[NMOBJ_max_unlock_mem], 1},
 	{"max-unlock-time", required_argument, &options[NMOBJ_max_unlock_time], 1},
@@ -167,16 +169,16 @@ const struct option long_options[] = {
 	{"aux-del", no_argument, &options[NMOBJ_aux_del], 1},
 	{"aux-probe", no_argument, &options[NMOBJ_aux_probe], 1},
 	{"no-aux", no_argument, &options[NMOBJ_is_no_aux], 1},
-	{"add-command", required_argument, &options[NMOBJ_aux_add_command], 1},
-	{"flag", required_argument, &options[NMOBJ_aux_flag], 1},
-	{"add-link", required_argument, &options[NMOBJ_aux_add_link], 1},
+	{"aux-add-command", required_argument, &options[NMOBJ_aux_add_command], 1},
+	{"aux-flag", required_argument, &options[NMOBJ_aux_flag], 1},
+	{"aux-add-link", required_argument, &options[NMOBJ_aux_add_link], 1},
 	{"dir", required_argument, &options[NMOBJ_probe_dir], 1},
 	{"probe-linux", no_argument, &options[NMOBJ_probe_linux], 1},
 	{"probe-pattern", required_argument, &options[NMOBJ_probe_pattern], 1},
-	{"link-flag", required_argument, &options[NMOBJ_link_flag], 1},
-	{"link-prio", required_argument, &options[NMOBJ_link_prio], 1},
-	{"target-key", required_argument, &options[NMOBJ_target_key], 1},
-	{"target-keyfile", required_argument, &options[NMOBJ_target_key_file], 1},
+	{"aux-link-flag", required_argument, &options[NMOBJ_link_flag], 1},
+	{"aux-link-prio", required_argument, &options[NMOBJ_link_prio], 1},
+	{"aux-target-key", required_argument, &options[NMOBJ_target_key], 1},
+	{"aux-target-keyfile", required_argument, &options[NMOBJ_target_key_file], 1},
 	{"aux-link", optional_argument, &options[NMOBJ_aux_link_paths], 1},
 	{0, 0, 0, 0}
 };
@@ -256,7 +258,8 @@ void frontend_check_invalid_param(int action_num) {
 			             NMOBJ_target_level,
 			             NMOBJ_is_no_detect_entropy,
 			             NMOBJ_is_rapid_add,
-			             NMOBJ_is_anonymous_key, CHECK_COMMON})
+			             NMOBJ_is_anonymous_key,
+			             NMOBJ_new_key, CHECK_COMMON})
 		}
 		case NMOBJ_action_delkey: {
 			check_action({CHECK_ALLOWED_OPEN,
@@ -636,7 +639,8 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				options[NMOBJ_is_no_detect_entropy],
 				options[NMOBJ_gen_randkey],
 				options[NMOBJ_is_rapid_add],
-				options[NMOBJ_is_anonymous_key]);
+				options[NMOBJ_is_anonymous_key],
+				params[NMOBJ_new_key]);
 			break;
 		case NMOBJ_action_delkey:
 			init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);

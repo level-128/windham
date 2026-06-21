@@ -89,7 +89,8 @@ int action_addkey(
    const bool is_no_detect_entropy,
    const bool is_random_key_stdout,
    const bool is_rapid_add,
-   const bool is_anonymous_key) {
+   const bool is_anonymous_key,
+   const char * new_key_password) {
    Data    data;
    int64_t offset;
    Key     new_key;
@@ -102,8 +103,14 @@ int action_addkey(
 
    OPERATION_BACKEND_UNENCRYPT_HEADER
 
-   if (is_random_key_stdout == false) {
-      action_addkey_interactive_prepare_key(&new_key);
+    if (is_random_key_stdout == false) {
+       if (new_key_password != NULL) {
+          // --new-key=<value>: use the passphrase non-interactively
+          new_key.key_type                = NMOBJ_key_file_type_key;
+          new_key.key_or_keyfile_location = (char *)new_key_password;
+       } else {
+          action_addkey_interactive_prepare_key(&new_key);
+       }
     } else { // is_random_key_stdout == true
        uint8_t new_key_uint8[HASHLEN];
        fill_secure_random_bits(new_key_uint8, HASHLEN);

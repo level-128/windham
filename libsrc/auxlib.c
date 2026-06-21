@@ -39,11 +39,14 @@ typedef struct {
 } AuxSlot;
 
 
-const int AUX_CONTENT_SHELL_FLG_NO_OPEN_ON_FAIL = 1;
+const int AUX_CONTENT_SHELL_FLG_STOP_EXEC_NEXT_IF_SUCC = 1;
+const int AUX_CONTENT_SHELL_FLG_EXEC_NEXT_IF_FAIL = 2;
+
 
 
 typedef struct {
     alignas(1) uint8_t aux_type;
+    alignas(1) uint8_t prio; // lower prio means run first
     alignas(4) uint8_t flags;
     alignas(2) uint16_t timeout; // little endian, sec.
     alignas(4) uint16_t command_len; // little endian
@@ -634,7 +637,9 @@ void print_link_open_entry(const AuxSlot * slot, uint32_t offset, bool is_public
     printf(_("  Type:         LINK_OPEN\n"));
     printf(_("  Priority:     %u\n"), lh.prio);
     printf(_("  Flags:        %u"), lh.flags);
-    if (lh.flags & AUX_CONTENT_LINK_OPEN_FLG_STOP_EXEC_NEXT_IF_SUCC) printf(" (SHORTCUT)");
+    if (lh.flags & AUX_CONTENT_LINK_OPEN_FLG_STOP_EXEC_NEXT_IF_SUCC) {
+        printf(" (SHORTCUT)");
+    }
     printf("\n");
     printf(_("  Unlock level: %u\n"), lh.target_unlock_level);
     printf(_("  Passwd chars: %u\n"), le16toh(lh.target_key_len));
@@ -646,7 +651,7 @@ void print_link_open_entry(const AuxSlot * slot, uint32_t offset, bool is_public
 }
 
 
-// Print SHELL command details — used by --aux-probe only, not during Open.
+// Print SHELL command details
 void print_shell_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int index) {
     uint16_t slot_size_le;
     memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
@@ -663,7 +668,13 @@ void print_shell_entry(const AuxSlot * slot, uint32_t offset, bool is_public, in
     print_hex_array(AES_BLOCKLEN, slot->iv);
     printf(_("  Type:         SHELL\n"));
     printf(_("  Flags:        %u"), sh.flags);
-    if (sh.flags & AUX_CONTENT_SHELL_FLG_NO_OPEN_ON_FAIL) printf(" (BLCKOPEN)");
+    if (sh.flags & AUX_CONTENT_SHELL_FLG_EXEC_NEXT_IF_FAIL) {
+        printf(" (SKIPPABLE)");
+    }
+    if (sh.flags & AUX_CONTENT_SHELL_FLG_STOP_EXEC_NEXT_IF_SUCC) {
+        printf(" (SHORTCUT)");
+    }
+
     printf("\n");
     printf(_("  Timeout:      %u sec\n"), le16toh(sh.timeout));
     uint16_t cmd_len = le16toh(sh.command_len);
@@ -730,10 +741,18 @@ static char *parse_char32_to_mb(const char32_t *input, size_t input_size) {
 }
 
 
-// Execute a shell command from a probed AuxSlot.
-// Slot content must be NMOBJ_AUX_TYPE_SHELL.
-// Returns true if the command executed successfully (system() returns 0), false otherwise.
-bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot) {
+// Thread argument for shell command execution
+typedef struct { const char *cmd; int result; } ShellThreadArg;
+
+static int shell_thread_fn(void *a) {
+    ShellThreadArg *ta = (ShellThreadArg *)a;
+    ta->result = system(ta->cmd);
+    return 0;
+}
+// opened_names[]: list of /dev/mapper names currently opened by this cascade;
+//   "@" in the command is replaced with these names joined by commas.
+// Returns true if the command executed successfully, false otherwise.
+bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], size_t opened_names_len) {
     assert(slot && "slot is NULL");
 
     uint16_t slot_size_le;
@@ -758,8 +777,83 @@ bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot) {
         return false;
     }
 
-    printf(_("exec command: %s\n"), mb_cmd);
-    int ret = system(mb_cmd);
+    // Replace "@" with comma-separated opened_names
+    if (opened_names != NULL && opened_names_len > 0) {
+        // Build replacement string
+        size_t names_total_len = 0;
+        for (size_t i = 0; i < opened_names_len; i++) {
+            names_total_len += strlen(opened_names[i]) + 1; // +1 for comma
+        }
+        char *names_str = malloc(names_total_len + 1);
+        if (names_str) {
+            names_str[0] = '\0';
+            for (size_t i = 0; i < opened_names_len; i++) {
+                if (i > 0) strcat(names_str, ",");
+                strcat(names_str, opened_names[i]);
+            }
+            // Replace all "@" in mb_cmd with names_str
+            char *at_pos;
+            size_t names_len = strlen(names_str);
+            while ((at_pos = strchr(mb_cmd, '@')) != NULL) {
+                size_t prefix_len = (size_t)(at_pos - mb_cmd);
+                size_t suffix_len = strlen(at_pos + 1);
+                size_t new_len = prefix_len + names_len + suffix_len + 1;
+                char *new_cmd = malloc(new_len);
+                if (!new_cmd) { free(names_str); free(mb_cmd); return false; }
+                memcpy(new_cmd, mb_cmd, prefix_len);
+                memcpy(new_cmd + prefix_len, names_str, names_len);
+                memcpy(new_cmd + prefix_len + names_len, at_pos + 1, suffix_len + 1);
+                free(mb_cmd);
+                mb_cmd = new_cmd;
+            }
+            free(names_str);
+        }
+    }
+
+    printf(_("exec: %s\n"), mb_cmd);
+
+    uint16_t timeout_secs = le16toh(shell_header.timeout);
+    int ret;
+
+    if (timeout_secs > 0) {
+#ifdef __STDC_NO_THREADS__
+        print_warning(_("Shell command timeout (%u sec) requested but ISO C threads unavailable. "
+                        "Command will run without timeout."), timeout_secs);
+        ret = system(mb_cmd);
+#else
+        // Run system() in a separate thread, join with timeout
+        ShellThreadArg arg = { mb_cmd, -1 };
+
+        thrd_t thr;
+        if (thrd_create(&thr, shell_thread_fn, &arg) != thrd_success) {
+            print_warning(_("Failed to create thread for shell command execution."));
+            ret = system(mb_cmd);
+        } else {
+            // Poll with thrd_sleep for timeout
+            struct timespec start, now;
+            timespec_get(&start, TIME_UTC);
+            int join_result;
+            while (true) {
+                timespec_get(&now, TIME_UTC);
+                if ((now.tv_sec - start.tv_sec) >= timeout_secs) {
+                    // Timeout: stop waiting, return failure (thread may still run)
+                    print_warning(_("Shell command timed out after %u seconds."), timeout_secs);
+                    ret = -1;
+                    break;
+                }
+                join_result = thrd_join(thr, NULL);
+                if (join_result != thrd_busy) {
+                    ret = arg.result;
+                    break;
+                }
+                thrd_sleep(&(struct timespec){.tv_sec = 0, .tv_nsec = 100000000}, NULL);
+            }
+        }
+#endif
+    } else {
+        ret = system(mb_cmd);
+    }
+
     free(mb_cmd);
     return ret == 0;
 }

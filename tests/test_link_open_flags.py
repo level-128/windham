@@ -11,12 +11,12 @@ def _new(device):
     return ["New", device, "--key=123", "--target-level=1", "--target-time=0.1"] + _FLAGS
 
 def _add_link(src, dst, **kw):
-    cmd = ["Aux", src, "--add-link", dst, "--key=123", "--target-key=123"] + _UNLOCK + _FLAGS
+    cmd = ["Aux", src, "--aux-add-link", dst, "--key=123", "--aux-target-key=123"] + _UNLOCK + _FLAGS
     if kw.get("shortcut"):
-        cmd.append("--link-flag=SHORTCUT")
+        cmd.append("--aux-link-flag=SHORTCUT")
     prio = kw.get("prio")
     if prio is not None:
-        cmd.append(f"--link-prio={prio}")
+        cmd.append(f"--aux-link-prio={prio}")
     return cmd
 
 def _open(device):

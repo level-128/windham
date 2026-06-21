@@ -74,7 +74,7 @@ void action_aux_add_command(
 
 	uint8_t flags = 0;
 	if (!flag_str || flag_str[0] == '\0' || strcmp(flag_str, "BLCKOPEN") == 0) {
-		flags |= AUX_CONTENT_SHELL_FLG_NO_OPEN_ON_FAIL;
+		flags |= AUX_CONTENT_SHELL_FLG_STOP_EXEC_NEXT_IF_SUCC;
 	} else if (strcmp(flag_str, "SHORTCUT") == 0) {
 		flags |= AUX_CONTENT_LINK_OPEN_FLG_STOP_EXEC_NEXT_IF_SUCC;
 	} else {

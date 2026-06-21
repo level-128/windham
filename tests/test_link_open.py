@@ -11,7 +11,7 @@ def _new(device):
     return ["New", device, "--key=123", "--target-level=1", "--target-time=0.1"] + _FLAGS
 
 def _add_link(src, dst):
-    return ["Aux", src, "--add-link", dst, "--key=123", "--target-key=123"] + _UNLOCK + _FLAGS
+    return ["Aux", src, "--aux-add-link", dst, "--key=123", "--aux-target-key=123"] + _UNLOCK + _FLAGS
 
 def _open(device):
     return ["Open", device, "--key=123"] + _UNLOCK + _FLAGS

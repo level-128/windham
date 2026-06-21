@@ -109,12 +109,12 @@ for dev in "${DISKS[@]}"; do
     run sudo windham New "$dev" --key="$CASCADE_KEY" --target-time=0.2 --yes
 done
 
-# Step 2: Add user password to each disk via rapid-add
+# Step 2: Add user password to each disk via rapid-add (non-interactive)
 echo
 echo "--- Step 2: Add user password to each disk (rapid-add) ---"
 for dev in "${DISKS[@]}"; do
     echo "  Adding user key to $dev …"
-    run sudo windham AddKey "$dev" --key="$CASCADE_KEY" \
+    run sudo windham AddKey "$dev" --key="$CASCADE_KEY" --new-key="$PASS" \
         --rapid-add --target-time=0.2 --max-unlock-time=3 --yes
 done
 
@@ -131,9 +131,9 @@ for i in "${!DISKS[@]}"; do
             dst="${DISKS[$j]}"
             prio=$((prio + 1))
             echo "  $src → $dst (prio=$prio, SHORTCUT)"
-            run sudo windham Aux "$src" --add-link="$dst" \
-                --key="$CASCADE_KEY" --target-key="$CASCADE_KEY" \
-                --link-prio=$prio --link-flag=SHORTCUT \
+            run sudo windham Aux "$src" --aux-add-link="$dst" \
+                --key="$CASCADE_KEY" --aux-target-key="$CASCADE_KEY" \
+                --aux-link-prio=$prio --aux-link-flag=SHORTCUT \
                 --max-unlock-time=3 --yes
         done
     else
@@ -142,9 +142,9 @@ for i in "${!DISKS[@]}"; do
             dst="${DISKS[$dst_idx]}"
             prio=$((prio + 1))
             echo "  $src → $dst (hop=$hop, prio=$prio, SHORTCUT)"
-            run sudo windham Aux "$src" --add-link="$dst" \
-                --key="$CASCADE_KEY" --target-key="$CASCADE_KEY" \
-                --link-prio=$prio --link-flag=SHORTCUT \
+            run sudo windham Aux "$src" --aux-add-link="$dst" \
+                --key="$CASCADE_KEY" --aux-target-key="$CASCADE_KEY" \
+                --aux-link-prio=$prio --aux-link-flag=SHORTCUT \
                 --max-unlock-time=3 --yes
         done
     fi

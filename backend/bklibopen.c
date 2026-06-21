@@ -212,6 +212,93 @@ static bool fifo_is_empty(void) {
 
 
 /* ───────────────────────────────────────────
+ * Global shell command queue
+ * Collected from all devices during cascade, executed after all LINK_OPEN.
+ * ─────────────────────────────────────────── */
+
+typedef struct {
+    AuxSlot *slot_copy;   // deep copy (malloc'd, owned by this entry)
+    uint8_t  flags;       // shell entry flags
+    char    *mapper_name;  // /dev/mapper name of the device this command belongs to
+} ShellCmdEntry;
+
+static DynBuf shell_cmd_queue;
+static DynBuf opened_mapper_names;  // accumulated across cascade for "@" replacement
+
+static void mapper_names_init(void) {
+    if (opened_mapper_names.elem_size == 0) {
+        db_init(&opened_mapper_names, sizeof(char[FILENAME_MAX]));
+    }
+}
+
+static void mapper_names_add(const char *name) {
+    mapper_names_init();
+    char buf[FILENAME_MAX];
+    strncpy(buf, name, FILENAME_MAX - 1);
+    buf[FILENAME_MAX - 1] = '\0';
+    db_add(&opened_mapper_names, buf);
+}
+
+static void mapper_names_clear(void) {
+    db_clear(&opened_mapper_names);
+}
+
+// Build comma-separated string of all opened names for "@" replacement
+static char **shell_queue_get_names(size_t *out_len) {
+    size_t n = db_count(&opened_mapper_names);
+    if (n == 0) { *out_len = 0; return NULL; }
+    char **names = malloc(n * sizeof(char *));
+    if (!names) { *out_len = 0; return NULL; }
+    for (size_t i = 0; i < n; i++) {
+        names[i] = db_get(&opened_mapper_names, i);
+    }
+    *out_len = n;
+    return names;
+}
+
+static void shell_queue_init(void) {
+    if (shell_cmd_queue.elem_size == 0) {
+        db_init(&shell_cmd_queue, sizeof(ShellCmdEntry));
+    }
+}
+
+static void shell_queue_add(const AuxSlot *slot, uint8_t flags) {
+    shell_queue_init();
+    uint16_t slot_size_le;
+    memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
+    size_t total_bytes = le16toh(slot_size_le);
+
+    ShellCmdEntry e;
+    e.slot_copy = malloc(total_bytes);
+    if (!e.slot_copy) { print_error(_("Out of memory")); }
+    memcpy(e.slot_copy, slot, total_bytes);
+    e.flags = flags;
+    e.mapper_name = NULL;  // mapper names come from global opened_mapper_names
+    db_add(&shell_cmd_queue, &e);
+}
+
+static void shell_queue_execute_all(void) {
+    size_t name_count;
+    char **names = shell_queue_get_names(&name_count);
+    for (size_t i = 0; i < db_count(&shell_cmd_queue); i++) {
+        ShellCmdEntry *e = db_get(&shell_cmd_queue, i);
+        bool ok = exec_aux_cmd_from_probed_aux(e->slot_copy, names, name_count);
+        if (ok && (e->flags & AUX_CONTENT_SHELL_FLG_STOP_EXEC_NEXT_IF_SUCC)) {
+            for (size_t j = i + 1; j < db_count(&shell_cmd_queue); j++) {
+                ShellCmdEntry *s = db_get(&shell_cmd_queue, j);
+                free(s->slot_copy);
+            }
+            break;
+        }
+        free(e->slot_copy);
+    }
+    db_clear(&shell_cmd_queue);
+    free(names);
+    mapper_names_clear();
+}
+
+
+/* ───────────────────────────────────────────
  * LINK_OPEN collected entries
  * ─────────────────────────────────────────── */
 
@@ -369,12 +456,14 @@ static bool action_open_single(
          if (!entry->is_link_open) {
             print_warning(_("Device %s is unlocked and suspended. Don't forget to close it using \"Resume\" when appropriate."),
                            entry->device_path);
-         }
-      }
-      free(disk_key);
-      return true;
-   
-   case NMOBJ_MAPPER_DEVSTAT_NORM:
+          }
+       }
+       mapper_names_add(effective_target_name);
+       free(disk_key);
+       return true;
+
+
+    case NMOBJ_MAPPER_DEVSTAT_NORM:
    // kernel key retension service
       if (mapper_keyring_get_disk_serial(data.uuid_and_salt, disk_key) == true) {
          if (!entry->is_link_open) printf(_("Found kernel keyring key\n"));
@@ -388,9 +477,10 @@ static bool action_open_single(
             data.uuid_and_salt, start_sector, end_sector, DEFAULT_BLOCK_SIZE,
             entry->is_readonly, entry->is_allow_discards,
             entry->is_no_read_wq, entry->is_no_write_wq,
-            entry->is_no_map_partition);
-         free(disk_key);
-         return true;
+           entry->is_no_map_partition);
+          mapper_names_add(effective_target_name);
+          free(disk_key);
+          return true;
       }
    // falls through
 
@@ -465,44 +555,54 @@ static bool action_open_single(
             if (!decrypt_aux_zone_using_master_key(&data, aux_zone, aux_zone_size, master_key)) {
                print_warning(_("Failed to decrypt aux zone. The header may be damaged."));
             } else {
-               const uint8_t *aux_slot_key = ret_inited_key;
-                int            aux_count    = 0;
-                uint32_t       pointer      = 0;
+                const uint8_t *aux_slot_key = ret_inited_key;
+                 int            aux_count    = 0;
+                 uint32_t       pointer      = 0;
 
-               while (true) {
-                  bool     is_public   = false;
-                  uint32_t slot_offset = 0;
-                  AuxSlot *slot = probe_aux_from_aux_zone(aux_zone, aux_zone_size, &pointer,
-                                                          aux_slot_key, &is_public, &slot_offset);
-                  if (slot == NULL) break;
-                  aux_count++;
+                 while (true) {
+                    bool     is_public   = false;
+                    uint32_t slot_offset = 0;
+                    AuxSlot *slot = probe_aux_from_aux_zone(aux_zone, aux_zone_size, &pointer,
+                                                            aux_slot_key, &is_public, &slot_offset);
+                    if (slot == NULL) break;
+                    aux_count++;
 
-                  uint8_t aux_type = ((uint8_t *)slot->content_char32_be)[0];
+                    uint8_t aux_type = ((uint8_t *)slot->content_char32_be)[0];
 
-                  if (aux_type == NMOBJ_AUX_TYPE_LINK_OPEN) {
-                     uint8_t  link_uuid[16];
-                     int8_t   link_unlock_level;
-                     uint8_t  link_prio, link_flags;
-                     char32_t *target_key = NULL;
-                     uint16_t target_key_len = 0;
+                    if (aux_type == NMOBJ_AUX_TYPE_LINK_OPEN) {
+                       uint8_t  link_uuid[16];
+                       int8_t   link_unlock_level;
+                       uint8_t  link_prio, link_flags;
+                       char32_t *target_key = NULL;
+                       uint16_t target_key_len = 0;
 
-                     if (get_aux_link_open_data(slot, link_uuid,
-                                                &link_unlock_level, &link_prio, &link_flags,
-                                                &target_key, &target_key_len)) {
-                        LinkOpenEntry le_copy;
-                        le_copy.target_key         = target_key;
-                        le_copy.target_key_len     = target_key_len;
-                        memcpy(le_copy.target_uuid, link_uuid, 16);
-                        le_copy.target_unlock_level = link_unlock_level;
-                        le_copy.flags              = link_flags;
-                        le_copy.prio               = link_prio;
-                        db_add(&out_links->entries, &le_copy);
-                     }
-                  } else {
-                     print_aux_entry(slot, slot_offset, is_public, aux_count);
-                  }
-                  free(slot);
-               }
+                       if (get_aux_link_open_data(slot, link_uuid,
+                                                  &link_unlock_level, &link_prio, &link_flags,
+                                                  &target_key, &target_key_len)) {
+                          LinkOpenEntry le_copy;
+                          le_copy.target_key         = target_key;
+                          le_copy.target_key_len     = target_key_len;
+                          memcpy(le_copy.target_uuid, link_uuid, 16);
+                          le_copy.target_unlock_level = link_unlock_level;
+                          le_copy.flags              = link_flags;
+                          le_copy.prio               = link_prio;
+                          db_add(&out_links->entries, &le_copy);
+                       }
+                     } else if (aux_type == NMOBJ_AUX_TYPE_SHELL && !entry->is_dry_run) {
+                        // Queue shell command for execution after cascade completes
+                        uint16_t slot_size_le;
+                        memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
+                        size_t content_bytes = le16toh(slot_size_le) - sizeof(AuxSlot);
+                        if (content_bytes >= sizeof(AuxContentShell)) {
+                           AuxContentShell sh;
+                           memcpy(&sh, slot->content_char32_be, sizeof(sh));
+                           shell_queue_add(slot, sh.flags);
+                        }
+                     } else {
+                       print_aux_entry(slot, slot_offset, is_public, aux_count);
+                    }
+                    free(slot);
+                 }
 
                if (!entry->is_link_open) {
                   if (aux_count == 0) {
@@ -568,6 +668,7 @@ static bool action_open_single(
          }
          
       }
+      mapper_names_add(effective_target_name);
       free(disk_key);
       return true;
    }
@@ -736,9 +837,12 @@ void action_open(
 
          // init_device for the linked device
          init_device(link_path, entry.is_dry_run == false, entry.is_readonly, false, false, 0, 0);
-         fifo_push_front(child);
-      }
-   }
+          fifo_push_front(child);
+       }
+    }
+
+    // Execute all queued shell commands (after cascade)
+    shell_queue_execute_all();
 }
 
 
