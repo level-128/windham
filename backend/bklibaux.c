@@ -159,9 +159,14 @@ void action_aux_add_link(
 		if (fp == NULL) {
 			print_error(_("Cannot open target key file %s: %s"), target_keyfile_path, strerror(errno));
 		}
-		fseek(fp, 0, SEEK_END);
+		if (fseek(fp, 0, SEEK_END) != 0) {
+			print_error(_("Cannot seek target key file %s: %s"), target_keyfile_path, strerror(errno));
+		}
 		long fsize = ftell(fp);
-		fseek(fp, 0, SEEK_SET);
+		if (fsize < 0) {
+			print_error(_("Cannot determine size of target key file %s: %s"), target_keyfile_path, strerror(errno));
+		}
+		rewind(fp);
 		unsigned ccount = ((unsigned)fsize + 3) / 4;
 		pw_count = ccount;
 		if (pw_count > MAX_PASSWORD_INPUT_LEN) {

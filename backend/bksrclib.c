@@ -56,6 +56,7 @@ void get_system_info() {
          _("Failed to read system information. Can not determine adequate memory size (or memory limit) for key derivation."));
       sys_info.free_ram  = ULONG_MAX;
       sys_info.free_swap = ULONG_MAX;
+      sys_info.total_ram = ULONG_MAX;
       return;
    }
 
@@ -87,12 +88,16 @@ void get_system_info() {
 
 size_t check_target_mem(size_t target_mem, bool is_encrypt, bool is_allow_swap) {
    if (target_mem == SIZE_MAX) { // no memory designated
-      if ((double) sys_info.free_ram / (double) sys_info.total_ram < 0.3 && ! is_allow_swap) {
+      if (sys_info.total_ram != 0 && sys_info.total_ram != ULONG_MAX &&
+          (double) sys_info.free_ram / (double) sys_info.total_ram < 0.3 && ! is_allow_swap) {
          print_warning(
             _("The system is low on memory (< 30%%). It is recommended to utilize the system swap space via parameter "
                "\"--allow-swap\". However, as for windham, swap deduces security."));
       }
       if (is_encrypt) {
+         if (sys_info.total_ram == ULONG_MAX) {
+            return DEFAULT_MIN_MEMLOCK_SIZE;
+         }
          return (size_t) (sys_info.total_ram * 0.01 * DEFAULT_DISK_ENC_MEM_RATIO_CAP); // 30% default
       }
       return SIZE_MAX;
@@ -102,6 +107,9 @@ size_t check_target_mem(size_t target_mem, bool is_encrypt, bool is_allow_swap) 
       if ((sys_info.free_swap + sys_info.free_ram) > target_mem) {
          print_warning(_("The designated ram might cause other programs to swap."));
       } else {
+         if (sys_info.free_swap + sys_info.free_ram <= (size_t)(1 << 16)) {
+            print_error(_("Insufficient memory available for key derivation."));
+         }
          size_t new_target_mem = sys_info.free_swap + sys_info.free_ram - (1 << 16);
          if (is_encrypt) {
             ask_for_conformation(
@@ -144,7 +152,7 @@ ENUM_MAPPER_DEVSTAT load_header_by_device(
 
       Read_GPT_header_return gpt_header_ret;
       if (read_GPT_header(device, &gpt_header_ret) == false) {
-         *return_offset = -(int64_t)HEADER_AREA_IN_SECTOR;
+         *return_offset = -(int64_t)(HEADER_AREA_IN_SECTOR * 512);
       } else {
          *return_offset = (gpt_header_ret.lba_end + 1 - HEADER_AREA_IN_SECTOR) * 512;
          printf(_("GPT partition table detected, locating metadata by GPT genometry.\n"));

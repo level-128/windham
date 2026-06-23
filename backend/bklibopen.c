@@ -465,6 +465,8 @@ static bool action_open_single(
 
     case NMOBJ_MAPPER_DEVSTAT_NORM:
    // kernel key retension service
+      disk_key = malloc(HASHLEN);
+      if (!disk_key) { perror("malloc"); exit(1); }
       if (mapper_keyring_get_disk_serial(data.uuid_and_salt, disk_key) == true) {
          if (!entry->is_link_open) printf(_("Found kernel keyring key\n"));
          size_t start_sector, end_sector;
@@ -482,6 +484,8 @@ static bool action_open_single(
           free(disk_key);
           return true;
       }
+      free(disk_key);
+      disk_key = NULL;
    // falls through
 
    case NMOBJ_MAPPER_DEVSTAT_DECOY: {

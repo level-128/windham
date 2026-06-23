@@ -150,9 +150,14 @@ void read_key_file(const Key key, uint8_t inited_key[HASHLEN]) {
       print_error(_("Cannot open keyfile %s. Reason: %s"), filename, strerror(errno));
    }
 
-   fseek(fp, 0, SEEK_END);
+   if (fseek(fp, 0, SEEK_END) != 0) {
+      print_error(_("Cannot seek keyfile %s: %s"), filename, strerror(errno));
+   }
    long fsize = ftell(fp);
-   fseek(fp, 0, SEEK_SET);
+   if (fsize < 0) {
+      print_error(_("Cannot determine size of keyfile %s: %s"), filename, strerror(errno));
+   }
+   rewind(fp);
 
    fdata = malloc(fsize);
    if (fread(fdata, 1, fsize, fp) != (size_t)fsize) {
@@ -246,7 +251,7 @@ bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char *device,
    bool result;
    if (char_count == 0) {
       result = false;
-   } else if (char_count * 4 > 1024) {
+   } else if ((size_t)char_count * 4 > 1024) {
       result = true;
    } else {
       uint8_t be_bytes[MAX_PASSWORD_INPUT_LEN * 4];

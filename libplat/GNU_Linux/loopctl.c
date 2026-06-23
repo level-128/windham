@@ -710,7 +710,7 @@ int check_device_topology(
    if (cJSON_HasObjectItem(json_device, "children")) {
       cJSON * json_children_array      = cJSON_GetObjectItemCaseSensitive(json_device, "children");
       size_t  json_children_array_size = cJSON_GetArraySize(json_children_array);
-      children_string                  = malloc(json_children_array_size);
+      children_string                  = malloc(json_children_array_size * sizeof(char *));
 
       for (size_t i = 0; i < json_children_array_size; i ++) {
          cJSON * json_children      = cJSON_GetArrayItem(json_children_array, (int) i);

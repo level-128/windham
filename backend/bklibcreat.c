@@ -127,7 +127,7 @@ void action_create(
 
    if (decoy_size == 0) {
       const int fp = open(device, O_DSYNC | O_WRONLY);
-      if (fp == 0) {
+      if (fp < 0) {
          print_error(_("Failed to open %s: %s"), device, strerror(errno));
       }
       for (int i = 0; i < 32; i ++) {

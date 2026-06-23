@@ -146,7 +146,13 @@ void ask_for_conformation(const char * format, ...) {
    if (is_skip_conformation) {
       return;
    }
-   const char base64_chars[] = "abcdefghijklmnopqrstuvwxyz0123456789";
+   // 36 non-null + 9 null = 45 total; null probability = 20%
+   const char confirm_pool[] = {
+      'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p',
+      'q','r','s','t','u','v','w','x','y','z','0','1','2','3','4','5',
+      '6','7','8','9',
+      '\0','\0','\0','\0','\0','\0','\0','\0','\0'
+   };
    char       random_str[3];
    char       complete_str[10];
    char       user_input[20];
@@ -154,8 +160,8 @@ void ask_for_conformation(const char * format, ...) {
    srand(time(NULL));
 
    for (int i = 0; i < 2; ++i) {
-      const int index = rand() % sizeof(base64_chars);
-      random_str[i]   = base64_chars[index];
+      const int index = rand() % sizeof(confirm_pool);
+      random_str[i]   = confirm_pool[index];
    }
    random_str[2] = '\0';
 

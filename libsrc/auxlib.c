@@ -815,6 +815,7 @@ bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], si
     printf(_("exec: %s\n"), mb_cmd);
 
     uint16_t timeout_secs = le16toh(shell_header.timeout);
+    bool timed_out = false;
     int ret;
 
     if (timeout_secs > 0) {
@@ -824,32 +825,48 @@ bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], si
         ret = system(mb_cmd);
 #else
         // Run system() in a separate thread, join with timeout
-        ShellThreadArg arg = { mb_cmd, -1 };
-
-        thrd_t thr;
-        if (thrd_create(&thr, shell_thread_fn, &arg) != thrd_success) {
-            print_warning(_("Failed to create thread for shell command execution."));
+        ShellThreadArg *arg = malloc(sizeof(ShellThreadArg));
+        if (!arg) {
+            print_warning(_("Failed to allocate memory for shell thread."));
             ret = system(mb_cmd);
         } else {
-            // Poll with thrd_sleep for timeout
-            struct timespec start, now;
-            timespec_get(&start, TIME_UTC);
-            int join_result;
-            while (true) {
-                timespec_get(&now, TIME_UTC);
-                if ((now.tv_sec - start.tv_sec) >= timeout_secs) {
-                    // Timeout: stop waiting, return failure (thread may still run)
-                    print_warning(_("Shell command timed out after %u seconds."), timeout_secs);
-                    ret = -1;
-                    break;
+            arg->cmd = mb_cmd;
+            arg->result = -1;
+
+            thrd_t thr;
+            if (thrd_create(&thr, shell_thread_fn, arg) != thrd_success) {
+                print_warning(_("Failed to create thread for shell command execution."));
+                ret = system(mb_cmd);
+                free(arg);
+            } else {
+                // Poll with thrd_sleep for timeout
+                struct timespec start, now;
+                timespec_get(&start, TIME_UTC);
+                int join_result;
+                while (true) {
+                    timespec_get(&now, TIME_UTC);
+                    if ((now.tv_sec - start.tv_sec) >= timeout_secs) {
+                        // Timeout: stop waiting, return failure (thread may still run)
+                        print_warning(_("Shell command timed out after %u seconds."), timeout_secs);
+                        ret = -1;
+                        timed_out = true;
+                        break;
+                    }
+                    join_result = thrd_join(thr, NULL);
+                    if (join_result != thrd_busy) {
+                        ret = arg->result;
+                        break;
+                    }
+                    thrd_sleep(&(struct timespec){.tv_sec = 0, .tv_nsec = 100000000}, NULL);
                 }
-                join_result = thrd_join(thr, NULL);
-                if (join_result != thrd_busy) {
-                    ret = arg.result;
-                    break;
+                if (!timed_out) {
+                    free(arg);
                 }
-                thrd_sleep(&(struct timespec){.tv_sec = 0, .tv_nsec = 100000000}, NULL);
             }
+        }
+        if (timed_out) {
+            // Don't free mb_cmd — the still-running thread may be using it
+            return false;
         }
 #endif
     } else {

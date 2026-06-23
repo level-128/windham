@@ -125,6 +125,7 @@ void mapper_keyring_add_disk_key(const uint8_t key[HASHLEN], uint8_t uuid[16], E
             perror("add_key()");
          };
          }
+         return;
       }
       if (p_keyctl_setperm(key_serial, KEY_POS_SETATTR | KEY_USR_VIEW | KEY_USR_READ | KEY_USR_SEARCH) == -1) {
          if (errno == EACCES) {
@@ -134,7 +135,7 @@ void mapper_keyring_add_disk_key(const uint8_t key[HASHLEN], uint8_t uuid[16], E
          } else {
             perror("keyctl_setperm()");
          }
-         p_keyctl_unlink(KEY_SPEC_SESSION_KEYRING, key_serial);
+         p_keyctl_unlink(key_serial, KEY_SPEC_SESSION_KEYRING);
       }
       p_keyctl_set_timeout(key_serial, timeout);
    }
@@ -168,6 +169,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16]) {
          perror("add_key()");
       };
       }
+      return;
    }
    if (p_keyctl_setperm(key_serial, KEY_POS_SETATTR | KEY_USR_VIEW | KEY_USR_READ | KEY_USR_SEARCH) == -1) {
       if (errno == EACCES) {
@@ -177,7 +179,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16]) {
       } else {
          perror("keyctl_setperm()");
       }
-      p_keyctl_unlink(KEY_SPEC_SESSION_KEYRING, key_serial);
+      p_keyctl_unlink(key_serial, KEY_SPEC_SESSION_KEYRING);
    }
 }
 
@@ -196,11 +198,11 @@ bool mapper_keyring_get_disk_serial(const uint8_t uuid[16], uint8_t key[HASHLEN]
          return false;
       } else if (errno == EKEYREVOKED) {
          print_warning(_("The kernel keyring key has been removed."));
-         p_keyctl_unlink(KEY_SPEC_SESSION_KEYRING, key_serial); // try to clear this, might fail but don't care
+         p_keyctl_unlink(key_serial, KEY_SPEC_SESSION_KEYRING); // try to clear this, might fail but don't care
          return false;
       } else if (errno == EKEYEXPIRED) {
          print_warning(_("The kernel keyring key has expired."));
-         p_keyctl_unlink(KEY_SPEC_SESSION_KEYRING, key_serial);
+         p_keyctl_unlink(key_serial, KEY_SPEC_SESSION_KEYRING);
          return false;
       }
       perror("request_key");

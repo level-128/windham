@@ -288,7 +288,13 @@ WindhamtabEntity *parse_file(const char *filename, int *entity_count, bool is_pa
    bool  is_content;
    int   lineno = 1;
      while (1) {
-       entities = realloc(entities, (*entity_count + 1) * sizeof(WindhamtabEntity));
+       WindhamtabEntity *new_entities = realloc(entities, (*entity_count + 1) * sizeof(WindhamtabEntity));
+       if (!new_entities) {
+          free(entities);
+          perror("realloc");
+          exit(EXIT_FAILURE);
+       }
+       entities = new_entities;
        file     = parse_line(file, &entities[*entity_count], &is_content, lineno);
        if (file == NULL) {
          break;
