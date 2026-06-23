@@ -111,10 +111,13 @@ function(configure_global_flags)
             do because you are not running under UNIX-like systems. You can try compiling first to figure out whether
             explicitly linking with math library is required under your platform.")
         endif()
-    else()
-        find_library(IS_BLKID_LIB blkid REQUIRED)
-        target_link_libraries(windham blkid m)
-    endif()
+   else()
+        find_library(IS_BLKID_LIB blkid)
+        if (IS_BLKID_LIB)
+            message(STATUS "Found blkid library for compile-time header definitions")
+        endif()
+        target_link_libraries(windham m)
+   endif()
 endfunction()
 
 

@@ -4,15 +4,14 @@
 
 ### Dependencies
 
-| Package | Debian/Ubuntu | Fedora/RHEL | Arch |
-|---|---|---|---|
-| Device mapper | `libdevmapper-dev` | `device-mapper-devel` | `device-mapper` |
-| Kernel headers | `linux-headers-$(uname -r)` | `kernel-devel` | `linux-headers` |
-| Gettext | `libgettextpo-dev` | `gettext-runtime` | `gettext` |
-| libblkid | `libblkid-dev` | `libblkid-devel` | `util-linux` |
-| keyutils (optional) | `libkeyutils-dev` | `keyutils-libs-devel` | `keyutils` |
+| Package | Debian/Ubuntu | Fedora/RHEL | Arch | Notes |
+|---|---|---|---|---|
+| Kernel headers | `linux-headers-$(uname -r)` | `kernel-devel` | `linux-headers` | Required |
+| Gettext (optional) | `libgettextpo-dev` | `gettext-runtime` | `gettext` | For i18n translations |
+| libblkid (optional) | `libblkid-dev` | `libblkid-devel` | `util-linux` | Partition-table detection, runtime attempt to connect |
+| keyutils (optional) | `libkeyutils-dev` | `keyutils-libs-devel` | `keyutils` | Kernel key retention service, runtime attempt to connect |
 
-Optional runtime tools: `clevis`, `partx`.
+Optional runtime programs: `clevis`, `partx`.
 
 ### Build
 
@@ -64,6 +63,69 @@ correctly. Use the feature switches above to explicitly enable/disable features.
 
 ---
 
+## musl static build (embedded / initramfs)
+
+A fully static binary (zero `.so` dependencies) can be built with musl libc,
+suitable for embedded Linux, initramfs, or minimal container images.
+
+### Prerequisites
+
+```bash
+# Debian / Ubuntu
+sudo apt install musl-tools musl-dev
+```
+
+### Build
+
+```bash
+CC=musl-gcc CFLAGS="-idirafter /usr/include -idirafter /usr/include/x86_64-linux-gnu" \
+  cmake -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_BUILD_TYPE=Release \
+  -B build-musl
+cmake --build build-musl
+```
+
+The `-idirafter` flags let musl-gcc find kernel headers (`<linux/dm-ioctl.h>`,
+`<blkid/blkid.h>`, etc.) as a fallback after musl's own include paths. This
+avoids glibc / musl header conflicts.
+
+### Verify
+
+```bash
+file build-musl/windham
+# ELF 64-bit LSB executable, statically linked, ...
+
+ldd build-musl/windham
+# not a dynamic executable
+```
+
+### Runtime requirements
+
+The static binary only needs:
+- Linux kernel with `CONFIG_BLK_DEV_DM` and `CONFIG_DM_CRYPT` (for dm-crypt)
+- `/dev/mapper/control` (devtmpfs provides this automatically)
+- Optionally: `libblkid.so`, `libkeyutils.so` at runtime (loaded via `dlopen` if
+  present; the binary runs fine without them)
+
+No musl shared library is needed on the target — the libc is fully linked in.
+
+### musl kernel headers workaround
+
+If `musl-gcc` cannot find kernel headers (e.g. `<linux/dm-ioctl.h>`), create
+symlinks in a local directory to avoid glibc header conflicts (shown for x86-64):
+
+```bash
+mkdir -p ~/musl-kernhdrs
+ln -s /usr/include/linux       ~/musl-kernhdrs/linux
+ln -s /usr/include/asm-generic ~/musl-kernhdrs/asm-generic
+ln -s /usr/include/x86_64-linux-gnu/asm ~/musl-kernhdrs/asm
+
+CC=musl-gcc CFLAGS="-I$HOME/musl-kernhdrs" \
+  cmake -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_BUILD_TYPE=Release \
+  -B build-musl
+```
+
+---
+
 ## ISO C11 (basic mode)
 
 ISO C mode compiles `frontend.c` directly. No build system is required — invoke
@@ -79,7 +141,7 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 - ASCII-compatible character set
 - `stdlib.h`, `string.h`, `stdio.h` fully implemented
 - ~492 KB heap (464 KB continuous)
-- Stack: ~52 KB + 2× FILENAME_MAX on 64-bit (slightly less on 32-bit)
+- Stack: ~74 KB + 2× FILENAME_MAX on 64-bit (slightly less on 32-bit)
 
 
 ### Feature limitations vs full mode
@@ -113,7 +175,7 @@ host features significantly affect capabilities and security:
 
 | `__STDC_NO_THREADS__` | Behavior |
 |---|---|
-| **Not defined** (threads available) | Parallel KDF runs two keypool zones concurrently (≈2× faster unlock). Thread-local RNG state for entropy. |
+| **Not defined** (threads available) | Parallel KDF runs two keypool zones concurrently (≈2× faster unlock, but may see no speedup on memory-bound systems). Thread-local RNG state for entropy. |
 | **Defined** (no threads) | Single-threaded KDF. Shared global RNG state. Fully functional, just slower. |
 
 The KDF loop probes both keypool zone 0 and zone 1. With threads, they run in

@@ -4,7 +4,9 @@
 #include <stdlib.h>
 
 #ifndef WINDHAM_ISOC
+#ifdef __GLIBC__
 #include <execinfo.h>
+#endif
 #include <sys/prctl.h>
 #include <sys/ptrace.h>
 #endif

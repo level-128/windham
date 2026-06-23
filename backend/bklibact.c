@@ -85,53 +85,31 @@ void action_close_all(bool is_deferred_remove) {
         print_error(_("Device mapper library is not available."));
     }
 
-    struct dm_task *dmt;
-    struct dm_names *names;
-    unsigned next = 0;
-    int closed = 0, failed = 0;
-
-    if (!(dmt = p_dm_task_create(DM_DEVICE_LIST))) {
-        print_error(_("Failed to create dm_task for listing devices."));
-    }
-    if (!p_dm_task_run(dmt)) {
-        p_dm_task_destroy(dmt);
-        print_error(_("Failed to query device mapper."));
-    }
-
-    names = p_dm_task_get_names(dmt);
-    if (!names) {
+    int count;
+    char **names = dm_list(&count);
+    if (!names || count == 0) {
         printf(_("No device mapper devices found.\n"));
-        p_dm_task_destroy(dmt);
+        free(names);
         return;
     }
 
-    do {
-        names = (struct dm_names *)((char *)names + next);
-        if (strncmp(names->name, "windham-", 8) != 0) {
-            next = names->next;
+    int closed = 0, failed = 0;
+    for (int i = 0; i < count; i++) {
+        if (strncmp(names[i], "windham-", 8) != 0) {
+            free(names[i]);
             continue;
         }
-
-        printf(_("Closing %s... "), names->name);
-        struct dm_task *rmt = p_dm_task_create(DM_DEVICE_REMOVE);
-        if (rmt && p_dm_task_set_name(rmt, names->name)) {
-            if (is_deferred_remove) p_dm_task_deferred_remove(rmt);
-            if (p_dm_task_run(rmt)) {
-                printf(_("OK\n"));
-                closed++;
-            } else {
-                printf(_("FAILED\n"));
-                failed++;
-            }
+        printf(_("Closing %s... "), names[i]);
+        if (dm_remove(names[i], is_deferred_remove)) {
+            printf(_("OK\n"));
+            closed++;
         } else {
             printf(_("FAILED\n"));
             failed++;
         }
-        if (rmt) p_dm_task_destroy(rmt);
-        next = names->next;
-    } while (next);
-
-    p_dm_task_destroy(dmt);
+        free(names[i]);
+    }
+    free(names);
 
     if (closed > 0 || failed > 0) {
         printf(_("Closed %d device(s), %d failed.\n"), closed, failed);
@@ -577,113 +555,78 @@ void action_list(void) {
       print_error(_("Device mapper library is not available."));
    }
 
-   struct dm_task *dmt;
-   struct dm_names *names;
-   unsigned next = 0;
-
-   if (!(dmt = p_dm_task_create(DM_DEVICE_LIST))) {
-      print_error(_("Failed to create dm_task for listing devices."));
-   }
-   if (!p_dm_task_run(dmt)) {
-      p_dm_task_destroy(dmt);
-      print_error(_("Failed to query device mapper."));
-   }
-
-   names = p_dm_task_get_names(dmt);
-   if (!names) {
+   int count;
+   char **names = dm_list(&count);
+   if (!names || count == 0) {
       printf(_("No device mapper devices found.\n"));
-      p_dm_task_destroy(dmt);
+      free(names);
       return;
    }
 
-   int count = 0;
-   do {
-      names = (struct dm_names *)((char *)names + next);
-      if (strncmp(names->name, "windham-", 8) != 0) {
-         next = names->next;
+   int shown = 0;
+   for (int i = 0; i < count; i++) {
+      if (strncmp(names[i], "windham-", 8) != 0) {
+         free(names[i]);
          continue;
       }
 
-      struct dm_task *info_task = p_dm_task_create(DM_DEVICE_INFO);
-      if (!info_task) continue;
-      if (!p_dm_task_set_name(info_task, names->name)) {
-         p_dm_task_destroy(info_task);
-         next = names->next;
-         continue;
-      }
-      if (!p_dm_task_run(info_task)) {
-         p_dm_task_destroy(info_task);
-         next = names->next;
+      int32_t  open_count;
+      bool     read_only;
+      uint32_t target_count;
+      if (!dm_info(names[i], &open_count, &read_only, &target_count)) {
+         free(names[i]);
          continue;
       }
 
-      struct dm_info info;
-      if (!p_dm_task_get_info(info_task, &info)) {
-         p_dm_task_destroy(info_task);
-         next = names->next;
-         continue;
+      char uuid[129] = {0};
+      dm_get_uuid(names[i], uuid);
+
+      printf("%s\n", names[i]);
+      printf("  UUID:     %s\n", uuid[0] ? uuid : "(none)");
+      printf("  State:    ACTIVE%s\n",
+             read_only ? " (read-only)" : "");
+      printf("  Open:     %d\n", open_count);
+
+      /* deps */
+      uint64_t deps[256];
+      int dep_count;
+      if (dm_get_deps(names[i], deps, &dep_count) && dep_count > 0) {
+         printf("  Device:   %u:%u\n",
+                (unsigned)(deps[0] >> 8), (unsigned)(deps[0] & 0xFF));
       }
 
-      const char *uuid = p_dm_task_get_uuid(info_task);
-      printf("%s\n", names->name);
-      printf("  UUID:     %s\n", uuid ? uuid : "(none)");
-      printf("  State:    %s%s\n",
-             info.exists ? "ACTIVE" : "INACTIVE",
-             info.read_only ? " (read-only)" : "");
-      printf("  Open:     %d\n", info.open_count);
-
-      // Get underlying device via deps
-      struct dm_task *deps_task = p_dm_task_create(DM_DEVICE_DEPS);
-      if (deps_task && p_dm_task_set_name(deps_task, names->name) && p_dm_task_run(deps_task)) {
-         struct dm_deps *deps = p_dm_task_get_deps(deps_task);
-         if (deps && deps->count > 0) {
-            printf("  Device:   %u:%u\n",
-                   (unsigned)(deps->device[0] >> 8), (unsigned)(deps->device[0] & 0xFF));
+      /* target table */
+      uint64_t start, length;
+      char ttype[16], params[512];
+      if (dm_get_first_target(names[i], &start, &length, ttype, params, sizeof(params))) {
+         printf("  Target:   %s\n", ttype);
+         printf("  Sector:   %"PRIu64" + %"PRIu64"\n", start, length);
+         if (strcmp(ttype, "crypt") == 0) {
+            char *p = params;
+            /* skip cipher */
+            while (*p && *p != ' ') p++;
+            if (*p) p++;
+            /* skip key (don't print it) */
+            while (*p && *p != ' ') p++;
+            if (*p) p++;
+            /* skip iv_offset */
+            while (*p && *p != ' ') p++;
+            if (*p) p++;
+            /* skip device */
+            while (*p && *p != ' ') p++;
+            if (*p) p++;
+            /* skip start_offset */
+            while (*p && *p != ' ') p++;
+            if (*p) printf("  Options:  %s\n", p + 1);
          }
-         p_dm_task_destroy(deps_task);
       }
 
-      // Get encryption table info
-      struct dm_task *table_task = p_dm_task_create(DM_DEVICE_TABLE);
-      if (table_task && p_dm_task_set_name(table_task, names->name) && p_dm_task_run(table_task)) {
-         uint64_t start, length;
-         char *target_type, *params;
-         if (p_dm_get_next_target(table_task, NULL, &start, &length, &target_type, &params)) {
-            printf("  Target:   %s\n", target_type);
-            printf("  Sector:   %"PRIu64" + %"PRIu64"\n", start, length);
-            // Parse crypt params: <cipher> <key> <iv_offset> <device> <offset> [opts...]
-            if (strcmp(target_type, "crypt") == 0 && params) {
-               char *p = params;
-               // skip cipher
-               while (*p && *p != ' ') p++;
-               if (*p) p++;
-               // skip key (don't print it)
-               while (*p && *p != ' ') p++;
-               if (*p) p++;
-               // skip iv_offset
-               while (*p && *p != ' ') p++;
-               if (*p) p++;
-               // skip device path
-               while (*p && *p != ' ') p++;
-               if (*p) p++;
-               // skip start_offset
-               while (*p && *p != ' ') p++;
-               // remaining are optional params
-               if (*p) {
-                  printf("  Options:  %s\n", p + 1); // skip leading space
-               }
-            }
-         }
-         p_dm_task_destroy(table_task);
-      }
+      free(names[i]);
+      shown++;
+   }
+   free(names);
 
-      p_dm_task_destroy(info_task);
-      count++;
-      next = names->next;
-   } while (next);
-
-   p_dm_task_destroy(dmt);
-   if (count == 0) {
+   if (shown == 0) {
       printf(_("No active Windham devices found.\n"));
    }
 #else

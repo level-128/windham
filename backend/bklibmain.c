@@ -109,9 +109,11 @@ void init(bool is_root) {
    if (is_root) {
       set_oom_score_adj(-500);
       mapper_init();
+      blkid_init();
    } else {
       set_oom_score_adj(1000); // will definitely be killed in terms of memory scarce
       is_device_mapper_available = false;
+      is_blkid_available = false;
    }
    get_system_info();
 }

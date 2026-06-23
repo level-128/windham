@@ -38,7 +38,6 @@
 #include <unistd.h>
 #include <sys/vfs.h>
 #include <linux/magic.h>
-#include <blkid/blkid.h>
 #include <mntent.h>
 #ifndef WINDHAM_NO_LOOP_IOCTL
 #include <dirent.h>
@@ -49,6 +48,7 @@
 
 #include "../../libsrc/chkhead.c"
 #include "../../libsrc/srclib.c"
+#include "blkid.c"
 
 #define CHECK_DEVICE_TOPOLOGY(device, device_path, node, CODE_EXEC_IF_RET) \
   char *device_loc;							\
@@ -336,13 +336,17 @@ struct stat open_and_check_file(const char * filename, bool is_readonly, bool is
 
    if (check_head((Data *) data) == false) {
       // probe filesystem when entropy not pass
-      blkid_probe probe = blkid_new_probe();
+      if (!is_blkid_available) {
+         print_warning(_("Filesystem probe skipped: libblkid.so not loaded."));
+         goto END_PROBE;
+      }
+      blkid_probe probe = p_blkid_new_probe();
       if (probe == NULL) {
          print_warning(_("Filesystem probe failed for %s."), filename);
          goto END_PROBE;
       }
-      blkid_probe_set_device(probe, fd, 0, 0);
-      if (blkid_do_probe(probe) == -1) {
+      p_blkid_probe_set_device(probe, fd, 0, 0);
+      if (p_blkid_do_probe(probe) == -1) {
          print_warning(_("Filesystem probe failed for %s."), filename);
          goto END_PROBE;
       }
@@ -350,7 +354,7 @@ struct stat open_and_check_file(const char * filename, bool is_readonly, bool is
       const char * fstype = "Unknown";
       size_t       len;
 
-      int probe_result = blkid_probe_lookup_value(probe, "TYPE", &fstype, &len);
+      int probe_result = p_blkid_probe_lookup_value(probe, "TYPE", &fstype, &len);
 
       if (probe_result == 0) {
          print_error(

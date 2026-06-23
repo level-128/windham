@@ -14,6 +14,7 @@ import argparse
 import traceback
 import importlib
 import shutil
+import subprocess
 
 IS_ROOT = os.geteuid() == 0
 SKIP_ROOT_MSG = "(skipped: requires root)"
@@ -27,6 +28,10 @@ DEFAULT_DEVICE = "/tmp/windham_testfile"
 
 def run_tests(binary, device, test_filter=None, verbose=False):
     """Discover and run all test functions."""
+    # Clean up leftover dm devices from previous runs
+    subprocess.run([binary, "Close", "--all", "--no-admin"],
+                   capture_output=True)
+
     tests = []
 
     for fname in sorted(os.listdir(TESTS_DIR)):

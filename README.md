@@ -44,10 +44,11 @@ cmake -B build && cmake --build build
 
 | Tier | Requirements | Capabilities |
 |---|---|---|
-| **Full** (GNU/Linux) | Linux 2.6+, libdevmapper, libblkid, gettext, C11 compiler with GNU extensions | Everything |
+| **Full** (GNU/Linux) | Linux 2.6+, C11 compiler with GNU extensions, `linux-headers` | Everything |
 | **Basic** (ISO C11) | `stdlib.h`, `string.h`, `stdio.h`, `threads.h` (optional), ~510 KB heap | Header management, unlock, probe (no dm-crypt mapping) |
 
-Full-support dependencies: `libdevmapper-dev`, `linux-headers`, `libgettextpo-dev`, `libblkid-dev`, `libkeyutils-dev`. See [install guide](docs/install.md).
+Full-support dependencies: `linux-headers`, `libgettextpo-dev` (optional, for i18n).  
+`libblkid` and `libkeyutils` are loaded at runtime via `dlopen` — the binary runs without them, with degraded functionality. `libdevmapper` is no longer required. See [install guide](docs/install.md).
 
 
 ```bash

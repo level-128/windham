@@ -1,0 +1,7 @@
+cmake-build-*
+build-*
+compile_commands.json
+.*
+build
+*__pycache__
+debian

@@ -5,62 +5,17 @@
 #ifndef INCL_MAPPER
 #define INCL_MAPPER
 
-#ifndef WINDHAM_ISOC
-
-#include <libdevmapper.h>
-#include <sys/utsname.h>
-#include <dlfcn.h>
-
-#endif
-
-
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "srclib.c"
 #include "endian.c"
 
-// data
-
-struct dm_task * (*p_dm_task_create)(int type);
-
-int (*p_dm_task_set_name)(struct dm_task * dmt, const char * name);
-
-int (*p_dm_task_set_ro)(struct dm_task * dmt);
-
-int (*p_dm_task_set_uuid)(struct dm_task * dmt, const char * uuid);
-
-int (*p_dm_task_run)(struct dm_task * dmt);
-
-void (*p_dm_task_destroy)(struct dm_task * dmt);
-
-int (*p_dm_task_add_target)(
-   struct dm_task * dmt,
-   uint64_t         start,
-   uint64_t         size,
-   const char *     ttype,
-   const char *     params);
-
-void (*p_dm_task_update_nodes)(void);
-
-int (*p_dm_task_deferred_remove)(struct dm_task * dmt);
-
-struct dm_names * (*p_dm_task_get_names)(struct dm_task * dmt);
-
-int (*p_dm_task_get_info)(struct dm_task * dmt, struct dm_info * info);
-
-const char * (*p_dm_task_get_uuid)(struct dm_task * dmt);
-
-struct dm_deps * (*p_dm_task_get_deps)(struct dm_task * dmt);
-
-int (*p_dm_get_next_target)(
-   struct dm_task * dmt,
-   struct dm_task * next,
-   uint64_t *       start,
-   uint64_t *       length,
-   char **          target_type,
-   char **          params);
-
-
-bool is_device_mapper_available;
+/* is_device_mapper_available is declared+initialized by dm_ioctl.c */
+extern bool is_device_mapper_available;
 
 #define GPT_HDR_REVISION 0x00010000
 #define GPT_ENTRIES_MIN   1

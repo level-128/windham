@@ -33,10 +33,11 @@ cmake -B build && cmake --build build
 
 | 层级 | 条件 | 能力 |
 |---|---|---|
-| **完整模式**（GNU/Linux） | Linux 2.6+、libdevmapper、libblkid、gettext、GNU 扩展 C11 编译器 | 全部功能 |
+| **完整模式**（GNU/Linux） | Linux 2.6+、GNU 扩展 C11 编译器、linux-headers | 全部功能 |
 | **基础模式**（ISO C11） | stdlib.h、string.h、stdio.h、可选 threads.h、约 510 KB 堆内存 | 加密头管理、解锁、探测（无 dm-crypt 映射） |
 
-完整模式的系统依赖：`libdevmapper-dev`、`linux-headers`、`libgettextpo-dev`、`libblkid-dev`、`libkeyutils-dev`。参见[安装与构建](docs/install.md)。
+完整模式的系统依赖：`linux-headers`、`libgettextpo-dev`（国际化，可选）。
+`libblkid` 和 `libkeyutils` 在运行时通过 `dlopen` 动态加载——可以没有这两个库，功能会降级但程序仍能运行。`libdevmapper`（lvm2）已不再需要。参见[安装与构建](docs/install.md)。
 
 
 ```bash

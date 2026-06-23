@@ -710,11 +710,14 @@ void action_open(
                device, mount_points[0]),
             (_("Cannot open device %s: unmount the device to continue. Active mount points:"),
                device));
-         blkid_probe pr = blkid_new_probe_from_filename(device); blkid_do_probe(pr);
-         const blkid_partlist ls = blkid_probe_get_partitions(pr); int nparts = 0;
-         if (ls != NULL) {
-         nparts = blkid_partlist_numof_partitions(ls);
-         } blkid_free_probe(pr);
+         int nparts = 0;
+         if (is_blkid_available) {
+            blkid_probe pr = p_blkid_new_probe_from_filename(device); p_blkid_do_probe(pr);
+            const blkid_partlist ls = p_blkid_probe_get_partitions(pr);
+            if (ls != NULL) {
+            nparts = p_blkid_partlist_numof_partitions(ls);
+            } p_blkid_free_probe(pr);
+         }
          if (nparts != 0 && !is_decoy) {
          print_error(
             _("Cannot open device %s: device is in use, and most importantly: it contains a partition table. This means it "

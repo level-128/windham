@@ -4,15 +4,14 @@
 
 ### 系统依赖
 
-| 软件包 | Debian/Ubuntu | Fedora/RHEL | Arch |
-|---|---|---|---|
-| Device mapper | `libdevmapper-dev` | `device-mapper-devel` | `device-mapper` |
-| 内核头文件 | `linux-headers-$(uname -r)` | `kernel-devel` | `linux-headers` |
-| Gettext | `libgettextpo-dev` | `gettext-runtime` | `gettext` |
-| libblkid | `libblkid-dev` | `libblkid-devel` | `util-linux` |
-| keyutils（可选） | `libkeyutils-dev` | `keyutils-libs-devel` | `keyutils` |
+| 软件包 | Debian/Ubuntu | Fedora/RHEL | Arch | 备注 |
+|---|---|---|---|---|
+| 内核头文件 | `linux-headers-$(uname -r)` | `kernel-devel` | `linux-headers` | 必需 |
+| Gettext（可选） | `libgettextpo-dev` | `gettext-runtime` | `gettext` | 用于国际化翻译 |
+| libblkid（可选） | `libblkid-dev` | `libblkid-devel` | `util-linux` | 分区表检测，运行时尝试连接 |
+| keyutils（可选） | `libkeyutils-dev` | `keyutils-libs-devel` | `keyutils` | 内核密钥保留服务，运行时尝试连接 |
 
-可选的运行时工具：`clevis`、`partx`。
+可选的运行时程序：`clevis`、`partx`。
 
 ### 构建
 
@@ -63,6 +62,68 @@ cmake --build build
 
 ---
 
+## musl 静态构建（嵌入式 / initramfs）
+
+可以用 musl libc 构建完全静态的二进制（零 `.so` 依赖），适用于嵌入式 Linux、
+initramfs 或最小容器镜像。
+
+### 前置条件
+
+```bash
+# Debian / Ubuntu
+sudo apt install musl-tools musl-dev
+```
+
+### 构建
+
+```bash
+CC=musl-gcc CFLAGS="-idirafter /usr/include -idirafter /usr/include/x86_64-linux-gnu" \
+  cmake -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_BUILD_TYPE=Release \
+  -B build-musl
+cmake --build build-musl
+```
+
+`-idirafter` 标志让 musl-gcc 在 musl 自带的头文件路径之后、作为后备搜索内核头文件
+（`<linux/dm-ioctl.h>`、`<blkid/blkid.h>` 等），避免了 glibc 与 musl 头文件之间的冲突。
+
+### 验证
+
+```bash
+file build-musl/windham
+# ELF 64-bit LSB executable, statically linked, ...
+
+ldd build-musl/windham
+# not a dynamic executable
+```
+
+### 运行时要求
+
+静态二进制只需要：
+- 内核编译有 `CONFIG_BLK_DEV_DM` 和 `CONFIG_DM_CRYPT`（用于 dm-crypt）
+- `/dev/mapper/control`（devtmpfs 自动提供）
+- 可选：目标系统上的 `libblkid.so`、`libkeyutils.so`（通过 `dlopen` 运行时加载；
+  没有也能正常运行）
+
+目标系统不需要 musl 的共享库——libc 已完整链接进二进制。
+
+### musl 内核头文件的替代方案
+
+若 `musl-gcc` 找不到内核头文件（如 `<linux/dm-ioctl.h>`），可在本地目录创建符号链接
+以避免 glibc 头文件冲突（使用x86-64设备举例）：
+
+```bash
+mkdir -p ~/musl-kernhdrs
+ln -s /usr/include/linux       ~/musl-kernhdrs/linux
+ln -s /usr/include/asm-generic ~/musl-kernhdrs/asm-generic
+ln -s /usr/include/x86_64-linux-gnu/asm ~/musl-kernhdrs/asm
+
+CC=musl-gcc CFLAGS="-I$HOME/musl-kernhdrs" \
+  cmake -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_BUILD_TYPE=Release \
+  -B build-musl
+```
+
+---
+
 ## ISO C11 基础模式
 
 基础模式只需直接编译 `frontend.c`，不需要 CMake 构建系统——任何 C11 编译器都可以：
@@ -77,7 +138,7 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 - 兼容 ASCII 的字符集（a–z、A–Z、0–9 必须连续编码）
 - stdlib.h、string.h、stdio.h 完整实现
 - 堆内存约 492 KB（其中 464 KB 必须连续）
-- 64 位平台栈空间约 52 KB + 2×FILENAME_MAX（32 位平台略少）
+- 64 位平台栈空间约 74 KB + 2×FILENAME_MAX（32 位平台略少）
 
 ### 与完整模式的功能对比
 
@@ -109,10 +170,8 @@ ISO C 模式可以在任何符合 C11 的环境下运行，但部分"可选"的�
 
 | `__STDC_NO_THREADS__` 的状态 | 实际表现 |
 |---|---|
-| **未定义**（线程可用） | KDF 并行处理两个密钥池区域，解锁速度约翻倍。随机数使用线程局部状态。 |
+| **未定义**（线程可用） | KDF 并行处理两个密钥池区域，解锁速度可能翻倍，但在内存相比于CPU较慢的系统中可能速度没有变化。随机数使用线程局部状态。 |
 | **已定义**（没有线程） | KDF 单线程运行。随机数使用全局状态。功能不受影响，只慢一些。 |
-
-KDF 在解锁时需要探测密钥池的 zone 0 和 zone 1。有线程时两个 zone 并行探测；没有线程时顺序探测。对只注册了少量口令的设备来说影响不大。
 
 #### Unicode 支持（__STDC_UTF_32__）
 
