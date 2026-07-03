@@ -18,11 +18,14 @@
 
 
 enum {
+	/* ── Target / Key ─────────────────────────── */
 	NMOBJ_to,
 	NMOBJ_key,
 	NMOBJ_key_file,
 	NMOBJ_new_key,
 	NMOBJ_master_key,
+
+	/* ── KDF / Performance ────────────────────── */
 	NMOBJ_max_unlock_mem,
 	NMOBJ_max_unlock_time,
 	NMOBJ_max_unlock_level,
@@ -30,15 +33,22 @@ enum {
 	NMOBJ_target_time,
 	NMOBJ_target_level,
 	NMOBJ_unlock_timeout,
+
+	/* ── Device creation ──────────────────────── */
 	NMOBJ_encrypt_type,
 	NMOBJ_block_size,
 	NMOBJ_decoy_size,
 	NMOBJ_disk_file_size,
+
+	/* ── windhamtab ────────────────────────────── */
 	NMOBJ_windhamtab_location,
 	NMOBJ_windhamtab_pass,
+
+	/* ── Aux zone ─────────────────────────────── */
 	NMOBJ_aux_add,
 	NMOBJ_aux_type,
 
+	/* ── Bool flags: operation mode ───────────── */
 	NMOBJ_key_stdin,
 	NMOBJ_gen_randkey,
 	NMOBJ_target_dry_run,
@@ -46,12 +56,16 @@ enum {
 	NMOBJ_is_rapid_add,
 	NMOBJ_is_anonymous_key,
 	NMOBJ_is_no_fill_random_pattern,
+
+	/* ── Bool flags: dm-crypt / device ────────── */
 	NMOBJ_target_restore,
 	NMOBJ_target_decoy,
 	NMOBJ_target_readonly,
 	NMOBJ_target_allow_discards,
 	NMOBJ_target_no_read_workqueue,
 	NMOBJ_target_no_write_workqueue,
+
+	/* ── Bool flags: system / isolation ────────── */
 	NMOBJ_is_allow_swap,
 	NMOBJ_is_systemd,
 	NMOBJ_is_nokeyring,
@@ -59,24 +73,35 @@ enum {
 	NMOBJ_is_noadmin,
 	NMOBJ_is_no_map_partition,
 	NMOBJ_is_deffered_remove,
+
+	/* ── Bool flags: interaction ──────────────── */
 	NMOBJ_yes,
 	NMOBJ_print_debug,
 	NMOBJ_help,
+
+	/* ── Aux zone commands ────────────────────── */
 	NMOBJ_aux_del,
 	NMOBJ_aux_probe,
 	NMOBJ_is_no_aux,
 	NMOBJ_aux_add_command,
 	NMOBJ_aux_flag,
 	NMOBJ_aux_add_link,
+
+	/* ── Probe ─────────────────────────────────── */
 	NMOBJ_probe_dir,
 	NMOBJ_probe_linux,
 	NMOBJ_probe_pattern,
+
+	/* ── LINK_OPEN ────────────────────────────── */
 	NMOBJ_link_flag,
 	NMOBJ_link_prio,
 	NMOBJ_target_key,
 	NMOBJ_target_key_file,
 	NMOBJ_aux_link_paths,
+
+	/* ── Misc ─────────────────────────────────── */
 	NMOBJ_close_all,
+	NMOBJ_aux_rm,
 	NMOBJ_target_SIZE
 };
 
@@ -123,11 +148,14 @@ enum actions_type {
 int options[NMOBJ_target_SIZE] = {0};
 
 const struct option long_options[] = {
+	/* ── Target / Key (value) ─────────────────── */
 	{"to", required_argument, &options[NMOBJ_to], 1},
 	{"key", required_argument, &options[NMOBJ_key], 1},
 	{"key-file", required_argument, &options[NMOBJ_key_file], 1},
 	{"new-key", required_argument, &options[NMOBJ_new_key], 1},
 	{"master-key", required_argument, &options[NMOBJ_master_key], 1},
+
+	/* ── KDF / Performance (value) ────────────── */
 	{"max-unlock-memory", required_argument, &options[NMOBJ_max_unlock_mem], 1},
 	{"max-unlock-time", required_argument, &options[NMOBJ_max_unlock_time], 1},
 	{"max-unlock-level", required_argument, &options[NMOBJ_max_unlock_level], 1},
@@ -135,15 +163,22 @@ const struct option long_options[] = {
 	{"target-time", required_argument, &options[NMOBJ_target_time], 1},
 	{"target-level", required_argument, &options[NMOBJ_target_level], 1},
 	{"timeout", required_argument, &options[NMOBJ_unlock_timeout], 1},
+
+	/* ── Device creation (value) ────────────────── */
 	{"encrypt-type", required_argument, &options[NMOBJ_encrypt_type], 1},
 	{"block-size", required_argument, &options[NMOBJ_block_size], 1},
 	{"decoy-size", required_argument, &options[NMOBJ_decoy_size], 1},
 	{"diskfile", required_argument, &options[NMOBJ_disk_file_size], 1},
+
+	/* ── windhamtab (value) ────────────────────── */
 	{"windhamtab-location", required_argument, &options[NMOBJ_windhamtab_location], 1},
 	{"windhamtab-pass", required_argument, &options[NMOBJ_windhamtab_pass], 1},
+
+	/* ── Aux zone (value) ──────────────────────── */
 	{"aux-add", required_argument, &options[NMOBJ_aux_add], 1},
 	{"aux-type", required_argument, &options[NMOBJ_aux_type], 1},
 
+	/* ── Bool flags: operation mode ────────────── */
 	{"keystdin", no_argument, &options[NMOBJ_key_stdin], 1},
 	{"generate-random-key", no_argument, &options[NMOBJ_gen_randkey], 1},
 	{"dry-run", no_argument, &options[NMOBJ_target_dry_run], 1},
@@ -151,12 +186,16 @@ const struct option long_options[] = {
 	{"rapid-add", no_argument, &options[NMOBJ_is_rapid_add], 1},
 	{"anonymous-key", no_argument, &options[NMOBJ_is_anonymous_key], 1},
 	{"no-fill-pattern", no_argument, &options[NMOBJ_is_no_fill_random_pattern], 1},
+
+	/* ── Bool flags: dm-crypt / device ─────────── */
 	{"restore", no_argument, &options[NMOBJ_target_restore], 1},
 	{"decoy", no_argument, &options[NMOBJ_target_decoy], 1},
 	{"readonly", no_argument, &options[NMOBJ_target_readonly], 1},
 	{"allow-discards", no_argument, &options[NMOBJ_target_allow_discards], 1},
 	{"no-read-workqueue", no_argument, &options[NMOBJ_target_no_read_workqueue], 1},
 	{"no-write-workqueue", no_argument, &options[NMOBJ_target_no_write_workqueue], 1},
+
+	/* ── Bool flags: system / isolation ────────── */
 	{"allow-swap", no_argument, &options[NMOBJ_is_allow_swap], 1},
 	{"systemd-dialog", no_argument, &options[NMOBJ_is_systemd], 1},
 	{"nokeyring", no_argument, &options[NMOBJ_is_nokeyring], 1},
@@ -164,162 +203,44 @@ const struct option long_options[] = {
 	{"no-admin", no_argument, &options[NMOBJ_is_noadmin], 1},
 	{"no-map-partition", no_argument, &options[NMOBJ_is_no_map_partition], 1},
 	{"defer", no_argument, &options[NMOBJ_is_deffered_remove], 1},
+
+	/* ── Bool flags: interaction ────────────────── */
 	{"yes", no_argument, &options[NMOBJ_yes], 1},
 	{"print-debug", no_argument, &options[NMOBJ_print_debug], 1},
 	{"help", no_argument, &options[NMOBJ_help], 1},
+
+	/* ── Aux zone commands ─────────────────────── */
 	{"aux-del", no_argument, &options[NMOBJ_aux_del], 1},
 	{"aux-probe", no_argument, &options[NMOBJ_aux_probe], 1},
 	{"no-aux", no_argument, &options[NMOBJ_is_no_aux], 1},
 	{"aux-add-command", required_argument, &options[NMOBJ_aux_add_command], 1},
 	{"aux-flag", required_argument, &options[NMOBJ_aux_flag], 1},
 	{"aux-add-link", required_argument, &options[NMOBJ_aux_add_link], 1},
+
+	/* ── Probe ─────────────────────────────────── */
 	{"dir", required_argument, &options[NMOBJ_probe_dir], 1},
 	{"probe-linux", no_argument, &options[NMOBJ_probe_linux], 1},
 	{"probe-pattern", required_argument, &options[NMOBJ_probe_pattern], 1},
+
+	/* ── LINK_OPEN ─────────────────────────────── */
 	{"aux-link-flag", required_argument, &options[NMOBJ_link_flag], 1},
 	{"aux-link-prio", required_argument, &options[NMOBJ_link_prio], 1},
 	{"aux-target-key", required_argument, &options[NMOBJ_target_key], 1},
 	{"aux-target-keyfile", required_argument, &options[NMOBJ_target_key_file], 1},
 	{"aux-link", optional_argument, &options[NMOBJ_aux_link_paths], 1},
+
+	/* ── Misc ───────────────────────────────────── */
 	{"all", no_argument, &options[NMOBJ_close_all], 1},
+	{"aux-rm", required_argument, &options[NMOBJ_aux_rm], 1},
 	{0, 0, 0, 0}
 };
 
-#define CHECK_ALLOWED_OPEN						\
+#define ALLOW_OPEN_COMMON						\
   NMOBJ_key, NMOBJ_key_stdin, NMOBJ_key_file, NMOBJ_master_key, NMOBJ_max_unlock_mem, \
     NMOBJ_max_unlock_time, NMOBJ_max_unlock_level,			\
     NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail, NMOBJ_is_allow_swap
 
-#define CHECK_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help
-
-
-#define check_action(...)						\
-  const uint8_t check_allowed[] = __VA_ARGS__;				\
-  for (unsigned i = 0; i < NMOBJ_target_SIZE; i++){			\
-    if (options[i] == 1){						\
-      bool is_okay = false;						\
-      for (unsigned j = 0; j < sizeof(check_allowed); j++){		\
-	if (check_allowed[j] == i){					\
-	  is_okay = true;						\
-	  break;							\
-	}								\
-      }									\
-      if (!is_okay){							\
-	print_error(_("argument --%s is not valid under action: %s"),	\
-		    (char *) long_options[i].name,			\
-		    (char *) actions[action_num]);			\
-      }									\
-    }									\
-  }									\
-  break;
-
-
-void frontend_check_invalid_param(int action_num) {
-	switch (action_num) {
-		case NMOBJ_action_open: {
-			check_action({CHECK_ALLOWED_OPEN,
-			             NMOBJ_to,
-			             NMOBJ_target_readonly,
-			             NMOBJ_target_dry_run,
-			             NMOBJ_target_allow_discards,
-			             NMOBJ_target_no_read_workqueue,
-			             NMOBJ_target_no_write_workqueue,
-			             NMOBJ_is_nokeyring,
-			             NMOBJ_is_no_map_partition,
-			             NMOBJ_is_no_aux,
-			             NMOBJ_windhamtab_location,
-			             NMOBJ_windhamtab_pass,
-			             NMOBJ_aux_link_paths,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_close: {
-			check_action({NMOBJ_is_deffered_remove,
-			             NMOBJ_close_all,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_new: {
-			check_action({ NMOBJ_key,
-			             NMOBJ_key_file,
-			             NMOBJ_key_stdin,
-			             NMOBJ_target_mem,
-			             NMOBJ_target_time,
-			             NMOBJ_target_level,
-			             NMOBJ_encrypt_type,
-			             NMOBJ_block_size,
-			             NMOBJ_is_no_detect_entropy,
-			             NMOBJ_decoy_size,
-			             NMOBJ_disk_file_size,
-			             NMOBJ_is_anonymous_key,
-			             NMOBJ_is_allow_swap,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_addkey: {
-			check_action({ CHECK_ALLOWED_OPEN,
-			             NMOBJ_gen_randkey,
-			             NMOBJ_target_mem,
-			             NMOBJ_target_time,
-			             NMOBJ_target_level,
-			             NMOBJ_is_no_detect_entropy,
-			             NMOBJ_is_rapid_add,
-			             NMOBJ_is_anonymous_key,
-			             NMOBJ_new_key, CHECK_COMMON})
-		}
-		case NMOBJ_action_delkey: {
-			check_action({CHECK_ALLOWED_OPEN,
-			             NMOBJ_is_anonymous_key,
-			             NMOBJ_is_no_fill_random_pattern,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_backup: {
-			check_action({CHECK_ALLOWED_OPEN,
-			             NMOBJ_to,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_restore: {
-			check_action({NMOBJ_to,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_suspend: {
-			check_action({ CHECK_ALLOWED_OPEN,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_resume: {
-			check_action({ CHECK_ALLOWED_OPEN,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_destory: {
-			check_action({NMOBJ_target_decoy, CHECK_COMMON})
-		}
-		case NMOBJ_action_bench: {
-			check_action({CHECK_COMMON})
-		}
-		case NMOBJ_action_aux: {
-			check_action({CHECK_ALLOWED_OPEN,
-			             NMOBJ_aux_add,
-				         NMOBJ_aux_type,
-			             NMOBJ_aux_del,
-			             NMOBJ_aux_probe,
-			             NMOBJ_aux_add_command,
-			             NMOBJ_aux_flag,
-			             NMOBJ_aux_add_link,
-			             NMOBJ_target_key,
-			             NMOBJ_target_key_file,
-			             NMOBJ_link_flag,
-			             NMOBJ_link_prio,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_probe: {
-			check_action({NMOBJ_probe_dir,
-			             NMOBJ_probe_linux,
-			             NMOBJ_probe_pattern,
-			             CHECK_COMMON})
-		}
-		case NMOBJ_action_list: {
-			check_action({CHECK_COMMON})
-		}
-		default: ;
-	}
-}
+#define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help
 
 
 int frontend_check_actions(const char *input) {
@@ -416,7 +337,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 	char *windhamtab_location = NULL;
 	char *encrypt_type = DEFAULT_DISK_ENC_MODE;
 
-	frontend_check_invalid_param(action_num);
+
 	bool is_root = is_running_as_root();
 
 #if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_TEST)
@@ -540,24 +461,51 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 	}
 #endif
 
-	// Check invalid arguments
+	// ── Argument validation DSL (see include/valid_args.c) ──
+
+#define need_dev(_action) \
+   if (action_num == NMOBJ_action_##_action && device == NULL) \
+      print_error(_("<target> not provided. type 'windham Help' to view help"));
+
+#define need_dev_if(_action, _cond) \
+   if (action_num == NMOBJ_action_##_action && device == NULL && (_cond)) \
+      print_error(_("<target> not provided. type 'windham Help' to view help"));
+
+#define opt_allow(_action, ...) \
+   if (action_num == NMOBJ_action_##_action) { \
+      const uint8_t _a[] = { __VA_ARGS__ }; \
+      for (unsigned _i = 0; _i < NMOBJ_target_SIZE; _i++) { \
+         if (options[_i] == 1) { \
+            bool _ok = false; \
+            for (unsigned _j = 0; _j < sizeof(_a); _j++) { \
+               if (_a[_j] == _i) { _ok = true; break; } \
+            } \
+            if (!_ok) \
+               print_error(_("argument --%s is not valid under action: %s"), \
+                           (char *) long_options[_i].name, \
+                           (char *) actions[action_num]); \
+         } \
+      } \
+   }
 
 #define ent(_action_num, _warn_or_err, _msg, _options) \
    if ((action_num == -1 || action_num == (NMOBJ_action_##_action_num)) && !(_options)) { \
-    if (strcmp(#_warn_or_err, "warn") == 0) {				\
-      print_warning(_(_msg));						\
-    } else if (strcmp(#_warn_or_err, "err") == 0) {			\
-      print_error(_(_msg));						\
-    }									\
+    if (strcmp(#_warn_or_err, "warn") == 0) { \
+      print_warning(_(_msg)); \
+    } else if (strcmp(#_warn_or_err, "err") == 0) { \
+      print_error(_(_msg)); \
+    } \
   }
 
 #define is(_x) (options[_x] == 1)
-#define isval(_x, _options) (if ($is(_x) && (params[_x] _options)))
 #define has(_cnt, ...) (_sum_values(__VA_ARGS__, NMOBJ_target_SIZE) <= _cnt)
 
-#include "include/valid_args.h"
+#include "include/valid_args.c"
 
-
+#undef need_dev
+#undef need_dev
+#undef need_dev_if
+#undef opt_allow
 #undef ent
 #undef is
 #undef has
@@ -707,12 +655,13 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 			init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
 			// Exactly one of --add, --del, --probe must be specified
-			int aux_action_count = options[NMOBJ_aux_add] + options[NMOBJ_aux_del] + options[NMOBJ_aux_probe] + options[NMOBJ_aux_add_command] + options[NMOBJ_aux_add_link];
+			int aux_action_count = options[NMOBJ_aux_add] + options[NMOBJ_aux_del] + options[NMOBJ_aux_probe]
+				+ options[NMOBJ_aux_add_command] + options[NMOBJ_aux_add_link] + options[NMOBJ_aux_rm];
 			if (aux_action_count == 0) {
-				print_error(_("Aux action requires one of --add, --del, or --probe"));
+				print_error(_("Aux action requires one of --add, --del, --probe, --add-command, --add-link, or --aux-rm"));
 			}
 			if (aux_action_count > 1) {
-				print_error(_("Only one of --add, --del, or --probe can be specified"));
+				print_error(_("Only one aux sub-action can be specified at a time"));
 			}
 
 			if (options[NMOBJ_aux_add]) {
@@ -773,6 +722,21 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 					max_unlock_level,
 					options[NMOBJ_is_allow_swap],
 					options[NMOBJ_target_decoy]);
+			} else if (options[NMOBJ_aux_rm]) {
+				long idx = strtol(params[NMOBJ_aux_rm], NULL, 10);
+				if (idx < 1) {
+					print_error(_("--aux-rm index must be a positive integer"));
+				}
+				action_aux_rm(
+					STR_device->name,
+					key,
+					master_key,
+					max_unlock_mem,
+					max_unlock_time,
+					max_unlock_level,
+					options[NMOBJ_is_allow_swap],
+					options[NMOBJ_target_decoy],
+					(int)idx);
 			}
 			break;
 		}
@@ -833,37 +797,89 @@ int main_(int argc, char *argv[]) {
 	if (argc == 2) {
 		if (action_num == NMOBJ_action_bench) {
 			benchmark();
-		} else if (action_num == NMOBJ_action_probe || action_num == NMOBJ_action_list) {
+		} else {
+			// DSL need_dev rules validate which actions require a device.
 			char *params[NMOBJ_target_SIZE] = {NULL};
 			frontend_check_validity_and_execute(action_num, NULL, params);
-		} else {
-			print_error(_("<target> not provided. type 'windham Help' to view help"));
 		}
 	}
 	if (argc >= 3) {
 		char *params[NMOBJ_target_SIZE] = {NULL};
 
-		const char *device = argv[2];
-		int opt_start = 3;
-
-		if (memcmp(argv[2], "-", 1) == 0) {
-			if (strcmp(argv[2], "--help") == 0 || strcmp(argv[2], "-h") == 0) {
+		// ── Phase 1: pre-scan for --help anywhere ─────────────────
+		// This short-circuits before any real parsing. getopt_long will also
+		// catch --help (see post-parse check below), but doing it here avoids
+		// the device-resolution step when the user just wants help text.
+		for (int i = 2; i < argc; i++) {
+			if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
 				frontend_help(argv[1]);
-			}
-			if (action_num == NMOBJ_action_probe || action_num == NMOBJ_action_close) {
-				device = NULL;
-				opt_start = 2;
-			} else {
-				print_error(_("arguments should locate after <device>. "));
 			}
 		}
 
+		// ── Phase 2: locate the device argument ────────────────────
+		// Before this change, the device was required at argv[2] and any
+		// --option appearing before it was an error.  Now we scan argv[2..]
+		// to find the device wherever it appears, then rearrange argv so
+		// that getopt_long sees options-only from argv[3] onward.
+		//
+		// Distinguishing the device from an option value:
+		//   --key=pass        ← value is embedded (contains '=')
+		//   --key pass        ← value is the next arg (no '=' in the option)
+		//   /dev/sda          ← device (no preceding bare --option)
+		//
+		// If the preceding arg is a known long option that takes
+		// required_argument AND has no '=', the current arg is its value,
+		// not the device.
+		int device_pos = -1;
+		for (int i = 2; i < argc; i++) {
+			if (argv[i][0] == '-') continue;
+
+			bool is_option_val = false;
+			if (i > 2 && argv[i - 1][0] == '-' && argv[i - 1][1] == '-') {
+				const char *optname = argv[i - 1] + 2;  // skip "--"
+				if (strchr(optname, '=') == NULL) {     // no embedded value
+					for (size_t j = 0; j < sizeof(long_options) / sizeof(long_options[0]) - 1; j++) {
+						if (strcmp(optname, long_options[j].name) == 0
+						    && long_options[j].has_arg == required_argument) {
+							is_option_val = true;
+							break;
+						}
+					}
+				}
+			}
+
+			if (!is_option_val) { device_pos = i; break; }
+		}
+
+		// ── Phase 3: rearrange argv → device at [2], options at [3..] ──
+		// Example: argv = [windham, Open, --key, pass, /dev/sda]
+		//   device_pos = 4
+		//   memmove shifts argv[2..3] → argv[3..4], then puts /dev/sda at [2]
+		//   result: [windham, Open, /dev/sda, --key, pass]
+		// If device_pos == 2, no move needed (user already put device first).
+		// If no device found at all, options start at argv[2].
+		const char *device = NULL;
+		int optind_start = 2;
+		if (device_pos >= 0) {
+			if (device_pos > 2) {
+				char *tmp = argv[device_pos];
+				memmove(&argv[3], &argv[2],
+				        (size_t)(device_pos - 2) * sizeof(char *));
+				argv[2] = tmp;
+			}
+			device = argv[2];
+			optind_start = 3;
+		}
+		// Whether the action actually requires a device is checked
+		// later by the DSL in valid_args.c (need_dev rules).
+
+		// ── Phase 4: parse options via getopt_long ─────────────────
 		int opt;
 		int long_index = 0;
-		optind = opt_start;
+		optind = optind_start;
 		opterr = 0;
 
-		memset(options, 0, sizeof(options)); // under testing, options needs to be cleared.
+		memset(options, 0, sizeof(options));
 		while ((opt = getopt_long(argc, argv, "", long_options, &long_index)) != -1) {
 			if (opt == '?') {
 				print_error(_("Unknown option for %s"), argv[optind - 1]);

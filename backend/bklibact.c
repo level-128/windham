@@ -138,10 +138,7 @@ int action_addkey(
    Key     new_key;
    int     ret_target_level;
 
-   const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
-   if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-      print_error(_("The header is suspended. Resume header to perform this operation."));
-   }
+   const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
    OPERATION_BACKEND_UNENCRYPT_HEADER
 
@@ -227,10 +224,7 @@ void action_removekey(
    Data    data;
    int64_t offset;
 
-   const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
-   if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-      print_error(_("The header is suspended. Resume header to perform this operation."));
-   }
+   const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
    OPERATION_BACKEND_UNENCRYPT_HEADER
 
@@ -342,12 +336,7 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
 
    Data                data;
    int64_t             offset;
-   ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
-   if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-      print_error(
-         _("The header is suspended. Resume header to perform this operation. Although it is technically possible to backup a"
-            " suspended partition, You should not do this."));
-   }
+   ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
 #ifndef WINDHAM_ISOC
    int fd = creat(filename, S_IRUSR);
@@ -380,7 +369,7 @@ void action_restore(const char * device, const char * filename, const bool is_de
    } else {
       ask_for_conformation(_("Restoring header to device \"%s\", Continue?"), device);
 
-      load_header_by_device(filename, &data, &offset, false);
+      load_header_by_device(filename, &data, &offset, false, true);
    }
 
 
@@ -395,7 +384,7 @@ void action_suspend(const char * device, PARAMS_FOR_KEY) {
    Data    data;
    int64_t offset;
 
-   load_header_by_device(device, &data, &offset, is_decoy);
+   load_header_by_device(device, &data, &offset, is_decoy, true);
 
    if (is_header_suspended(data)) {
       print_error(_("The device %s is already suspended."), device);
@@ -413,7 +402,7 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
    Data    data;
    int64_t offset;
 
-   load_header_by_device(device, &data, &offset, is_decoy);
+   load_header_by_device(device, &data, &offset, is_decoy, true);
 
    if (! is_header_suspended(data)) {
       print_error(_("The device %s is not suspended."), device);
@@ -453,7 +442,7 @@ void action_destory(const char * device, bool is_decoy) {
    Data    data;
    int64_t offset;
 
-   ENUM_MAPPER_DEVSTAT stat = load_header_by_device(device, &data, &offset, is_decoy);
+   ENUM_MAPPER_DEVSTAT stat = load_header_by_device(device, &data, &offset, is_decoy, true);
 
    uint8_t * uuid = data.uuid_and_salt;
    printf(

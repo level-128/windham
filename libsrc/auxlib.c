@@ -470,6 +470,76 @@ void remove_aux_from_aux_zone_by_key(uint8_t aux_zone[], size_t aux_zone_size, c
     }
 }
 
+// Remove a single aux entry identified by its 1-based probe index.
+// target_index: 1-based index matching what --aux-probe displays.
+// Returns true if found and removed.
+bool remove_single_aux_by_index(uint8_t aux_zone[], size_t aux_zone_size,
+                                const uint8_t key[HASHLEN], int target_index)
+{
+    if (aux_zone_size == 0 || target_index < 1) {
+        return false;
+    }
+
+    bool key_zero = is_key_zero(key);
+
+    // the last few bytes are terminators.
+    aux_zone_size -= sizeof(aux_zone_terminator_magic);
+
+    int match_count = 0;
+    size_t read_pos = 0;
+
+    while (read_pos < aux_zone_size) {
+        uint16_t cur_size;
+        memcpy(&cur_size, &aux_zone[read_pos], sizeof(cur_size));
+        cur_size = le16toh(cur_size);
+        if (cur_size == 0) {
+            break;
+        }
+        if (cur_size > aux_zone_size - read_pos - sizeof(uint16_t)) {
+            print_error(_("Aux zone has corrupted. Use argument --no-aux"));
+        }
+
+        size_t header_size = offsetof(AuxSlot, content_char32_be);
+        bool is_match = false;
+
+        if (cur_size >= header_size + AUX_PROTECTION_ZERO_SIZE) {
+            const uint8_t *slot_iv = &aux_zone[read_pos + sizeof(uint16_t)];
+            const uint8_t *slot_payload = &aux_zone[read_pos + header_size];
+            size_t payload_len = cur_size - header_size;
+
+            if (key_zero) {
+                bool protection_ok = true;
+                for (int i = 0; i < AUX_PROTECTION_ZERO_SIZE; i++) {
+                    if (slot_payload[payload_len - AUX_PROTECTION_ZERO_SIZE + i] != 0) {
+                        protection_ok = false;
+                        break;
+                    }
+                }
+                is_match = protection_ok;
+            } else {
+                is_match = decrypt_and_verify_aux_payload(slot_payload, payload_len, slot_iv, key);
+            }
+        }
+
+        if (is_match) {
+            match_count++;
+            if (match_count == target_index) {
+                size_t remaining = aux_zone_size - (read_pos + cur_size);
+                if (remaining > 0) {
+                    memmove(&aux_zone[read_pos], &aux_zone[read_pos + cur_size], remaining);
+                }
+                size_t new_end = read_pos + remaining;
+                memset(&aux_zone[new_end], 0, aux_zone_size - new_end);
+                return true;
+            }
+        }
+
+        read_pos += cur_size;
+    }
+
+    return false;
+}
+
 
 // Parse multibyte input string into a char32_t array for aux content.
 // input: null-terminated multibyte string (e.g., UTF-8 from command line)

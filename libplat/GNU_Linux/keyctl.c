@@ -1,6 +1,18 @@
 #include <stdint.h>
+#include <stddef.h>
 #include <dlfcn.h>
-#include <keyutils.h>
+
+// Types and constants from Linux kernel UAPI <linux/keyctl.h>.
+// Defined inline to avoid a compile-time dependency on libkeyutils-dev.
+// These values are stable ABI — they have never changed.
+typedef int32_t  key_serial_t;
+typedef uint32_t key_perm_t;
+
+#define KEY_SPEC_SESSION_KEYRING ((key_serial_t)-3)   // caller's session keyring
+#define KEY_POS_SETATTR  0x20000000u                   // possessor: set attributes
+#define KEY_USR_VIEW     0x00010000u                   // owner: view attributes
+#define KEY_USR_READ     0x00020000u                   // owner: read payload
+#define KEY_USR_SEARCH   0x00080000u                   // owner: search keyrings
 
 #include "../../libsrc/srclib.c"
 #include "../../include/windham_const.h"

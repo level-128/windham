@@ -60,7 +60,8 @@ void frontend_help(const char * the_3rd_argv) {
       printf(
          _(
             "usage: \"windham <action> <target>\"\n"
-            "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'DelKey' 'Backup' 'Restore' 'Suspend' 'Resume' 'Destory' 'Aux' and 'Probe'\n\n"
+            "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'DelKey'  'Backup'  'Restore'\n"
+            "                       'Suspend'  'Resume'  'Destroy'  'Bench'  'Aux'  'Probe'  'List'\n\n"
             "Use command \"windham Help <action>\" to view specific help text for each action.\n\n"
             "pre-compiled arguments. These arguments serve an informative purpose; changing them may render your "
             "device inaccessible.\n"));
@@ -196,7 +197,8 @@ void frontend_help(const char * the_3rd_argv) {
             "refers to the entry under /dev/mapper/<name>.\n"
             "\n"
             "options:\n"
-            "\t--defer: defer removal until the device is no longer in use.\n"));
+            "\t--defer: defer removal until the device is no longer in use.\n"
+            "\t--all:   close all active Windham mapper devices.\n"));
       frontend_print_common_args();
    } else if (strcmp("New", the_3rd_argv) == 0) {
       printf(
@@ -316,6 +318,8 @@ void frontend_help(const char * the_3rd_argv) {
             "\t                             partition at <path>. On Open, the linked device\n"
             "\t                             is automatically unlocked in cascade.\n"
             "\t--aux-del:                 delete all aux entries matching the current key.\n"
+            "\t--aux-rm=<N>:              delete a single aux entry by its 1-based index as\n"
+            "\t                             shown by --aux-probe.\n"
             "\t--aux-probe:               list all aux entries matching the current key,\n"
             "\t                             plus all public (unencrypted) entries.\n"
             "\n"
@@ -337,35 +341,7 @@ void frontend_help(const char * the_3rd_argv) {
             "Other options:\n"
             "\t--aux-type=<name>:         set entry type identifier for --aux-add.\n"));
       frontend_print_unlock_args();
-      frontend_print_common_args();
-   } else if (strcmp("Restore", the_3rd_argv) == 0) {
-      printf(
-         _(
-            "Restore <target>: Restore the header from a file to the device.\n"
-            "\n"
-            "options:\n"
-            "\t--to <location>: REQUIRED; the location of the file.\n"));
-      frontend_print_common_args();
-   } else if (strcmp("Suspend", the_3rd_argv) == 0) {
-      printf(
-         _(
-            "Suspend <target>: Make device identifiable and accessible without password. When Suspending, only "
-            "action \"Open\" and \"Close\" could be used.\n"
-            "\n"));
-      frontend_print_unlock_args();
-      frontend_print_common_args();
-   } else if (strcmp("Resume", the_3rd_argv) == 0) {
-      printf(
-         _(
-            "Resume <target>: unsuspend the device.\n"
-            "\n"));
-      frontend_print_unlock_args();
-      frontend_print_common_args();
-    } else if (strcmp("Bench", the_3rd_argv) == 0) {
-       printf(
-          _(
-             "Bench: Performing Argon2 benchmark\n"
-             "\n"));
+       frontend_print_common_args();
     } else {
       print_error("<action> not recognized. type 'windham Help' to view help");
    }

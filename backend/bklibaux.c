@@ -25,10 +25,7 @@ void action_aux_add(
 	Data    data;
 	int64_t offset;
 
-	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
-	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-		print_error(_("The header is suspended. Resume header to perform this operation."));
-	}
+	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 
@@ -84,10 +81,7 @@ void action_aux_add_command(
 	Data    data;
 	int64_t offset;
 
-	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
-	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-		print_error(_("The header is suspended. Resume header to perform this operation."));
-	}
+	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 
@@ -202,7 +196,7 @@ void action_aux_add_link(
 	// 4. Load header of the linked device
 	Data link_data;
 	int64_t link_offset;
-	const ENUM_MAPPER_DEVSTAT lstat = load_header_by_device(link_path, &link_data, &link_offset, false);
+	const ENUM_MAPPER_DEVSTAT lstat = load_header_by_device(link_path, &link_data, &link_offset, false, false);
 	if (lstat != NMOBJ_MAPPER_DEVSTAT_NORM) {
 		print_error(_("Cannot load header of linked device %s."), link_path);
 	}
@@ -226,10 +220,7 @@ void action_aux_add_link(
 	// 6. Open main device and unlock its aux zone
 	Data data;
 	int64_t offset;
-	const ENUM_MAPPER_DEVSTAT st = load_header_by_device(device, &data, &offset, is_decoy);
-	if (st == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-		print_error(_("The header is suspended. Resume header to perform this operation."));
-	}
+	const ENUM_MAPPER_DEVSTAT st = load_header_by_device(device, &data, &offset, is_decoy, false);
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 
 	size_t aux_zone_size = 0;
@@ -287,10 +278,7 @@ void action_aux_del(
 	Data    data;
 	int64_t offset;
 
-	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
-	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-		print_error(_("The header is suspended. Resume header to perform this operation."));
-	}
+	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 
@@ -333,10 +321,7 @@ void action_aux_probe(
 	Data    data;
 	int64_t offset;
 
-	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy);
-	if (device_stat == NMOBJ_MAPPER_DEVSTAT_SUSP) {
-		print_error(_("The header is suspended. Resume header to perform this operation."));
-	}
+	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
 	OPERATION_BACKEND_UNENCRYPT_HEADER
 
@@ -385,5 +370,44 @@ void action_aux_probe(
 		printf(_("Found %d aux entry(ies).\n"), count);
 	}
 
+	free(aux_zone);
+}
+
+
+// Delete a single aux entry by its 1-based probe index.
+void action_aux_rm(
+	const char * device,
+	PARAMS_FOR_KEY,
+	int index) {
+
+	Data    data;
+	int64_t offset;
+
+	const ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
+
+	OPERATION_BACKEND_UNENCRYPT_HEADER
+
+	size_t  aux_zone_size = 0;
+	uint8_t * aux_zone = read_aux_zone_from_device(device, &data, &aux_zone_size);
+
+	if (aux_zone_size != 0) {
+		if (!decrypt_aux_zone_using_master_key(&data, aux_zone, aux_zone_size, master_key)) {
+			print_error(_("Failed to decrypt aux zone. The header may be damaged."));
+		}
+	}
+
+	if (aux_zone_size == 0) {
+		print_error(_("This device does not have an aux zone."));
+	}
+
+	const uint8_t * aux_slot_key = ret_inited_key;
+
+	if (!remove_single_aux_by_index(aux_zone, aux_zone_size, aux_slot_key, index)) {
+		print_error(_("No aux entry found at index %d for the given key."), index);
+	}
+
+	encrypt_aux_zone_using_master_key(&data, aux_zone, aux_zone_size, master_key);
+	write_aux_zone_to_device(device, &data, aux_zone, aux_zone_size);
+	OPERATION_LOCK_AND_WRITE
 	free(aux_zone);
 }

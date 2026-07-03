@@ -404,7 +404,7 @@ static bool action_open_single(
    uint16_t ret_key_location;
    uint8_t  ret_inited_key[HASHLEN];
 
-    ENUM_MAPPER_DEVSTAT header_type = load_header_by_device(entry->device_path, &data, &offset, entry->is_decoy);
+    ENUM_MAPPER_DEVSTAT header_type = load_header_by_device(entry->device_path, &data, &offset, entry->is_decoy, true);
 
     if (uuid_is_seen(data.uuid_and_salt) && !entry->is_dry_run) {
        return false;

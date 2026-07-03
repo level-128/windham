@@ -145,7 +145,8 @@ ENUM_MAPPER_DEVSTAT load_header_by_device(
    const char * device,
    Data *       return_data,
    int64_t *    return_offset,
-   const bool   is_decoy) {
+   const bool   is_decoy,
+   const bool   is_allow_suspend) {
 
    if (is_decoy) {
       printf(_("Opening %s as decoy partition\n"), device);
@@ -164,6 +165,9 @@ ENUM_MAPPER_DEVSTAT load_header_by_device(
    }
    get_header_from_device(return_data, device, *return_offset);
    if (is_header_suspended(*return_data)) {
+      if (!is_allow_suspend) {
+         print_error(_("The header is suspended. Resume header to perform this operation."));
+      }
       return NMOBJ_MAPPER_DEVSTAT_SUSP;
    } else {
       return NMOBJ_MAPPER_DEVSTAT_NORM;
