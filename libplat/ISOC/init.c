@@ -124,7 +124,7 @@ void frontend_init(int argc, char *argv[]){
         while (1)
         {
             timespec_get(&ts_end, TIME_UTC);
-            if (ts_end.tv_sec != ts_start.tv_sec && ts_end.tv_nsec != ts_start.tv_nsec)
+            if (ts_end.tv_sec > ts_start.tv_sec || ts_end.tv_nsec != ts_start.tv_nsec)
             {
                 ts_res = (ts_end.tv_sec - ts_start.tv_sec) * 1000000000.0 + (ts_end.tv_nsec - ts_start.tv_nsec);
                 break;

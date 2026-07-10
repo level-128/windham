@@ -554,8 +554,8 @@ void initialize_new_header(
    Data *        uninitialized_header,
    const uint8_t master_key[HASHLEN],
    const char *  enc_type,
-   size_t        start_sector,
-   size_t        end_sector,
+   uint64_t      start_sector,
+   uint64_t      end_sector,
    size_t        block_size,
    uint64_t      aux_sector_size) {
    fill_secure_random_bits((uint8_t *) uninitialized_header, sizeof(*uninitialized_header));

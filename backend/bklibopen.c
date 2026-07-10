@@ -1,5 +1,6 @@
 #pragma once
 
+#include <inttypes.h>
 #include "../libsrc/windhamtab.c"
 #include "../libplat/loopctl.c"
 #include "bklibkey.c"
@@ -338,12 +339,12 @@ void check_sector_size_for_resize(const char * device, Data * data_, uint8_t mas
    size_t block_count = STR_device->block_count / (data_->metadata.block_size / 512) * (data_->metadata.block_size / 512);
    if (block_count != data_->metadata.end_sector) {
       if (is_suspend) {
-         print_error(_("The device's last sector (%zu) does not match with the underlying device's size (%zu). Cannot resize "
+          print_error(_("The device's last sector (%" PRIu64 ") does not match with the underlying device's size (%" PRIu64 "). Cannot resize "
                        "the suspend partition since windham partition is designed to be tamper resistance. Resume the partition "
                        "and re-open it to resize."), data_->metadata.end_sector, STR_device->block_count);
       }
 
-#define OPTION_MSG _("The device's last sector (%zu) does not match with the underlying device's size (%zu). Do you want to"\
+#define OPTION_MSG _("The device's last sector (%" PRIu64 ") does not match with the underlying device's size (%" PRIu64 "). Do you want to"\
       "adjust the sector range?")
       char q_str[sizeof(OPTION_MSG) + 2 * sizeof(STRINGIFY(INT64_MAX))];
       sprintf(
@@ -469,7 +470,7 @@ static bool action_open_single(
       if (!disk_key) { perror("malloc"); exit(1); }
       if (mapper_keyring_get_disk_serial(data.uuid_and_salt, disk_key) == true) {
          if (!entry->is_link_open) printf(_("Found kernel keyring key\n"));
-         size_t start_sector, end_sector;
+         uint64_t start_sector, end_sector;
          get_new_header_range_and_offset_based_on_size(
             entry->device_path, STR_device->block_count,
             &start_sector, &end_sector, DEFAULT_BLOCK_SIZE, 0,

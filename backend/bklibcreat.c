@@ -71,7 +71,7 @@ void action_create(
    Data      data;
    uint8_t * aux_zone = NULL;
    uint8_t   master_key[HASHLEN];
-   size_t    start_sector, end_sector;
+   uint64_t   start_sector, end_sector;
    int       ret_target_level;
 
    fill_secure_random_bits(master_key, HASHLEN);

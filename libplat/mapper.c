@@ -53,6 +53,12 @@ void remove_crypt_mapping_by_uuid(const char uuid_str[37]);
 
 void mapper_init();
 
+#ifndef WINDHAM_ISOC
+bool is_device_mapper_available;  // defined false in dm_ioctl.c, set true on success
+#else
+bool is_device_mapper_available = false;
+#endif
+
 #if !defined(WINDHAM_ISOC) && defined(IS_FRONTEND_ENTRY)
 #include "GNU_Linux/mapper.c"
 #else

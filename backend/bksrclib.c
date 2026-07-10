@@ -178,8 +178,8 @@ ENUM_MAPPER_DEVSTAT load_header_by_device(
 int64_t get_new_header_range_and_offset_based_on_size(
    const char * device,
    int64_t      device_block_count,
-   size_t *     start_sector,
-   size_t *     end_sector,
+   uint64_t *   start_sector,
+   uint64_t *   end_sector,
    size_t       block_size,
    uint64_t     decoy_size,
    uint64_t     aux_sector_size) {
