@@ -165,7 +165,6 @@ int create_crypt_mapping(
    const char * name,
    const char * enc_type,
    const char * password,
-   size_t       disk_key_size UNUSED,
    char         uuid_str[37],
    size_t       start_sector,
    size_t       end_sector,
@@ -175,7 +174,7 @@ int create_crypt_mapping(
    bool         is_no_read_workqueue,
    bool         is_no_write_workqueue) {
 
-   if (is_has_system_env) {
+   if (system(NULL) != 0) {
       char * cmd = parse_cmd(device, name, enc_type, password, uuid_str, start_sector, end_sector, block_size);
       if (cmd == NULL) {
          printf(_("Cannot map device %s to %s. device mapper backend is not available under ISO C mode, and command string"
@@ -259,7 +258,6 @@ void create_crypt_mapping_from_disk_key(
        target_name,
        enc_type,
        password,
-       0,       // disk_key_size (unused in ISOC)
        uuid_str,
       start_sector,
       end_sector,

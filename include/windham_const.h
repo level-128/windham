@@ -8,6 +8,7 @@
 #include <stdalign.h>
 #include <assert.h>
 #include <errno.h>
+#include <time.h>
 
 #include "aes.h"
 
@@ -124,19 +125,16 @@ jmp_buf exit_jmp;
 
 #endif
 
-// backup terminal config and init process (needed by IS_FRONTEND_ENTRY and WINDHAM_TEST)
+// backup terminal config
 #if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
 struct termios oldt;
-// init process to exec when pid1
-char * init_process;
 #endif
 
 // the original stdout fd
 int stdout_fd;
 
-// is running at pid1
-bool is_pid1;
-bool is_has_system_env;
+// redirect all output to /dev/kmsg instead of stdout (--printk flag)
+bool use_printk;
 
 void windham_exit(int exitno);
 
@@ -153,6 +151,42 @@ typedef struct {
 
 Device *STR_device;
 
+
+// struct for describing platform information
+typedef struct {
+    bool is_secure_env; // no auto exec aux shell
+    bool is_shebang; // only windham Open <device> supported.
+    bool is_color_print; // enable output color.
+    enum {
+        EMOBJ_RANDOM_NUMBER_SYSTEM, // ISOC mode with unix /dev/urandom, or Linux mode.
+        EMOBJ_RANDOM_NUMBER_INTERNAL, // generating entropy use clock and process speed.
+        EMOBJ_RANDOM_NUMBER_WEAK, // no reliable source for generating random number.
+    } is_random_number_trustworthy;
+    struct { // no need if RANDOM_NUMBER_SYSTEM
+        clock_t clock;
+        struct timespec time;
+    } initial_internal_entropy_source;
+    unsigned char extra_contents[];
+} PlatInitVal;
+
+// if there is a frontend, then the platform information is givin by the frontend.
+#ifdef IS_FRONTEND_ENTRY
+PlatInitVal * init_val;
+#else
+// default init without frontend.
+PlatInitVal * init_val = &((PlatInitVal){
+  .is_secure_env = false,
+  .is_shebang = false,
+  .is_color_print = false,
+  .is_random_number_trustworthy = EMOBJ_RANDOM_NUMBER_SYSTEM,
+  .initial_internal_entropy_source.clock = 0,
+  .initial_internal_entropy_source.time.tv_nsec=0,
+  .initial_internal_entropy_source.time.tv_sec=0,
+});
+
+#pragma message("PlatInitVal fallback to default. You might need to initialize this.")
+
+#endif
 /*
  * ---------- Define header format ----------
 */

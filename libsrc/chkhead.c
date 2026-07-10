@@ -90,22 +90,28 @@ static double inverse_normal_cdf(double p) {
 }
 
 bool check_head(Data * data) {
+    // False-positive rate for each individual test.
+    // Combined rate ≤ 3 × p ≈ 3e-8 for a truly random header.
     double p = 1e-8;
+
     size_t N = (sizeof(Data) - offsetof(Data, master_key_mask)) * CHAR_BIT;
 
-    double z = inverse_normal_cdf(1 - p / 2);
-
-    double ratio_diff = z / (2 * sqrt(N));
-
-    uint32_t count_of_1 = (N - ratio_diff * N) / 2;
+    // ── Test 1: binomial bit-proportion (lower-tail) ──────────
+    // Treat each bit as an independent coin flip.  Reject if the
+    // observed fraction of 1-bits is too far below 0.5.
+    double z_lower = inverse_normal_cdf(1.0 - p / 2.0);
+    double ratio_diff = z_lower / (2.0 * sqrt((double)N));
+    uint32_t count_of_1 = (uint32_t)((1.0 - ratio_diff) * (double)N / 2.0);
     size_t ones = count_ones((unsigned char *)data + offsetof(Data, master_key_mask), N / CHAR_BIT);
     if (ones < count_of_1) return false;
 
     size_t byte_count = sizeof(Data) - offsetof(Data, master_key_mask);
     const uint8_t *bytes = (const uint8_t *)data + offsetof(Data, master_key_mask);
 
-    // MTF + chi-squared: encode bytes with move-to-front,
-    // test uniformity of MTF positions
+    // ── Test 2: MTF + chi-squared uniformity (upper-tail) ─────
+    // Move-to-front encode the byte stream, then test whether MTF
+    // positions are uniformly distributed via chi-squared (df=255).
+    // Using normal approximation: critical = df + z * sqrt(2*df).
     uint8_t mtf[256];
     for (int i = 0; i < 256; i++) mtf[i] = (uint8_t)i;
     uint64_t freq[256] = {0};
@@ -125,20 +131,25 @@ bool check_head(Data * data) {
         double d = (double)freq[i] - expected;
         chi_sq += d * d / expected;
     }
-    // chi-sq critical at df=255, p approx 1e-6: df + 4.89 * sqrt(2*df) approx 255 + 110.5
-    if (chi_sq > 255.0 + 4.89 * sqrt(510.0)) return false;
+    double z_upper = inverse_normal_cdf(1.0 - p);
+    double chi_crit = 255.0 + z_upper * sqrt(2.0 * 255.0);
+    if (chi_sq > chi_crit) return false;
 
-    // 2D random walk: 2 bits per axis per byte
+    // ── Test 3: 2D random walk (two-sided) ────────────────────
+    // 2 bits per axis per byte drive a random walk.  For truly
+    // random data, the squared displacement D² has E[D²] = N and
+    // SD[D²] = N.  Reject if |D² - N| exceeds z * N.
     int64_t wx = 0, wy = 0;
     for (size_t i = 0; i < byte_count; i++) {
         uint8_t b = bytes[i];
         switch (b & 3) { case 0: wx--; break; case 3: wx++; break; default: break; }
         switch ((b >> 2) & 3) { case 0: wy--; break; case 3: wy++; break; default: break; }
     }
-    double ed2 = (double)byte_count;           // E[D²] = N (Var per axis = 0.5 per step)
-    double ad2 = (double)(wx * wx + wy * wy);  // actual D²
-    double sd  = (double)byte_count;           // SD[D²] = N
-    if (fabs(ad2 - ed2) > 4.0 * sd) return false;
+    double ed2 = (double)byte_count;
+    double ad2 = (double)(wx * wx + wy * wy);
+    double sd  = (double)byte_count;
+    double z_two = inverse_normal_cdf(1.0 - p / 2.0);
+    if (fabs(ad2 - ed2) > z_two * sd) return false;
 
     return true;
 }

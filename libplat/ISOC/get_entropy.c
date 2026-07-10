@@ -17,66 +17,6 @@ mtx_t mutex_generate_entropy;
 #endif
 
 
-static int verify_unix_device(const char *path, int (*validator)(FILE*)) {
-    FILE *dev = fopen(path, "rb+");
-    if (!dev) return 1;
-
-    int result = validator(dev);
-    fclose(dev);
-    return result;
-}
-
-
-static int validate_dev_null(FILE *dev) {
-    char buf;
-    if (fread(&buf, 1, 1, dev) != 0) {
-        return 1;
-    }
-
-    const char test_data[] = "null_test";
-    if (fwrite(test_data, 1, sizeof(test_data), dev) != sizeof(test_data)) {
-        return 1;
-    }
-    fflush(dev);
-
-    rewind(dev);
-    if (fread(&buf, 1, 1, dev) != 0) {
-        return 1;
-    }
-
-    return 0;
-}
-
-
-static int validate_dev_zero(FILE *dev) {
-    unsigned char buf1[32];
-    if (fread(buf1, 1, sizeof(buf1), dev) != sizeof(buf1)) {
-        return 1;
-    }
-
-    if (memcmp(buf1, (unsigned char [sizeof(buf1)]){0}, sizeof(buf1)) != 0) {
-        return 1;
-    }
-
-    rewind(dev);
-    const char test_data[] = "zero_test";
-    if (fwrite(test_data, 1, sizeof(test_data), dev) != sizeof(test_data)) {
-        return 1;
-    }
-    fflush(dev);
-
-    rewind(dev);
-    if (fread(buf1, 1, sizeof(buf1), dev) != sizeof(buf1)) {
-        return 1;
-    }
-
-    if (memcmp(buf1, (unsigned char [sizeof(buf1)]){0}, sizeof(buf1)) != 0) {
-        return 1;
-    }
-
-    return 0;
-}
-
 void generate_entropy(uint8_t * buf, size_t len) {
 #ifdef __STDC_NO_THREADS__
     static uint8_t internal_buffer[HASHLEN];
@@ -155,49 +95,34 @@ void generate_entropy(uint8_t * buf, size_t len) {
 }
 
 
-void fill_isoc_randpool() {
-    struct timespec ts_start;
-    struct timespec ts_end;
-    uint_fast64_t ts_res;
+// Shared seed for INTERNAL and WEAK trust levels.
+// Mixes the platform-initial entropy source with a fresh timestamp.
+// When need_keyboard is true, additionally prompts the user for input.
+static void fill_combined_randpool(bool need_keyboard) {
+    struct timespec ts_now;
 
-    // get timespec resolution
-#if (__STDC_VERSION__ >= 202311L)
-    timespec_getres(&ts_start, TIME_UTC);
-    ts_res = ts_start.tv_sec * 1000000000 + ts_start.tv_nsec;
-#else
-    timespec_get(&ts_start, TIME_UTC);
-    while (1)
-    {
-        timespec_get(&ts_end, TIME_UTC);
-        if (ts_end.tv_sec != ts_start.tv_sec && ts_end.tv_nsec != ts_start.tv_nsec)
-        {
-            ts_res = (ts_end.tv_sec - ts_start.tv_sec) * 1000000000 + (ts_end.tv_nsec - ts_start.tv_nsec);
-            break;
-        }
-    }
-#endif
-    if (ts_res > 1000000) {
-        print_warning(_("Low resolution timer (> 1ms), quality of the random seed will be compromised."));
-    }
-
-    timespec_get(&ts_start, TIME_UTC);
-    printf("random source not available. input anything as entropy to facilitate random number generation");
+    timespec_get(&ts_now, TIME_UTC);
 
     char input_entropy[128] = {0};
-    if (fgets(input_entropy, sizeof(input_entropy), stdin) != input_entropy) {
-        print_error(_("Entropy input error"));
+    if (need_keyboard) {
+        printf("random source not available. input anything as entropy to facilitate random number generation");
+        if (fgets(input_entropy, sizeof(input_entropy), stdin) != input_entropy)
+            print_error(_("Entropy input error"));
+        if (strlen(input_entropy) < 10)
+            print_warning(_("entropy content too short"));
     }
-    if (strlen(input_entropy) < 10) {
-        print_warning(_("entropy content too short"));
-    }
-    timespec_get(&ts_end, TIME_UTC);
 
-    //update all items to sha256
+    struct timespec ts_after;
+    timespec_get(&ts_after, TIME_UTC);
+
     SHA256_CTX sha256_context;
     sha256_init(&sha256_context);
-    sha256_update(&sha256_context, &ts_start, sizeof(struct timespec));
-    sha256_update(&sha256_context, &input_entropy, strlen(input_entropy));
-    sha256_update(&sha256_context, &ts_end, sizeof(struct timespec));
+    sha256_update(&sha256_context, &init_val->initial_internal_entropy_source,
+                  sizeof(init_val->initial_internal_entropy_source));
+    sha256_update(&sha256_context, &ts_now, sizeof(struct timespec));
+    sha256_update(&sha256_context, &ts_after, sizeof(struct timespec));
+    if (need_keyboard)
+        sha256_update(&sha256_context, input_entropy, strlen(input_entropy));
     sha256_final(&sha256_context, rand_pool);
     is_rand_pool_init = true;
 }
@@ -207,7 +132,7 @@ void fill_unix_randpool(){
     FILE * fd = fopen("/dev/random", "rb");
     if (fread(rand_pool, sizeof(rand_pool), 1, fd) != 1) {
         print_warning(_("/dev/random read failed. Fallback to ISO C random schema."));
-        fill_isoc_randpool();
+        fill_combined_randpool(true);
     }
     fclose(fd);
     is_rand_pool_init = true;
@@ -215,11 +140,16 @@ void fill_unix_randpool(){
 
 
 void get_entropy_init(void) {
-    if (verify_unix_device("/dev/null", validate_dev_null) &&
-        verify_unix_device("/dev/zero", validate_dev_zero)) {
-        fill_isoc_randpool();
-    } else {
+    switch (init_val->is_random_number_trustworthy) {
+    case EMOBJ_RANDOM_NUMBER_SYSTEM:
         fill_unix_randpool();
+        break;
+    case EMOBJ_RANDOM_NUMBER_INTERNAL:
+        fill_combined_randpool(false);
+        break;
+    default: // EMOBJ_RANDOM_NUMBER_WEAK
+        fill_combined_randpool(true);
+        break;
     }
 #ifndef __STDC_NO_THREADS__
     mtx_init(&mutex_generate_entropy, mtx_plain);

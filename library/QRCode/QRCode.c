@@ -38,6 +38,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define max(a,b) ((a) > (b) ? (a) : (b))
+
 // section break
 
 #if LOCK_VERSION == 0

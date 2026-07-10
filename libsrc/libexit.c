@@ -24,18 +24,7 @@ void windham_exit(int exitno) {
   }
 #elif defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
    fin_device();
-   if (is_pid1) {
-      if (exitno == EXIT_SUCCESS) {
-         printk("Exiting windham, exec %s", init_process);
-         execl(init_process, init_process, (char *) NULL);
-      } else {
-         printk("Windham will exit, panicing the kernel...");
-         sleep(2);
-         exit(0);
-      }
-   } else {
-      exit(exitno);
-   }
+   exit(exitno);
 
 #elif !defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
    fin_device();
@@ -57,7 +46,7 @@ void print_stack_trace() {
    const size_t size    = backtrace(array, 40);
    char **      strings = backtrace_symbols(array, size);
 
-   if (is_pid1) {
+   if (use_printk) {
       printk(_("Caught segmentation fault! Sorry, Windham has crashed.\n"));
       printk(_("Backtrace information:\n\n"));
       for (size_t i = 0; i < size; i ++) {

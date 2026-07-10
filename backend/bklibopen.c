@@ -918,7 +918,7 @@ void action_open_(
       uint8_t key_raw[HASHLEN];
 
       for (int i = 0; i < entity_count; i++) {
-         if (is_pid1) {
+         if (use_printk) {
             printk("%s: Pass %hu, Device %s, To %s, Flag %u",
                    windhamtab_file, entities[i].pass,
                    entities[i].device, entities[i].to,
