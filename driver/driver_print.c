@@ -4,7 +4,7 @@
 
 static void print_init(const char *driver_name) {
     (void)driver_name;
-    is_device_mapper_available = true;  // print is always available
+    is_device_mapper_available = true;
 }
 
 static int print_try_create(const char *file, const char *enc, const char *tmp) {
@@ -27,15 +27,6 @@ static int print_create(
     return 0;
 }
 
-static void print_remove(const char *name, bool deferred) {
-    (void)deferred;
-    printf("would remove mapping: %s\n", name);
-}
-
-static void print_remove_by_uuid(const char uuid_str[37]) {
-    printf("would remove mapping by UUID: %s\n", uuid_str);
-}
-
 static bool print_linear_map(const char *device, const char *name,
                              uint64_t start, uint64_t size,
                              const char uuid_str[37])
@@ -46,7 +37,7 @@ static bool print_linear_map(const char *device, const char *name,
 }
 
 static void print_map_partitions(const char *name, bool is_new) {
-    (void)is_new;
+    (void)name; (void)is_new;
     printf("would map partitions: %s\n", name);
 }
 
@@ -55,8 +46,8 @@ Driver driver_print = {
     .init               = print_init,
     .try_create         = print_try_create,
     .create             = print_create,
-    .remove             = print_remove,
-    .remove_by_uuid     = print_remove_by_uuid,
+    .remove             = NULL,
+    .remove_by_uuid     = NULL,
     .linear_map         = print_linear_map,
     .map_partition_table = print_map_partitions,
 };

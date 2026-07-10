@@ -56,6 +56,7 @@ opt_allow(open,
   ALLOW_COMMON)
 
 opt_allow(close,
+  NMOBJ_act,
   NMOBJ_is_deffered_remove,
   NMOBJ_close_all,
   ALLOW_COMMON)

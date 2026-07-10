@@ -1,5 +1,5 @@
 """LINK_OPEN STOP_EXEC cascade test: verify flag-based link pruning."""
-import os, sys, subprocess
+import os, sys, subprocess, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import assert_success, create_test_device, TestFailure, run_windham
 
@@ -109,6 +109,10 @@ def test_link_open_stop_exec(binary, device):
         if rc != 0:
             raise TestFailure(
                 f"Open {real_loops[0]} failed rc={rc}\nstdout: {so.strip()[-500:]}\nstderr: {se.strip()[-200:]}")
+
+        # dm-crypt udev events are asynchronous; wait for /dev/mapper symlinks
+        subprocess.run(["udevadm", "settle"], capture_output=True)
+        time.sleep(0.2)
 
         mapper_entries = os.listdir("/dev/mapper")
         windham_entries = [e for e in mapper_entries if e.startswith("windham-")]

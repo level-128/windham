@@ -94,8 +94,6 @@ static int decrypt_create(
     return 0;
 }
 
-static void decrypt_remove(const char *n, bool d) { (void)n; (void)d; }
-static void decrypt_remove_by_uuid(const char *u) { (void)u; }
 static bool decrypt_linear_map(const char *d, const char *n, uint64_t s, uint64_t sz, const char *u) {
     (void)d; (void)n; (void)s; (void)sz; (void)u; return false;
 }
@@ -103,7 +101,7 @@ static void decrypt_map_partitions(const char *n, bool b) { (void)n; (void)b; }
 
 Driver driver_decrypt = {
     .name = "decrypt", .init = decrypt_init, .try_create = decrypt_try_create,
-    .create = decrypt_create, .remove = decrypt_remove,
-    .remove_by_uuid = decrypt_remove_by_uuid, .linear_map = decrypt_linear_map,
+    .create = decrypt_create, .remove = NULL,
+    .remove_by_uuid = NULL, .linear_map = decrypt_linear_map,
     .map_partition_table = decrypt_map_partitions,
 };

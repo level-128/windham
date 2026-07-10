@@ -108,13 +108,12 @@ void init(bool is_root, const char *act_driver) {
 
    if (is_root) {
       set_oom_score_adj(-500);
-      driver_init_all(act_driver);
       blkid_init();
    } else {
-      set_oom_score_adj(1000); // will definitely be killed in terms of memory scarce
-      is_device_mapper_available = false;
+      set_oom_score_adj(1000);
       is_blkid_available = false;
    }
+   driver_init_all(act_driver);
    get_system_info();
 }
 

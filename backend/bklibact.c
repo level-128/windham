@@ -1,6 +1,9 @@
 #pragma once
 
-#include <fcntl.h>
+#ifndef WINDHAM_ISOC
+#include <dirent.h>
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,6 +19,11 @@
 
 void action_close(const char * device, bool is_deferred_remove) {
 #define STARTSWITH(str, prefix) (strlen(str) >= strlen(prefix) && strncmp((str), (prefix), strlen(prefix)) == 0)
+
+    if (!current_driver || !current_driver->remove) {
+        print_warning(_("cannot close %s: no driver loaded."), device);
+        return;
+    }
 
     if (device[0] != '/') {
 #ifdef __GNUC__
@@ -81,38 +89,29 @@ void action_close(const char * device, bool is_deferred_remove) {
 
 void action_close_all(bool is_deferred_remove) {
 #ifndef WINDHAM_ISOC
-    if (!is_device_mapper_available) {
-        print_error(_("Device mapper library is not available."));
-    }
-
-    int count;
-    char **names = dm_list(&count);
-    if (!names || count == 0) {
-        printf(_("No device mapper devices found.\n"));
-        free(names);
+    if (!current_driver || !current_driver->remove) {
+        print_warning(_("cannot close: no driver loaded."));
         return;
     }
-
-    int closed = 0, failed = 0;
-    for (int i = 0; i < count; i++) {
-        if (strncmp(names[i], "windham-", 8) != 0) {
-            free(names[i]);
-            continue;
-        }
-        printf(_("Closing %s... "), names[i]);
-        if (dm_remove(names[i], is_deferred_remove)) {
-            printf(_("OK\n"));
-            closed++;
-        } else {
-            printf(_("FAILED\n"));
-            failed++;
-        }
-        free(names[i]);
+    DIR *dir = opendir("/dev/mapper");
+    if (!dir) {
+        print_error(_("Cannot open /dev/mapper to list devices."));
     }
-    free(names);
 
-    if (closed > 0 || failed > 0) {
-        printf(_("Closed %d device(s), %d failed.\n"), closed, failed);
+    struct dirent *ent;
+    int closed = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (strncmp(ent->d_name, "windham-", 8) != 0) continue;
+        if (strcmp(ent->d_name, "control") == 0) continue;
+
+        printf(_("Closing %s... "), ent->d_name);
+        remove_crypt_mapping(ent->d_name, is_deferred_remove);
+        printf(_("OK\n"));
+        closed++;
+    }
+    closedir(dir);
+    if (closed > 0) {
+        printf(_("Closed %d windham device(s).\n"), closed);
     } else {
         printf(_("No active Windham devices found.\n"));
     }

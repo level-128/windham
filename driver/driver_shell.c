@@ -88,14 +88,6 @@ static int shell_create(const char *device, const char *name, const char *enc_ty
    return ret;
 }
 
-static void shell_remove(const char *name, bool deferred) {
-   (void)name; (void)deferred;
-}
-
-static void shell_remove_by_uuid(const char uuid[37]) {
-   (void)uuid;
-}
-
 static bool shell_linear_map(const char *d, const char *n, uint64_t s, uint64_t sz, const char *u) {
    (void)d; (void)n; (void)s; (void)sz; (void)u;
    return false;
@@ -105,7 +97,7 @@ static void shell_map_partitions(const char *n, bool b) { (void)n; (void)b; }
 
 Driver driver_shell = {
    .name = "shell", .init = shell_init, .try_create = shell_try_create,
-   .create = shell_create, .remove = shell_remove,
-   .remove_by_uuid = shell_remove_by_uuid, .linear_map = shell_linear_map,
+   .create = shell_create, .remove = NULL,
+   .remove_by_uuid = NULL, .linear_map = shell_linear_map,
    .map_partition_table = shell_map_partitions,
 };
