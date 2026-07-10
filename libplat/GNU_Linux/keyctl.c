@@ -76,7 +76,8 @@ void kernel_keyring_init() {
  *
  * @return None.
  */
-void mapper_keyring_add_disk_key(const uint8_t key[HASHLEN], uint8_t uuid[16], EncMetadata metadata, unsigned timeout) {
+void mapper_keyring_add_disk_key(const uint8_t key[], size_t key_size,
+                                  uint8_t uuid[16], EncMetadata metadata, unsigned timeout) {
    if (! is_kernel_keyring_exist) {
       print_warning(
          _("Linux Kernel Keyring subsystem userspace module is missing. Some features (\"--timeout\") might not be supported. "
@@ -117,7 +118,7 @@ void mapper_keyring_add_disk_key(const uint8_t key[HASHLEN], uint8_t uuid[16], E
       strcpy(name, "windham_disk:");
       generate_UUID_from_bytes(uuid, name + strlen("windham_disk:"));
 
-      const key_serial_t key_serial = p_add_key("user", name, key, HASHLEN, KEY_SPEC_SESSION_KEYRING);
+      const key_serial_t key_serial = p_add_key("user", name, key, key_size, KEY_SPEC_SESSION_KEYRING);
 
       if (key_serial < 0) {
          switch (errno) {
@@ -196,7 +197,7 @@ void mapper_keyring_add_key(const uint8_t key[HASHLEN], uint8_t uuid[16]) {
 }
 
 
-bool mapper_keyring_get_disk_serial(const uint8_t uuid[16], uint8_t key[HASHLEN]) {
+bool mapper_keyring_get_disk_serial(const uint8_t uuid[16], uint8_t key[], size_t key_size) {
    if (! is_kernel_keyring_exist) {
       return false;
    }
@@ -210,7 +211,7 @@ bool mapper_keyring_get_disk_serial(const uint8_t uuid[16], uint8_t key[HASHLEN]
          return false;
       } else if (errno == EKEYREVOKED) {
          print_warning(_("The kernel keyring key has been removed."));
-         p_keyctl_unlink(key_serial, KEY_SPEC_SESSION_KEYRING); // try to clear this, might fail but don't care
+         p_keyctl_unlink(key_serial, KEY_SPEC_SESSION_KEYRING);
          return false;
       } else if (errno == EKEYEXPIRED) {
          print_warning(_("The kernel keyring key has expired."));
@@ -220,7 +221,7 @@ bool mapper_keyring_get_disk_serial(const uint8_t uuid[16], uint8_t key[HASHLEN]
       perror("request_key");
       exit(1);
    }
-   if (p_keyctl_read(key_serial, (char *) key, HASHLEN) == -1) {
+   if (p_keyctl_read(key_serial, (char *) key, key_size) == -1) {
       if (errno == EACCES) {
          print_warning(_("Cannot read key in keyring system. The key may have been modified."));
       }

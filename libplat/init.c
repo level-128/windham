@@ -8,7 +8,6 @@ void frontend_init(int argc, char *argv[]);
 
 #ifndef WINDHAM_ISOC
 #include "GNU_Linux/init.c"
-#include "GNU_Linux/headerio.c"
 #else
 #include "ISOC/init.c"
 #endif

@@ -41,6 +41,7 @@ need_dev_if(close, !is(NMOBJ_close_all))
 opt_allow(open,
   ALLOW_OPEN_COMMON,
   NMOBJ_to,
+  NMOBJ_act,
   NMOBJ_target_readonly,
   NMOBJ_target_dry_run,
   NMOBJ_target_allow_discards,

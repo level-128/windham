@@ -49,7 +49,7 @@ void set_oom_score_adj(int value) {
    close(fd);
 }
 
-void init(bool is_root) {
+void init(bool is_root, const char *act_driver) {
    const int speculation_stat = prctl(PR_GET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS);
    if (speculation_stat) { // if the CPU is affected by the speculation misfeature.
       if (! (speculation_stat | PR_SPEC_DISABLE || speculation_stat | PR_SPEC_FORCE_DISABLE)) {
@@ -108,7 +108,7 @@ void init(bool is_root) {
 
    if (is_root) {
       set_oom_score_adj(-500);
-      mapper_init();
+      driver_init_all(act_driver);
       blkid_init();
    } else {
       set_oom_score_adj(1000); // will definitely be killed in terms of memory scarce
@@ -120,7 +120,8 @@ void init(bool is_root) {
 
 #else
 
-void init(bool is_root) {
+void init(bool is_root, const char *act_driver) {
+   (void)act_driver;
    is_device_mapper_available = false;
 }
 #endif

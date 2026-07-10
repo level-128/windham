@@ -164,7 +164,7 @@ int action_addkey(
 #ifndef WINDHAM_ISOC
        // Print to stdout as a single hex string (no spaces), suitable for --target-key
        if (write(stdout_fd, rand_key_hex, HASHLEN * 2) != (ssize_t)HASHLEN * 2) {
-          printk("Cannot print key to stdout: write failed.");
+          printf("Cannot print key to stdout: write failed.\n");
           windham_exit(1);
        }
        if (write(stdout_fd, "\n", 1) != 1) { /* ignore */ }

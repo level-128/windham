@@ -77,7 +77,7 @@ enum {
 	/* ── Bool flags: interaction ──────────────── */
 	NMOBJ_yes,
 	NMOBJ_print_debug,
-	NMOBJ_use_printk,
+	NMOBJ_act,
 	NMOBJ_help,
 
 	/* ── Aux zone commands ────────────────────── */
@@ -208,7 +208,7 @@ const struct option long_options[] = {
 	/* ── Bool flags: interaction ────────────────── */
 	{"yes", no_argument, &options[NMOBJ_yes], 1},
 	{"print-debug", no_argument, &options[NMOBJ_print_debug], 1},
-	{"printk", no_argument, &options[NMOBJ_use_printk], 1},
+	{"act", required_argument, &options[NMOBJ_act], 1},
 	{"help", no_argument, &options[NMOBJ_help], 1},
 
 	/* ── Aux zone commands ─────────────────────── */
@@ -242,7 +242,7 @@ const struct option long_options[] = {
     NMOBJ_max_unlock_time, NMOBJ_max_unlock_level,			\
     NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail, NMOBJ_is_allow_swap
 
-#define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_use_printk, NMOBJ_help
+#define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help
 
 
 int frontend_check_actions(const char *input) {
@@ -452,8 +452,9 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 #if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_TEST)
 	is_skip_conformation = options[NMOBJ_yes];
 	print_debug_enable = options[NMOBJ_print_debug];
-	use_printk = options[NMOBJ_use_printk];
-	init(is_root);
+	if (params[NMOBJ_act] && strcmp(params[NMOBJ_act], "decrypt") == 0 && params[NMOBJ_to])
+		decrypt_set_output_file(params[NMOBJ_to]);
+	init(is_root, params[NMOBJ_act]);
 #else
 	is_skip_conformation = 1;
 #endif

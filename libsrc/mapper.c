@@ -262,17 +262,6 @@ bool read_GPT_header(
 }
 
 
-void convert_disk_key_to_hex_format(const uint8_t *master_key, size_t key_size, char *out_hex) {
-   const char * hex_chars = "0123456789abcdef";
-
-   for (size_t i = 0; i < key_size; ++i) {
-      uint8_t byte   = master_key[i];
-      out_hex[i * 2]     = hex_chars[(byte >> 4) & 0xF];
-      out_hex[i * 2 + 1] = hex_chars[byte & 0xF];
-   }
-
-   out_hex[key_size * 2] = '\0'; // Null-terminate the string
-}
-#include "../libplat/mapper.c"
+#include "../driver/driver_dispatch.c"
 #endif
 

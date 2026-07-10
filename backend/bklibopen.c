@@ -466,9 +466,9 @@ static bool action_open_single(
 
     case NMOBJ_MAPPER_DEVSTAT_NORM:
    // kernel key retension service
-      disk_key = malloc(HASHLEN);
-      if (!disk_key) { perror("malloc"); exit(1); }
-      if (mapper_keyring_get_disk_serial(data.uuid_and_salt, disk_key) == true) {
+       disk_key = malloc(DEFAULT_DISK_KEY_SIZE_BYTES);
+       if (!disk_key) { perror("malloc"); exit(1); }
+       if (mapper_keyring_get_disk_serial(data.uuid_and_salt, disk_key, DEFAULT_DISK_KEY_SIZE_BYTES) == true) {
          if (!entry->is_link_open) printf(_("Found kernel keyring key\n"));
          uint64_t start_sector, end_sector;
          get_new_header_range_and_offset_based_on_size(
@@ -628,7 +628,7 @@ static bool action_open_single(
       if (! entry->is_dry_run) {
           get_metadata_key_or_disk_key_from_master_key(master_key, data.metadata.disk_key_mask, data.uuid_and_salt, disk_key, dk_size);
          if (entry->timeout && !entry->is_decoy) {
-            mapper_keyring_add_disk_key(disk_key, data.uuid_and_salt, data.metadata, entry->timeout);
+            mapper_keyring_add_disk_key(disk_key, dk_size, data.uuid_and_salt, data.metadata, entry->timeout);
          }
           create_crypt_mapping_from_disk_key(
              entry->device_path, effective_target_name, data.metadata.enc_type, disk_key, dk_size,
@@ -919,14 +919,7 @@ void action_open_(
       uint8_t key_raw[HASHLEN];
 
       for (int i = 0; i < entity_count; i++) {
-         if (use_printk) {
-            printk("%s: Pass %hu, Device %s, To %s, Flag %u",
-                   windhamtab_file, entities[i].pass,
-                   entities[i].device, entities[i].to,
-                   entities[i].option_flags);
-         } else {
             _action_open_print_summary(i, entities[i]);
-         }
 
 #define HAS_FLGI(x) entities[i].option_flags & (1 << x)
 

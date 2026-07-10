@@ -37,11 +37,6 @@
 #ifndef WINDHAM_ISOC
 #define print_error(...)			\
   do {						\
-    if (use_printk){					\
-      printk("ERROR: " __VA_ARGS__);		\
-      printk("\n");				\
-      windham_exit(1);				\
-    }						\
     printf("\033[1;31m%s: ", _("ERROR"));		\
     printf(__VA_ARGS__);				\
     printf("\033[0m\n");				\
@@ -52,22 +47,13 @@
 
 #define print_error_no_exit(...)		\
   do {						\
-    if (use_printk){				\
-      printk("ERROR: " __VA_ARGS__);		\
-      printk("\n");				\
-    } else {					\
-      printf("\033[1;31m%s: ", _("ERROR"));	\
-      printf(__VA_ARGS__);			\
-      printf("\033[0m\n");			\
-    }						\
+    printf("\033[1;31m%s: ", _("ERROR"));	\
+    printf(__VA_ARGS__);			\
+    printf("\033[0m\n");			\
   } while (0)
 
 #define print_warning(...)			\
   do {						\
-    if (use_printk){				\
-      printk("WARNING: " __VA_ARGS__);		\
-      printk("\n");				\
-    }						\
     printf("\033[1;33m%s: ", _("WARNING"));	\
     printf(__VA_ARGS__);			\
     printf("\033[0m\n");			\
@@ -108,25 +94,6 @@ bool print_debug_enable;
 #define print_func_vars(...)			\
   printf(__func__);				\
   printf(__VA_ARGS__);
-
-#ifndef WINDHAM_ISOC
-#define printk(...)							\
-  do {									\
-    int fd = open("/dev/kmsg", O_WRONLY | O_CLOEXEC);			\
-    if (fd != -1) {							\
-      int len = snprintf(NULL, 0, __VA_ARGS__) + strlen("windham: ");	\
-      char msg[len + 1];						\
-      memcpy(msg, "windham: ", strlen("windham: "));			\
-      sprintf(msg + sizeof("windham: ") - 1,  __VA_ARGS__);		\
-      ssize_t __attribute__((unused)) x = write(fd, msg, len); /* Do nothing when fail. */ \
-    }									\
-    close(fd);								\
-  } while(0)
-#else
-#define printk(...) do {\
-exit(2); \
-} while(0)
-#endif
 
 void xor_with_len(size_t length, const uint8_t a[], const uint8_t b[], uint8_t c[]);
 

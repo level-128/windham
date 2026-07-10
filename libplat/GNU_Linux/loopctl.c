@@ -246,7 +246,6 @@ struct stat open_and_check_file(const char * filename, bool is_readonly, bool is
       switch errno {
       case ENOENT:
          if (is_nofail) {
-            printk("--nofail: Unable to find device\"%s\", device does not exist, exiting.", filename);
             exit(0);
          }
          print_error(_("The target \"%s\" does not exist."), filename);

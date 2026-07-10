@@ -46,24 +46,12 @@ void print_stack_trace() {
    const size_t size    = backtrace(array, 40);
    char **      strings = backtrace_symbols(array, size);
 
-   if (use_printk) {
-      printk(_("Caught segmentation fault! Sorry, Windham has crashed.\n"));
-      printk(_("Backtrace information:\n\n"));
-      for (size_t i = 0; i < size; i ++) {
-         printk("  %zu: %s\n", i, strings[i]);
-      }
+   printf(_("Backtrace information:\n\n"));
 
-      free(strings);
-   } else {
-      printf(_("Backtrace information:\n\n"));
-
-      for (size_t i = 0; i < size; i ++) {
-         printf("  %zu: %s\n", i, strings[i]);
-      }
+   for (size_t i = 0; i < size; i ++) {
+      printf("  %zu: %s\n", i, strings[i]);
    }
    free(strings);
-#else
-  printf(_("Backtrace is not available due to incompatible C library.\n"));
 #endif
 #endif
 }

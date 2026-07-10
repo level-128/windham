@@ -18,7 +18,6 @@
 #include "../../include/windham_const.h"
 
 static int dm_fd = -1;
-bool is_device_mapper_available = false;
 
 /* ── open /dev/mapper/control ─────────────────────────────────── */
 void mapper_init(void) {
