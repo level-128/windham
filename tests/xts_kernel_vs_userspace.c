@@ -56,7 +56,6 @@ int main(void) {
     /* 1. Generate random 64-byte key */
     uint8_t key[64];
     if (getrandom(key, 64, 0) != 64) {
-        /* fallback */
         for (int i = 0; i < 64; i++) key[i] = (uint8_t)(i * 7 + 13);
     }
 
@@ -102,6 +101,8 @@ int main(void) {
         systemf("losetup -d %s", loop); unlink(file); return 1;
     }
     fprintf(stderr, "dmsetup OK, writing zeros...\n");
+    system("udevadm settle 2>/dev/null");
+    usleep(2000000);  /* 2 seconds for dm-crypt to settle */
 
     /* 5. Write zeros through dm-crypt (kernel encrypts) */
     char dm_path[256];
@@ -126,6 +127,16 @@ int main(void) {
     uint8_t *userspace_ct_alt = calloc(1, total);
     /* Use start_sector=0 for first, start_sector=8 for second (raw 512-byte numbering) */
     aes_xts_encrypt_sectors(userspace_ct, 1, key, 0, SECTOR_SIZE_BYTES);
+
+    /* 7b. Decrypt round-trip: decrypt kernel ciphertext with our XTS, verify all-zero */
+    uint8_t *decrypted = malloc(total);
+    memcpy(decrypted, kernel_ct, total);
+    aes_xts_decrypt_sectors(decrypted, 1, key, 0, SECTOR_SIZE_BYTES);
+    int nz = 0;
+    for (size_t i = 0; i < (size_t)SECTOR_SIZE_BYTES; i++)
+        if (decrypted[i] != 0) nz++;
+    fprintf(stderr, "DECRYPT-ROUNDTRIP non-zero: %d/%d\n", nz, SECTOR_SIZE_BYTES);
+    free(decrypted);
     aes_xts_encrypt_sectors(userspace_ct + SECTOR_SIZE_BYTES, 1, key, 8, SECTOR_SIZE_BYTES);
     /* Also try original: start_sector=0 for 2 sectors (logical numbering) */
     aes_xts_encrypt_sectors(userspace_ct_alt, 2, key, 0, SECTOR_SIZE_BYTES);

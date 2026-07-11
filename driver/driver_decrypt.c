@@ -63,16 +63,10 @@ static int decrypt_create(
     uint8_t *disk_key = calloc(1, disk_key_size);
     if (!disk_key) { perror("malloc"); exit(1); }
     hex_to_bin(password, disk_key, disk_key_size);
-    fprintf(stderr, "DECRYPT_KEY: hex=%s key[0..7]=", password);
-    for (int i = 0; i < 8; i++) fprintf(stderr, "%02x", disk_key[i]);
-    fprintf(stderr, "\n");
 
     uint64_t total_512 = end_sector - start_sector;
     unsigned ratio = block_size / 512;
     uint64_t logical_sectors = total_512 / ratio;
-
-    fprintf(stderr, "DECRYPT_SECTORS: dev=%s ss=%zu es=%zu total512=%"PRIu64" ratio=%u ls=%"PRIu64" bs=%zu\n",
-            device, start_sector, end_sector, total_512, ratio, logical_sectors, block_size);
 
     int dev_fd = open(device, O_RDONLY);
     if (dev_fd < 0) { perror(device); exit(1); }
@@ -89,18 +83,8 @@ static int decrypt_create(
         lseek(dev_fd, dev_off, SEEK_SET);
         if (read(dev_fd, buf, block_size) != (ssize_t)block_size)
             print_error(_("read error at sector %"PRIu64), f512);
-        if (ls == 0) {
-            fprintf(stderr, "RAW[%d..%d]: ", 0, 31);
-            for (int i = 0; i < 32; i++) fprintf(stderr, "%02x", buf[i]);
-            fprintf(stderr, "\n");
-        }
         /* one XTS op per logical sector with dm-relative sector number as IV */
         aes_xts_decrypt_sectors(buf, 1, disk_key, (uint64_t)(ls * ratio), block_size);
-        if (ls == 0) {
-            fprintf(stderr, "DEC[%d..%d]: ", 0, 31);
-            for (int i = 0; i < 32; i++) fprintf(stderr, "%02x", buf[i]);
-            fprintf(stderr, "\n");
-        }
         if (write(out_fd, buf, block_size) != (ssize_t)block_size)
             print_error(_("write error for output file"));
     }
