@@ -39,7 +39,8 @@ def test_decrypt_zero(binary, device):
     if not mapper_name:
         raise TestFailure(f"Could not find mapper name in Open output:\n{so}")
     for line in se.split("\n"):
-        if "DM_KEY" in line: print(f"  {line}", file=sys.stderr)
+        if "DM_KEY" in line or "DM_CREATE" in line:
+            print(f"  {line}", file=sys.stderr)
 
     # 3. Write zeros to the dm-crypt device (encrypted on disk)
     subprocess.run(
@@ -61,7 +62,7 @@ def test_decrypt_zero(binary, device):
         binary, timeout=60)
     # Print key debug info
     for line in se.split("\n"):
-        if "DM_KEY" in line or "DECRYPT" in line:
+        if "DM_KEY" in line or "DECRYPT" in line or "RAW" in line or "DEC" in line:
             print(f"  {line}", file=sys.stderr)
     if rc != 0:
         raise TestFailure(

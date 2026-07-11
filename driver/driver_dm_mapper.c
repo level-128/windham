@@ -70,6 +70,8 @@ static int dm_mapper_create(
         print_error(_("device-mapper not available.\nDevice: %s\nUUID: %s"),
                     device, uuid_str);
     }
+    fprintf(stderr, "DM_CREATE: dev=%s ss=%zu es=%zu size=%zu bs=%zu\n",
+            device, start_sector, end_sector, end_sector - start_sector, block_size);
     if (!dm_create_crypt(name, uuid_str, enc_type, password, device,
                          start_sector, end_sector - start_sector,
                          (uint32_t)block_size,

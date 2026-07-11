@@ -71,6 +71,9 @@ static int decrypt_create(
     unsigned ratio = block_size / 512;
     uint64_t logical_sectors = total_512 / ratio;
 
+    fprintf(stderr, "DECRYPT_SECTORS: dev=%s ss=%zu es=%zu total512=%"PRIu64" ratio=%u ls=%"PRIu64" bs=%zu\n",
+            device, start_sector, end_sector, total_512, ratio, logical_sectors, block_size);
+
     int dev_fd = open(device, O_RDONLY);
     if (dev_fd < 0) { perror(device); exit(1); }
 
@@ -81,18 +84,22 @@ static int decrypt_create(
     if (!buf) { perror("malloc"); exit(1); }
 
     for (uint64_t ls = 0; ls < logical_sectors; ls++) {
-        uint64_t base_512 = start_sector + ls * ratio;
-        for (unsigned sub = 0; sub < ratio; sub++) {
-            uint64_t f512 = base_512 + sub;
-            off_t dev_off = (off_t)(f512 * 512);
-            lseek(dev_fd, dev_off, SEEK_SET);
-            if (read(dev_fd, &buf[sub * 512], 512) != 512)
-                print_error(_("read error at sector %"PRIu64), f512);
+        uint64_t f512 = start_sector + ls * ratio;
+        off_t dev_off = (off_t)(f512 * 512);
+        lseek(dev_fd, dev_off, SEEK_SET);
+        if (read(dev_fd, buf, block_size) != (ssize_t)block_size)
+            print_error(_("read error at sector %"PRIu64), f512);
+        if (ls == 0) {
+            fprintf(stderr, "RAW[%d..%d]: ", 0, 31);
+            for (int i = 0; i < 32; i++) fprintf(stderr, "%02x", buf[i]);
+            fprintf(stderr, "\n");
         }
-        /* decrypt each 512-byte sub-block with its own IV (dm-relative sector) */
-        for (unsigned sub = 0; sub < ratio; sub++) {
-            uint64_t rel_sector = ls * ratio + sub;
-            aes_xts_decrypt_sectors(&buf[sub * 512], 1, disk_key, rel_sector, 512);
+        /* one XTS op per logical sector with dm-relative sector number as IV */
+        aes_xts_decrypt_sectors(buf, 1, disk_key, (uint64_t)(ls * ratio), block_size);
+        if (ls == 0) {
+            fprintf(stderr, "DEC[%d..%d]: ", 0, 31);
+            for (int i = 0; i < 32; i++) fprintf(stderr, "%02x", buf[i]);
+            fprintf(stderr, "\n");
         }
         if (write(out_fd, buf, block_size) != (ssize_t)block_size)
             print_error(_("write error for output file"));
