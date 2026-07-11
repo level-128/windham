@@ -212,10 +212,11 @@ bool dm_create_crypt(const char *name, const char *uuid,
 
 	/* step 2: build target string
 	   format: cipher key iv_offset device device_offset [opt_count opts...] */
-	char params[540];
-	snprintf(params, sizeof(params),
-		"%s %s 0 %s %"PRIu64,
-		cipher, hexkey, device, device_offset);
+ 	char params[540];
+ 	snprintf(params, sizeof(params),
+ 		"%s %s 0 %s %"PRIu64,
+ 		cipher, hexkey, device, device_offset);
+ 	fprintf(stderr, "DM_KEY[%s]: hex=%s\n", name, hexkey);
 	int extra_cnt = 1; /* sector_size always counted */
 	char *p = params + strlen(params);
 	if (allow_discards)  { extra_cnt++; p += snprintf(p, sizeof(params) - (size_t)(p - params), " allow_discards"); }

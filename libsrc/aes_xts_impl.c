@@ -66,8 +66,8 @@ static void aes_xts_crypt_sector(
     // 512=2^9, 1024=2^10, 2048=2^11, 4096=2^12 — all satisfy these.
     struct AES_ctx data_ctx, tweak_ctx;
 
-    AES_init_ctx(&data_ctx,  key);                    // Key1
-    AES_init_ctx(&tweak_ctx, key + AES_KEYLEN);       // Key2
+    AES_init_ctx(&data_ctx,  key);              // Key1 = data key (first half, xts_setkey:key)
+    AES_init_ctx(&tweak_ctx, key + AES_KEYLEN); // Key2 = tweak key (second half, xts_setkey:key+keylen)
 
     // T_0 = AES_ECB_enc(Key2, IV)
     uint8_t tweak[16];
@@ -75,6 +75,7 @@ static void aes_xts_crypt_sector(
     AES_ECB_encrypt(&tweak_ctx, tweak);
 
     size_t blocks = sector_size_bytes / 16;
+
     for (size_t b = 0; b < blocks; b++) {
         // Pre-whiten
         for (int i = 0; i < 16; i++)

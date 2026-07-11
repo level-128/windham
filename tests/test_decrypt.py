@@ -28,7 +28,7 @@ def test_decrypt_zero(binary, device):
         f.seek(32 * 1024 * 1024 - 1)
         f.write(b"\0")
     assert_success(
-        ["New", device, "--key=123", "--target-level=1", "--target-time=0.1", "--block-size=512"] + _FLAGS,
+        ["New", device, "--key=123", "--target-level=1", "--target-time=0.1"] + _FLAGS,
         binary, timeout=30)
 
     # 2. Open it (creates dm-crypt mapper with auto-generated name)
@@ -38,21 +38,31 @@ def test_decrypt_zero(binary, device):
     mapper_name = _parse_mapper_name(so)
     if not mapper_name:
         raise TestFailure(f"Could not find mapper name in Open output:\n{so}")
+    for line in se.split("\n"):
+        if "DM_KEY" in line: print(f"  {line}", file=sys.stderr)
 
     # 3. Write zeros to the dm-crypt device (encrypted on disk)
-    # Count: match the data area size exactly
     subprocess.run(
         ["dd", "if=/dev/zero", f"of=/dev/mapper/{mapper_name}",
-         "bs=512", "count=1024", "conv=notrunc"],
+         "bs=512", "count=1024", "conv=fsync"],
         check=True, capture_output=True)
 
-    # 4. Close the device (ignore failure — topology check may be unstable)
+    # 4. Close the device
     run_windham(["Close", mapper_name, "--no-admin"], binary, timeout=10)
 
-    # 5. Full decryption to image file
+    # Force all dirty data to the backing file
+    subprocess.run(["sync", "-f", device], capture_output=True)
+    subprocess.run(["sync"], capture_output=True)
+    time.sleep(1.0)
+
+    # 5. Full decryption to image file — skip the dm-crypt, read raw sectors from loop
     rc, so, se = run_windham(
         ["Open", device, "--act=decrypt", "--to=" + output_file, "--key=123"] + _FLAGS,
         binary, timeout=60)
+    # Print key debug info
+    for line in se.split("\n"):
+        if "DM_KEY" in line or "DECRYPT" in line:
+            print(f"  {line}", file=sys.stderr)
     if rc != 0:
         raise TestFailure(
             f"Decrypt failed: rc={rc}\nstdout: {so}\nstderr: {se}")
