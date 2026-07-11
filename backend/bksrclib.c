@@ -302,7 +302,7 @@ int64_t get_new_header_range_and_offset_based_on_size(
       }
     } else {
        *start_sector = WINDHAM_FIRST_USEABLE_LGA(aux_sector_size * 512);
-       *end_sector   = device_block_count - device_block_count % (block_size / 512);
+        *end_sector   = device_block_count - device_block_count % (block_size / 512);
        return_val    = 0;
    }
    return return_val;

@@ -64,7 +64,7 @@ static int decrypt_create(
     if (!disk_key) { perror("malloc"); exit(1); }
     hex_to_bin(password, disk_key, disk_key_size);
 
-    uint64_t total_512 = end_sector - start_sector + 1;
+    uint64_t total_512 = end_sector - start_sector;
     unsigned ratio = block_size / 512;
     uint64_t logical_sectors = total_512 / ratio;
 
@@ -83,7 +83,7 @@ static int decrypt_create(
         lseek(dev_fd, dev_off, SEEK_SET);
         if (read(dev_fd, buf, block_size) != (ssize_t)block_size)
             print_error(_("read error at sector %"PRIu64), f512);
-        aes_xts_decrypt_sectors(buf, 1, disk_key, f512, block_size);
+        aes_xts_decrypt_sectors(buf, 1, disk_key, ls * ratio, block_size);
         if (write(out_fd, buf, block_size) != (ssize_t)block_size)
             print_error(_("write error for output file"));
     }
