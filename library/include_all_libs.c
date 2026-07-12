@@ -32,4 +32,12 @@
 // tiny_AES.c
 #include "tiny_AES_c/aes.c"
 
+// FatFs (UTF‑16 required)
+#if defined(__STDC_UTF_16__)
+#include "FatFs/ff.c"
+#include "FatFs/ffunicode.c"
+#include "FatFs/ffsystem.c"
+#include "FatFs/ff_diskio.c"
+#endif
+
 #endif

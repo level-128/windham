@@ -8,6 +8,7 @@
 #include "../libplat/chk_enc_supp_stat.c"
 #include "../libplat/get_entropy.c"
 #include "../libplat/loopctl.c"
+#include "../libsrc/ff_exfat.c"
 
 
 
@@ -24,7 +25,8 @@ void action_create(
    const uint64_t aux_sector_size,
    const bool     is_no_detect_entropy,
    const bool     is_anonymous_key,
-   const bool     is_allow_nolock) {
+   const bool     is_allow_nolock,
+   const bool     create_exfat) {
    if (STR_device->is_block == true) {
       CHECK_DEVICE_TOPOLOGY(
          device,
@@ -148,5 +150,16 @@ void action_create(
    encrypt_aux_zone_using_master_key(&data, aux_zone, aux_sector_size * 512, master_key);
    write_aux_zone_to_device(device, &data, aux_zone, aux_sector_size * 512);
    OPERATION_LOCK_AND_WRITE
+
+   if (create_exfat) {
+      uint8_t disk_key[DEFAULT_DISK_KEY_SIZE_BYTES];
+      get_metadata_key_or_disk_key_from_master_key(
+         master_key, data.metadata.disk_key_mask, data.uuid_and_salt,
+         disk_key, DEFAULT_DISK_KEY_SIZE_BYTES);
+      char hex_key[DEFAULT_DISK_KEY_SIZE_BYTES * 2 + 1];
+      convert_disk_key_to_hex_format(disk_key, DEFAULT_DISK_KEY_SIZE_BYTES, hex_key);
+      ff_exfat_create(device, hex_key, block_size, start_sector, end_sector);
+   }
+
    free(aux_zone);
 }

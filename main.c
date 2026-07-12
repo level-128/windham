@@ -103,6 +103,14 @@ enum {
 	/* ── Misc ─────────────────────────────────── */
 	NMOBJ_close_all,
 	NMOBJ_aux_rm,
+
+	/* ── Driver selection ─────────────────────── */
+	NMOBJ_decrypt,
+	NMOBJ_print_encryption,
+
+	/* ── exFAT creation ───────────────────────── */
+	NMOBJ_create_exfat,
+
 	NMOBJ_target_SIZE
 };
 
@@ -208,7 +216,7 @@ const struct option long_options[] = {
 	/* ── Bool flags: interaction ────────────────── */
 	{"yes", no_argument, &options[NMOBJ_yes], 1},
 	{"print-debug", no_argument, &options[NMOBJ_print_debug], 1},
-	{"act", required_argument, &options[NMOBJ_act], 1},
+	{"_act_deprecated", no_argument, NULL, 0},
 	{"help", no_argument, &options[NMOBJ_help], 1},
 
 	/* ── Aux zone commands ─────────────────────── */
@@ -234,6 +242,14 @@ const struct option long_options[] = {
 	/* ── Misc ───────────────────────────────────── */
 	{"all", no_argument, &options[NMOBJ_close_all], 1},
 	{"aux-rm", required_argument, &options[NMOBJ_aux_rm], 1},
+
+	/* ── Driver selection ─────────────────────── */
+	{"decrypt", required_argument, &options[NMOBJ_decrypt], 1},
+	{"print-encryption", no_argument, &options[NMOBJ_print_encryption], 1},
+
+	/* ── exFAT creation ───────────────────────── */
+	{"create-exfat", no_argument, &options[NMOBJ_create_exfat], 1},
+
 	{0, 0, 0, 0}
 };
 
@@ -242,7 +258,8 @@ const struct option long_options[] = {
     NMOBJ_max_unlock_time, NMOBJ_max_unlock_level,			\
     NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail, NMOBJ_is_allow_swap
 
-#define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help
+#define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help, \
+	NMOBJ_decrypt, NMOBJ_print_encryption
 
 
 int frontend_check_actions(const char *input) {
@@ -452,9 +469,25 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 #if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_TEST)
 	is_skip_conformation = options[NMOBJ_yes];
 	print_debug_enable = options[NMOBJ_print_debug];
-	if (params[NMOBJ_act] && strcmp(params[NMOBJ_act], "decrypt") == 0 && params[NMOBJ_to])
-		decrypt_set_output_file(params[NMOBJ_to]);
-	init(is_root, params[NMOBJ_act]);
+
+	const char *driver_name = NULL;
+	if (options[NMOBJ_decrypt]) {
+		decrypt_set_output_file(params[NMOBJ_decrypt]);
+		driver_name = "decrypt";
+	} else if (options[NMOBJ_print_encryption]) {
+		driver_name = "print";
+	} else {
+#ifndef WINDHAM_ISOC
+		driver_name = "dm-mapper";
+#else
+#if defined(__STDC_UTF_16__)
+		driver_name = "ff";
+#else
+		print_error(_("No driver selected. Use --decrypt=<file> or --print-encryption."));
+#endif
+#endif
+	}
+	init(is_root, driver_name);
 #else
 	is_skip_conformation = 1;
 #endif
@@ -576,7 +609,8 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				DEFAULT_AUX_SECTOR_SIZE,
 				options[NMOBJ_is_no_detect_entropy],
 				options[NMOBJ_is_anonymous_key],
-				options[NMOBJ_is_allow_swap]);
+				options[NMOBJ_is_allow_swap],
+				options[NMOBJ_create_exfat]);
 			break;
 		case NMOBJ_action_addkey:
 			init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);

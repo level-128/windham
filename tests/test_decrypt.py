@@ -53,7 +53,7 @@ def test_decrypt_zero(binary, device):
 
     # 5. Full decryption to image file
     rc, so, se = run_windham(
-        ["Open", device, "--act=decrypt", "--to=" + output_file, "--key=123"] + _FLAGS,
+        ["Open", device, "--decrypt=" + output_file, "--key=123"] + _FLAGS,
         binary, timeout=60)
     if rc != 0:
         raise TestFailure(f"Decrypt failed: rc={rc}\nstdout: {so}\nstderr: {se}")

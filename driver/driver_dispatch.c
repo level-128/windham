@@ -13,7 +13,7 @@
 // ── Driver vtable ──────────────────────────────────
 
 typedef struct Driver {
-    const char *name;       // "dm-mapper", "decrypt", "shell", "print"
+    const char *name;       // "dm-mapper", "decrypt", "print"
 
     void (*init)(const char *driver_name);
 
@@ -78,16 +78,20 @@ void decrypt_set_output_file(const char *path);
 #ifndef WINDHAM_ISOC
 extern Driver driver_dm_mapper;
 #endif
+#if defined(__STDC_UTF_16__)
+extern Driver driver_ff;
+#endif
 extern Driver driver_decrypt;
-extern Driver driver_shell;
 extern Driver driver_print;
 
 static Driver *drivers[] = {
 #ifndef WINDHAM_ISOC
     &driver_dm_mapper,
 #endif
+#if defined(__STDC_UTF_16__)
+    &driver_ff,
+#endif
     &driver_decrypt,
-    &driver_shell,
     &driver_print,
     NULL
 };
@@ -98,30 +102,20 @@ bool    is_device_mapper_available = false;
 // ── init ────────────────────────────────────────────
 
 void driver_init_all(const char *act_driver_name) {
-    if (act_driver_name && act_driver_name[0]) {
-        // force a specific driver
-        for (int i = 0; drivers[i]; i++) {
-            if (strcmp(drivers[i]->name, act_driver_name) == 0) {
-                drivers[i]->init(act_driver_name);
-                if (is_device_mapper_available) {
-                    current_driver = drivers[i];
-                    return;
-                }
-                print_error(_("driver '%s' initialisation failed."), act_driver_name);
-            }
-        }
-        print_error(_("unknown driver '%s'."), act_driver_name);
-    }
+    if (!act_driver_name || !act_driver_name[0])
+        print_error(_("no driver specified."));
 
-    // auto-select by priority
     for (int i = 0; drivers[i]; i++) {
-        drivers[i]->init(NULL);
-        if (is_device_mapper_available) {
-            current_driver = drivers[i];
-            return;
+        if (strcmp(drivers[i]->name, act_driver_name) == 0) {
+            drivers[i]->init(act_driver_name);
+            if (is_device_mapper_available) {
+                current_driver = drivers[i];
+                return;
+            }
+            print_error(_("driver '%s' initialisation failed."), act_driver_name);
         }
     }
-    print_error(_("no driver could be initialised."));
+    print_error(_("unknown driver '%s'."), act_driver_name);
 }
 
 // ── dispatch wrappers ───────────────────────────────
@@ -190,8 +184,10 @@ void create_crypt_mapping_from_disk_key(
 #ifndef WINDHAM_ISOC
 #include "driver_dm_mapper.c"
 #endif
+#if defined(__STDC_UTF_16__)
+#include "ff/driver_fat_shell.c"
+#endif
 #include "driver_decrypt.c"
-#include "driver_shell.c"
 #include "driver_print.c"
 
 #endif

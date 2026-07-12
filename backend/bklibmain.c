@@ -120,8 +120,8 @@ void init(bool is_root, const char *act_driver) {
 #else
 
 void init(bool is_root, const char *act_driver) {
-   (void)act_driver;
-   is_device_mapper_available = false;
+    (void)is_root;
+    driver_init_all(act_driver);
 }
 #endif
 

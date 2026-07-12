@@ -177,6 +177,10 @@ else ()
     file(GLOB HUFFMAN_SRC ${CMAKE_SOURCE_DIR}/library/huffman/*.c)
     file(GLOB cJSON_SRC ${CMAKE_SOURCE_DIR}/library/cJSON/*.c)
     file(GLOB GETOPT_SRC ${CMAKE_SOURCE_DIR}/library/getopt_port/*.c)
+    set(FATFS_SRC ${CMAKE_SOURCE_DIR}/library/FatFs/ff.c
+                  ${CMAKE_SOURCE_DIR}/library/FatFs/ffunicode.c
+                  ${CMAKE_SOURCE_DIR}/library/FatFs/ffsystem.c
+                  ${CMAKE_SOURCE_DIR}/library/FatFs/ff_diskio.c)
 
     set(ARGON2_DIR ${CMAKE_SOURCE_DIR}/library/Argon2)
 
@@ -195,7 +199,7 @@ else ()
                 ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
     endif ()
 
-    set(LIBRARY_SOURCES ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC})
+    set(LIBRARY_SOURCES ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC} ${FATFS_SRC})
 
 
     # --------------------------------------------------------------------
