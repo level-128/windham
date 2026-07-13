@@ -59,7 +59,7 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count)
 
 	size_t ratio = sector_size / 512;
 	size_t bytes = (size_t)count * sector_size;
-	off_t  off   = (off_t)((part_start + (size_t)sector) * sector_size);
+	off_t  off   = (off_t)((size_t)part_start * 512 + (size_t)sector * sector_size);
 
 	if (lseek(dev_fd, off, SEEK_SET) == (off_t)-1)
 		return RES_ERROR;
@@ -67,7 +67,7 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count)
 		return RES_ERROR;
 
 	for (UINT i = 0; i < count; i++) {
-		uint64_t iv = (uint64_t)((part_start + (size_t)(sector + i)) * ratio);
+		uint64_t iv = (uint64_t)((size_t)(sector + i) * ratio);
 		aes_xts_decrypt_sectors(buff + (size_t)i * sector_size,
 		                        1, xts_key, iv, sector_size);
 	}
@@ -84,7 +84,7 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count)
 
 	size_t ratio = sector_size / 512;
 	size_t bytes = (size_t)count * sector_size;
-	off_t  off   = (off_t)((part_start + (size_t)sector) * sector_size);
+	off_t  off   = (off_t)((size_t)part_start * 512 + (size_t)sector * sector_size);
 
 	/* encrypt into a temporary buffer, then write */
 	BYTE *enc = (BYTE *)malloc(bytes);
@@ -92,7 +92,7 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count)
 	memcpy(enc, buff, bytes);
 
 	for (UINT i = 0; i < count; i++) {
-		uint64_t iv = (uint64_t)((part_start + (size_t)(sector + i)) * ratio);
+		uint64_t iv = (uint64_t)((size_t)(sector + i) * ratio);
 		aes_xts_encrypt_sectors(enc + (size_t)i * sector_size,
 		                        1, xts_key, iv, sector_size);
 	}
