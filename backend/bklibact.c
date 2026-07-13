@@ -323,21 +323,35 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
 
    printf(_("Creating header backup for device %s to %s\n"), device, filename);
 
+#ifndef WINDHAM_ISOC
+   if (access(filename, F_OK) != -1) {
+      print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
+   }
+#else
    FILE *file = fopen(filename, "r");
    if (file != NULL) {
       fclose(file);
       print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
    }
+#endif
 
    Data                data;
    int64_t             offset;
    ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
+#ifndef WINDHAM_ISOC
+   int fd = creat(filename, S_IRUSR);
+   if (fd == -1) {
+      print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
+   }
+   close(fd);
+#else
    file = fopen(filename, "wb");
    if (file == NULL) {
       print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
    }
    fclose(file);
+#endif
 
    write_header_to_device(&data, filename, 0);
 }
