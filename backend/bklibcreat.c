@@ -147,18 +147,25 @@ void action_create(
    }
 #endif
 
-   encrypt_aux_zone_using_master_key(&data, aux_zone, aux_sector_size * 512, master_key);
-   write_aux_zone_to_device(device, &data, aux_zone, aux_sector_size * 512);
-   OPERATION_LOCK_AND_WRITE
+    encrypt_aux_zone_using_master_key(&data, aux_zone, aux_sector_size * 512, master_key);
+    write_aux_zone_to_device(device, &data, aux_zone, aux_sector_size * 512);
 
-   if (create_exfat) {
-      uint8_t disk_key[DEFAULT_DISK_KEY_SIZE_BYTES];
-      get_metadata_key_or_disk_key_from_master_key(
-         master_key, data.metadata.disk_key_mask, data.uuid_and_salt,
-         disk_key, DEFAULT_DISK_KEY_SIZE_BYTES);
+    /* Save disk_key_mask before OPERATION_LOCK_AND_WRITE encrypts metadata */
+    uint8_t saved_disk_key_mask[HASHLEN];
+    memcpy(saved_disk_key_mask, data.metadata.disk_key_mask, HASHLEN);
+    uint8_t saved_uuid_and_salt[16];
+    memcpy(saved_uuid_and_salt, data.uuid_and_salt, 16);
+
+    OPERATION_LOCK_AND_WRITE
+
+    if (create_exfat) {
+       uint8_t disk_key[DEFAULT_DISK_KEY_SIZE_BYTES];
+       get_metadata_key_or_disk_key_from_master_key(
+          master_key, saved_disk_key_mask, saved_uuid_and_salt,
+          disk_key, DEFAULT_DISK_KEY_SIZE_BYTES);
       char hex_key[DEFAULT_DISK_KEY_SIZE_BYTES * 2 + 1];
-      convert_disk_key_to_hex_format(disk_key, DEFAULT_DISK_KEY_SIZE_BYTES, hex_key);
-      ff_exfat_create(device, hex_key, block_size, start_sector, end_sector);
+       convert_disk_key_to_hex_format(disk_key, DEFAULT_DISK_KEY_SIZE_BYTES, hex_key);
+       ff_exfat_create(device, hex_key, block_size, start_sector, end_sector);
    }
 
    free(aux_zone);
