@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCL_BKLIBCREAT
+#define INCL_BKLIBCREAT
 
 #include "bklibkey.c"
 #include "bksrclib.c"
@@ -170,3 +171,5 @@ void action_create(
 
    free(aux_zone);
 }
+
+#endif

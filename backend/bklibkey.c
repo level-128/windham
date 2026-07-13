@@ -2,7 +2,8 @@
 // Created by level-128 on 1/19/24.
 //
 
-#pragma once
+#ifndef INCL_BKLIBKEY
+#define INCL_BKLIBKEY
 
 #include <errno.h>
 #include <float.h>
@@ -669,3 +670,5 @@ END_LOOP:;
       }
    }
 }
+
+#endif

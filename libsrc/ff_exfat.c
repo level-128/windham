@@ -1,7 +1,8 @@
 // ff_exfat.c — Create an exFAT filesystem on an encrypted Windham partition
 // Depends only on FatFs declarations + ff_diskio, not on any driver.
 // FatFs symbols are provided by an earlier #include in the chain.
-#pragma once
+#ifndef INCL_FF_EXFAT
+#define INCL_FF_EXFAT
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -58,3 +59,5 @@ void ff_exfat_create(const char *device_path, const char *hex_key,
     free(disk_key);
     close(fd);
 }
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCL_BKLIBACT
+#define INCL_BKLIBACT
 
 #ifndef WINDHAM_ISOC
 #include <dirent.h>
@@ -256,7 +257,8 @@ void action_removekey(
             if (!is_public) {
                if (count == 0) {
                   printf(_("The following aux entries are associated with the key being deleted:\n"));
-               }
+}
+#endif
                count++;
                print_aux_entry(slot, slot_offset, false, count);
                has_aux_to_delete = true;

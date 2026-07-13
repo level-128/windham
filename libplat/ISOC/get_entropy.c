@@ -3,7 +3,11 @@
 #include <time.h>
 #include <string.h>
 #include <stdint.h>
+#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>
+#endif
+#endif
 
 #include "../../include/windham_const.h"
 #include "../../include/sha256.h"

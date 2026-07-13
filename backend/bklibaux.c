@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCL_BKLIB_AUX
+#define INCL_BKLIB_AUX
 
 #include <fcntl.h>
 #include <stdint.h>
@@ -411,3 +412,5 @@ void action_aux_rm(
 	OPERATION_LOCK_AND_WRITE
 	free(aux_zone);
 }
+
+#endif

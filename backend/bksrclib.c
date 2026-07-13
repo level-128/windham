@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCL_BKSRCLIB
+#define INCL_BKSRCLIB
 
 #include <stdint.h>
 
@@ -307,3 +308,5 @@ int64_t get_new_header_range_and_offset_based_on_size(
    }
    return return_val;
 }
+
+#endif

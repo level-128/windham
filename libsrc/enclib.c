@@ -6,7 +6,11 @@
 #include <string.h>
 #include <time.h>
 #include <float.h>
+#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>
+#endif
+#endif
 
 #include "endian.c"
 #include "../include/windham_const.h"

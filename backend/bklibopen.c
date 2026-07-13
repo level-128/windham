@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCL_BKLIBOPEN
+#define INCL_BKLIBOPEN
 
 #include <inttypes.h>
 #include "../libsrc/windhamtab.c"
@@ -1003,3 +1004,5 @@ void action_open_(
          is_no_map_partition, is_nokeyring, is_no_aux);
    }
 }
+
+#endif

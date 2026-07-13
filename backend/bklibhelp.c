@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCL_BKLIBHELP
+#define INCL_BKLIBHELP
 
 #include <limits.h>
 #include "../libsrc/srclib.c"
@@ -351,3 +352,4 @@ void frontend_help(const char * the_3rd_argv) {
    }
    exit(0);
 }
+#endif

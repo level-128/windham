@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCL_BKLIBMAIN
+#define INCL_BKLIBMAIN
 
 
 #include "../libsrc/libexit.c"
@@ -126,3 +127,5 @@ void init(bool is_root, const char *act_driver) {
 #endif
 
 
+
+#endif

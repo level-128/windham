@@ -59,12 +59,17 @@ typedef enum {
    // no correct pw, sys error, no memory
 } Kdf_step;
 
-#include <threads.h>
-
 #ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ISOC_THREAD
+#include <threads.h>
 thread_local Kdf_step Kdf_step_result;
 thread_local bool     is_allow_nolock;
 
+#else
+Kdf_step Kdf_step_result;
+bool is_allow_nolock;
+
+#endif
 #else
 Kdf_step Kdf_step_result;
 bool is_allow_nolock;

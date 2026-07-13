@@ -1,5 +1,4 @@
 // driver_dispatch.c — driver vtable, selection, and dispatch
-#pragma once
 
 #ifndef INCL_DRIVER_DISPATCH
 #define INCL_DRIVER_DISPATCH
