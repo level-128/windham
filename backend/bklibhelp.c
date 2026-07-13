@@ -30,12 +30,14 @@ void frontend_print_unlock_args() {
 void frontend_print_common_args() {
    printf(
       _(
-         "\nCommon options:\n"
-         "\t--no-admin:    skip root-privilege check (may cause undefined behavior).\n"
-         "\t--yes:         skip confirmation prompts for destructive operations.\n"
-         "\t--nofail:      exit normally (rc=0) when the target device does not exist.\n"
-         "\t--help:        print this help message.\n"
-         "\t--print-debug: enable debug output.\n"));
+          "\nCommon options:\n"
+          "\t--no-admin:          skip root-privilege check.\n"
+          "\t--yes:               skip confirmation prompts.\n"
+          "\t--nofail:            exit normally when target device does not exist.\n"
+          "\t--help:              print this help message.\n"
+          "\t--print-debug:       enable debug output.\n"
+          "\t--decrypt=<file>:    use full-disk-decrypt driver, write to <file>.\n"
+          "\t--print-encryption:  use print driver (no-op, displays operations).\n"));
 }
 
 void frontend_print_newpw_args() {
@@ -218,7 +220,9 @@ void frontend_help(const char * the_3rd_argv) {
             "\t                       Default: \"aes-xts-plain64\".\n"
             "\t--block-size <n>:     encryption sector size: 512, 1024, 2048, or 4096.\n"
             "\t--decoy-size <n>:     create a decoy partition of <n> MiB instead.\n"
-            "\t--aux-sector-size <n>: size of the aux metadata zone, in 512-byte sectors.\n"));
+             "\t--aux-sector-size <n>: size of the aux metadata zone, in 512-byte sectors.\n"
+             "\t--create-exfat:       after creating the header, format the encrypted data\n"
+             "\t                       area as an exFAT filesystem using FatFs.\n"));
       frontend_print_newpw_args();
       frontend_print_common_args();
       printf(
