@@ -484,7 +484,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
  #if defined(__STDC_UTF_16__)
  	        driver_name = "ff";
  #else
- 	        print_error(_("No driver selected. Use --decrypt=<file> or --print-encryption."));
+ 	        driver_name = "print";
  #endif
  #endif
  	    }
