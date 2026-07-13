@@ -70,7 +70,7 @@ sudo windham Close --all                          # 锁定所有设备
 | [快速入门](docs/quickstart.md) | 分步指南（New、Open、Close、Suspend、AddKey、DelKey） |
 | [安装与构建](docs/install.md) | 构建依赖、交叉编译、编译选项、ISO C 基础模式 |
 | [安全模型](docs/security.md) | 主密钥体系、槽历史攻击、匿名密钥、侧信道、防篡改 |
-| [辅助数据区](docs/aux.md) | Aux zone 类型（PLAINTEXT、SHELL、LINK_OPEN）、标志、RAID 级联 |
+| [辅助数据区](docs/auxzone.md) | Aux zone 类型（PLAINTEXT、SHELL、LINK_OPEN）、标志、RAID 级联 |
 | [诱饵分区](docs/decoy.md) | 诱饵分区指南 — GPT 布局、TRIM 问题、文件系统建议 |
 | [启动时解锁](docs/windhamtab.md) | /etc/windhamtab、Clevis + TPM2 集成、systemd init |
 | [PID 1 模式](docs/pid1.md) | 以 PID 1 运行（嵌入式 / 早期用户空间） |

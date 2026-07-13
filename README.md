@@ -81,7 +81,7 @@ sudo windham Close --all                           # lock all devices
 | [docs/quickstart.md](docs/quickstart.md) | Step-by-step guide (New, Open, Close, Suspend, AddKey, DelKey) |
 | [docs/install.md](docs/install.md) | Build dependencies, cross-compilation, feature switches, ISO C mode |
 | [docs/security.md](docs/security.md) | Master key hierarchy, slot history attack, anonymous keys, side channels, tamper resistance |
-| [docs/aux.md](docs/aux.md) | Aux zone types (PLAINTEXT, SHELL, LINK_OPEN), flags, RAID cascade setup |
+| [docs/aux.md](docs/auxzone.md) | Aux zone types (PLAINTEXT, SHELL, LINK_OPEN), flags, RAID cascade setup |
 | [docs/decoy.md](docs/decoy.md) | Decoy partition guide — GPT layout, TRIM issues, filesystem recommendations |
 | [docs/windhamtab.md](docs/windhamtab.md) | /etc/windhamtab, Clevis + TPM2 integration, systemd init |
 | [docs/pid1.md](docs/pid1.md) | Running Windham as PID 1 (embedded / early userspace) |
