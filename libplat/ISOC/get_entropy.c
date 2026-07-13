@@ -3,6 +3,8 @@
 #include <time.h>
 #include <string.h>
 #include <stdint.h>
+/* C11 threads for mutex-protected entropy pool and once_flag
+   initialisation; single-thread fallback when unavailable.  */
 #ifndef __STDC_NO_THREADS__
 #ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>

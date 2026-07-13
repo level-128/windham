@@ -59,6 +59,8 @@ typedef enum {
    // no correct pw, sys error, no memory
 } Kdf_step;
 
+/* thread_local result storage; falls back to plain globals
+   when C11 threads are not available.  */
 #ifndef __STDC_NO_THREADS__
 #ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>

@@ -3,15 +3,23 @@
 // binary, reads the header for sector layout, and decrypts all data
 // to the file specified by --to.
 
-#include <fcntl.h>
 #include <inttypes.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/stat.h>
+#include <stdio.h>
 
 #include "../include/windham_const.h"
 #include "../libsrc/srclib.c"
 #include "../libsrc/aes_xts_impl.c"
+
+/* POSIX file I/O for raw block-device access (open/lseek/read/write).
+   Under ISO C we fall back to stdio (fopen/fseeko/fread/fwrite) which
+   cannot seek on block devices — fseeko failure triggers a read+discard
+   fallback.  See decrypt_create() below.  */
+#ifndef WINDHAM_ISOC
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
 
 static const char *output_file_path;
 
@@ -68,6 +76,7 @@ static int decrypt_create(
     unsigned ratio = block_size / 512;
     uint64_t logical_sectors = total_512 / ratio;
 
+#ifndef WINDHAM_ISOC
     int dev_fd = open(device, O_RDONLY);
     if (dev_fd < 0) { perror(device); exit(1); }
 
@@ -91,6 +100,40 @@ static int decrypt_create(
 
     free(buf); free(disk_key);
     close(dev_fd); close(out_fd);
+#else
+    /* ISO C path — use stdio.  On block devices fseek/fseeko may fail,
+       so we fread-and-discard the header area once, then read the data
+       sectors sequentially without seeking. */
+    FILE *dev_f = fopen(device, "rb");
+    if (!dev_f) { perror(device); exit(1); }
+
+    FILE *out_f = fopen(output_file_path, "wb");
+    if (!out_f) { perror(output_file_path); exit(1); }
+
+    uint8_t *buf = malloc(block_size);
+    if (!buf) { perror("malloc"); exit(1); }
+
+    /* Skip the header area by reading and discarding bytes.
+       This works on block devices where fseek/fseeko may fail. */
+    uint64_t header_bytes = start_sector * 512;
+    while (header_bytes > 0) {
+        size_t chunk = header_bytes > block_size ? block_size : (size_t)header_bytes;
+        if (fread(buf, 1, chunk, dev_f) != chunk)
+            print_error(_("error skipping header"));
+        header_bytes -= chunk;
+    }
+
+    for (uint64_t ls = 0; ls < logical_sectors; ls++) {
+        if (fread(buf, 1, block_size, dev_f) != block_size)
+            print_error(_("read error at sector %"PRIu64), start_sector + ls * ratio);
+        aes_xts_decrypt_sectors(buf, 1, disk_key, (uint64_t)(ls * ratio), block_size);
+        if (fwrite(buf, 1, block_size, out_f) != block_size)
+            print_error(_("write error for output file"));
+    }
+
+    free(buf); free(disk_key);
+    fclose(dev_f); fclose(out_f);
+#endif
     printf("decrypted %"PRIu64" sectors to %s\n", logical_sectors, output_file_path);
     return 0;
 }

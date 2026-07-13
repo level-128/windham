@@ -6,6 +6,8 @@
 #include <string.h>
 #include <time.h>
 #include <float.h>
+/* C11 threads for parallel KDF key search; single-thread fallback
+   at read_key_from_data_one_level_dispatch() when unavailable.  */
 #ifndef __STDC_NO_THREADS__
 #ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>
