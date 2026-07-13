@@ -470,25 +470,25 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 	is_skip_conformation = options[NMOBJ_yes];
 	print_debug_enable = options[NMOBJ_print_debug];
 
- 	const char *driver_name = NULL;
- 	if (action_num == NMOBJ_action_open || action_num == NMOBJ_action_new) {
- 	    if (options[NMOBJ_decrypt]) {
- 	        decrypt_set_output_file(params[NMOBJ_decrypt]);
- 	        driver_name = "decrypt";
- 	    } else if (options[NMOBJ_print_encryption]) {
- 	        driver_name = "print";
- 	    } else {
- #ifndef WINDHAM_ISOC
- 	        driver_name = "dm-mapper";
- #else
- #if defined(__STDC_UTF_16__)
- 	        driver_name = "ff";
- #else
- 	        driver_name = "print";
- #endif
- #endif
- 	    }
- 	}
+  	const char *driver_name = NULL;
+  	if (action_num == NMOBJ_action_open || action_num == NMOBJ_action_new || action_num == NMOBJ_action_close) {
+  	    if (options[NMOBJ_decrypt]) {
+  	        decrypt_set_output_file(params[NMOBJ_decrypt]);
+  	        driver_name = "decrypt";
+  	    } else if (options[NMOBJ_print_encryption]) {
+  	        driver_name = "print";
+  	    } else {
+  #ifndef WINDHAM_ISOC
+  	        driver_name = "dm-mapper";
+  #else
+  #if defined(__STDC_UTF_16__)
+  	        driver_name = "ff";
+  #else
+  	        driver_name = "print";
+  #endif
+  #endif
+  	    }
+  	}
  	init(is_root, driver_name);
 #else
 	is_skip_conformation = 1;
