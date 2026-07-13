@@ -9,7 +9,6 @@
 
 #else
 
-#include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +16,6 @@
 #include <limits.h>
 #include <uchar.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include "../../include/windham_const.h"
 #include "../../libsrc/srclib.c"
@@ -1022,11 +1020,11 @@ static int ff_create(
     if (!disk_key) { perror("malloc"); exit(1); }
     ff_hex_to_bin(password, disk_key, key_size);
 
-    int fd = open(device, O_RDONLY);
-    if (fd < 0) { perror(device); exit(1); }
+    void *dev_handle = device_open(device, false);
+    if (!dev_handle) { perror(device); exit(1); }
 
     size_t part_sectors = end_sector - start_sector;
-    ff_diskio_init((void *)(intptr_t)fd, disk_key, block_size, start_sector, part_sectors, 0);
+    ff_diskio_init(dev_handle, disk_key, block_size, start_sector, part_sectors, 0);
 
     printf("UUID:   %s\n", uuid_str);
     printf("Device: %s\n", device);
@@ -1034,7 +1032,7 @@ static int ff_create(
     int ret = ff_shell_run();
 
     free(disk_key);
-    close(fd);
+    device_close(dev_handle);
     return ret;
 }
 

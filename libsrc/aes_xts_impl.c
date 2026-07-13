@@ -23,7 +23,7 @@
 //
 // Multiplication: T * x, with reduction polynomial x^128 + x^7 + x^2 + x + 1.
 // Overflow from GF bit 127 → XOR 0x87 at byte 0.
-static void gf128mul_x_ble(uint8_t t[static 16]) {
+static void gf128mul_x_ble(uint8_t t[16]) {
     uint8_t carry = 0;
     for (int i = 0; i < 16; i++) {
         uint8_t next = t[i] >> 7;
@@ -36,7 +36,7 @@ static void gf128mul_x_ble(uint8_t t[static 16]) {
 
 // ── plain64 IV ─────────────────────────────────────────
 // IV[0..7] = le64(logical_sector), IV[8..15] = 0
-static void make_plain64_iv(uint8_t iv[static 16], uint64_t sector) {
+static void make_plain64_iv(uint8_t iv[16], uint64_t sector) {
     memset(iv, 0, 16);
     iv[0] = (uint8_t)(sector);
     iv[1] = (uint8_t)(sector >> 8);
@@ -57,8 +57,8 @@ static void make_plain64_iv(uint8_t iv[static 16], uint64_t sector) {
 static void aes_xts_crypt_sector(
     uint8_t *      data,
     size_t         sector_size_bytes,
-    const uint8_t  key[static 2 * AES_KEYLEN],
-    const uint8_t  iv[static 16],
+    const uint8_t  key[2 * AES_KEYLEN],
+    const uint8_t  iv[16],
     bool           encrypt)
 {
     // sector_size_bytes must be >= 512, a power-of-two multiple of 512,
@@ -105,7 +105,7 @@ static void aes_xts_crypt_sector(
 void aes_xts_encrypt_sectors(
     uint8_t *      data,
     uint64_t       sector_count,
-    const uint8_t  key[static 2 * AES_KEYLEN],
+    const uint8_t  key[2 * AES_KEYLEN],
     uint64_t       start_sector,
     unsigned int   sector_size_bytes)
 {
@@ -123,7 +123,7 @@ void aes_xts_encrypt_sectors(
 void aes_xts_decrypt_sectors(
     uint8_t *      data,
     uint64_t       sector_count,
-    const uint8_t  key[static 2 * AES_KEYLEN],
+    const uint8_t  key[2 * AES_KEYLEN],
     uint64_t       start_sector,
     unsigned int   sector_size_bytes)
 {
