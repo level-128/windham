@@ -34,7 +34,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count);
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 
-void ff_diskio_init(int fd, const uint8_t *xts_key,
+void ff_diskio_init(void *handle, const uint8_t *xts_key,
                     size_t sector_size, size_t part_start, size_t part_sectors,
                     int writable);
 

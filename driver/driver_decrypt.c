@@ -21,6 +21,12 @@
 #include <sys/stat.h>
 #endif
 
+/* Platform-abstracted I/O — defined in libplat/headerio.c.
+   Declared here because this file may be included before headerio.      */
+int     device_seek(void *handle, int64_t offset);
+int64_t device_read(void *handle, void *buf, size_t count);
+int64_t device_write(void *handle, const void *buf, size_t count);
+
 static const char *output_file_path;
 
 void decrypt_set_output_file(const char *path) {
@@ -79,6 +85,7 @@ static int decrypt_create(
 #ifndef WINDHAM_ISOC
     int dev_fd = open(device, O_RDONLY);
     if (dev_fd < 0) { perror(device); exit(1); }
+    void *dev_handle = (void *)(intptr_t)dev_fd;
 
     int out_fd = creat(output_file_path, S_IRUSR | S_IWUSR);
     if (out_fd < 0) { perror(output_file_path); exit(1); }
@@ -88,9 +95,8 @@ static int decrypt_create(
 
     for (uint64_t ls = 0; ls < logical_sectors; ls++) {
         uint64_t f512 = start_sector + ls * ratio;
-        off_t dev_off = (off_t)(f512 * 512);
-        lseek(dev_fd, dev_off, SEEK_SET);
-        if (read(dev_fd, buf, block_size) != (ssize_t)block_size)
+        device_seek(dev_handle, (int64_t)(f512 * 512));
+        if (device_read(dev_handle, buf, block_size) != (int64_t)block_size)
             print_error(_("read error at sector %"PRIu64), f512);
         /* one XTS op per logical sector with dm-relative sector number as IV */
         aes_xts_decrypt_sectors(buf, 1, disk_key, (uint64_t)(ls * ratio), block_size);
@@ -106,9 +112,11 @@ static int decrypt_create(
        sectors sequentially without seeking. */
     FILE *dev_f = fopen(device, "rb");
     if (!dev_f) { perror(device); exit(1); }
+    void *dev_handle = (void *)dev_f;
 
     FILE *out_f = fopen(output_file_path, "wb");
     if (!out_f) { perror(output_file_path); exit(1); }
+    void *out_handle = (void *)out_f;
 
     uint8_t *buf = malloc(block_size);
     if (!buf) { perror("malloc"); exit(1); }
@@ -118,16 +126,16 @@ static int decrypt_create(
     uint64_t header_bytes = start_sector * 512;
     while (header_bytes > 0) {
         size_t chunk = header_bytes > block_size ? block_size : (size_t)header_bytes;
-        if (fread(buf, 1, chunk, dev_f) != chunk)
+        if (device_read(dev_handle, buf, chunk) != (int64_t)chunk)
             print_error(_("error skipping header"));
         header_bytes -= chunk;
     }
 
     for (uint64_t ls = 0; ls < logical_sectors; ls++) {
-        if (fread(buf, 1, block_size, dev_f) != block_size)
+        if (device_read(dev_handle, buf, block_size) != (int64_t)block_size)
             print_error(_("read error at sector %"PRIu64), start_sector + ls * ratio);
         aes_xts_decrypt_sectors(buf, 1, disk_key, (uint64_t)(ls * ratio), block_size);
-        if (fwrite(buf, 1, block_size, out_f) != block_size)
+        if (device_write(out_handle, buf, block_size) != (int64_t)block_size)
             print_error(_("write error for output file"));
     }
 

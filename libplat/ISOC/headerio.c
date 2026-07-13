@@ -8,6 +8,21 @@
 #include "../../libsrc/srclib.c"
 
 
+/* ── Platform device I/O (stdio FILE *) ────────────────────── */
+
+int device_seek(void *handle, int64_t offset) {
+	return fseek((FILE *)handle, (long)offset, SEEK_SET);
+}
+
+int64_t device_read(void *handle, void *buf, size_t count) {
+	return (int64_t)fread(buf, 1, count, (FILE *)handle);
+}
+
+int64_t device_write(void *handle, const void *buf, size_t count) {
+	return (int64_t)fwrite(buf, 1, count, (FILE *)handle);
+}
+
+
 void operate_header_on_device(Data *data, const char *device, int64_t offset, bool is_read) {
    assert(offset % 4 == 0);
    const char *mode = is_read ? "rb" : "r+b";
@@ -23,30 +38,24 @@ void operate_header_on_device(Data *data, const char *device, int64_t offset, bo
       return;
    }
 
-   const int seek_origin = (offset < 0) ? SEEK_END : SEEK_SET;
-
-   if (fseek(fp, offset, seek_origin) != 0) {
+   void *handle = (void *)fp;
+   if (device_seek(handle, offset) != 0) {
       print_error(_("Failed to seek in %s: %s"), device, strerror(errno));
       fclose(fp);
       return;
    }
 
-   size_t elements_processed;
+   int64_t result;
    if (is_read) {
-      elements_processed = fread(data, sizeof(Data), 1, fp);
-      if (elements_processed != 1) {
-         if (ferror(fp)) {
-            print_error(_("Failed to read %s: %s"), device, strerror(errno));
-         } else {
-            print_error(_("Failed to read %s: unexpected EOF"), device);
-         }
-      }
+      result = device_read(handle, data, sizeof(Data));
    } else {
-      elements_processed = fwrite(data, sizeof(Data), 1, fp);
-      if (elements_processed != 1) {
+      result = device_write(handle, data, sizeof(Data));
+   }
+   if (result != (int64_t)sizeof(Data)) {
+      if (is_read)
+         print_error(_("Failed to read %s: %s"), device, strerror(errno));
+      else
          print_error(_("Failed to write %s: %s"), device, strerror(errno));
-      }
-      fflush(fp);
    }
 
    fclose(fp);
@@ -66,20 +75,20 @@ void operate_aux_zone_on_device(uint8_t *aux_zone, size_t aux_zone_size, const c
       return;
    }
 
-   if (fseek(fp, offset, SEEK_SET) != 0) {
+   void *handle = (void *)fp;
+   if (device_seek(handle, offset) != 0) {
       print_error(_("Failed to seek aux zone on %s: %s"), device, strerror(errno));
       fclose(fp);
       return;
    }
 
-   size_t elements_processed;
+   int64_t result;
    if (is_read) {
-      elements_processed = fread(aux_zone, aux_zone_size, 1, fp);
+      result = device_read(handle, aux_zone, aux_zone_size);
    } else {
-      elements_processed = fwrite(aux_zone, aux_zone_size, 1, fp);
-      fflush(fp);
+      result = device_write(handle, aux_zone, aux_zone_size);
    }
-   if (elements_processed != 1) {
+   if (result != (int64_t)aux_zone_size) {
       print_error(_("Failed to %s aux zone on %s: %s"),
                   is_read ? "read" : "write", device, strerror(errno));
    }
