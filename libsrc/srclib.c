@@ -128,7 +128,7 @@ void ask_for_conformation(const char * format, ...) {
    }
    random_str[2] = '\0';
 
-   printf(_("CONFORMATION REQUIRED: \n"));
+   printf(_("CONFIRMATION REQUIRED: \n"));
    va_list args;
    va_start(args, format);
    vprintf(format, args);

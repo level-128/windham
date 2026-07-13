@@ -163,7 +163,7 @@ void init_device(
 				STR_device->block_count = -1;
 			}
 		} else {
-			STR_device->block_count = -1;
+			STR_device->block_count = (int64_t)(disk_file_size / 512);
 		}
 	}
 
