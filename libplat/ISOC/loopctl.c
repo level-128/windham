@@ -22,7 +22,7 @@
 void create_file(const char *path, size_t size) {
    FILE *test = fopen(path, "rb");
    if (test) {
-      print_warning(_("File already exists. Deleting it."))
+      print_warning(_("File already exists. Deleting it."));
       fclose(test);
    }
 

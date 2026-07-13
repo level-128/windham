@@ -34,53 +34,48 @@
     memcpy(&(x), tmp_var, sizeof(x));		\
   } while (0)
 
-#ifndef WINDHAM_ISOC
-#define print_error(...)			\
-  do {						\
-    printf("\033[1;31m%s: ", _("ERROR"));		\
-    printf(__VA_ARGS__);				\
-    printf("\033[0m\n");				\
-    windham_exit(1);				\
-    __builtin_unreachable();				\
+#define print_error(...)							\
+  do {										\
+    if (init_val->is_color_print)						\
+      printf("\033[1;31m%s: ", _("ERROR"));					\
+    else									\
+      printf(_("ERROR: \n"));						\
+    printf(__VA_ARGS__);							\
+    if (init_val->is_color_print)						\
+      printf("\033[0m\n");							\
+    else									\
+      printf("\n");								\
+    windham_exit(1);								\
+    WINDHAM_UNREACHABLE							\
   } while (0)
 
 
-#define print_error_no_exit(...)		\
-  do {						\
-    printf("\033[1;31m%s: ", _("ERROR"));	\
-    printf(__VA_ARGS__);			\
-    printf("\033[0m\n");			\
+#define print_error_no_exit(...)						\
+  do {										\
+    if (init_val->is_color_print)						\
+      printf("\033[1;31m%s: ", _("ERROR"));					\
+    else									\
+      printf(_("ERROR: \n"));						\
+    printf(__VA_ARGS__);							\
+    if (init_val->is_color_print)						\
+      printf("\033[0m\n");							\
+    else									\
+      printf("\n");								\
   } while (0)
 
-#define print_warning(...)			\
-  do {						\
-    printf("\033[1;33m%s: ", _("WARNING"));	\
-    printf(__VA_ARGS__);			\
-    printf("\033[0m\n");			\
+
+#define print_warning(...)							\
+  do {										\
+    if (init_val->is_color_print)						\
+      printf("\033[1;33m%s: ", _("WARNING"));				\
+    else									\
+      printf(_("WARNING: \n"));						\
+    printf(__VA_ARGS__);							\
+    if (init_val->is_color_print)						\
+      printf("\033[0m\n");							\
+    else									\
+      printf("\n");								\
   } while (0)
-
-
-#else
-
-#define print_error(...)			\
-printf(_("ERROR: \n"));		\
-printf(__VA_ARGS__);				\
-printf("\n");				\
-windham_exit(1);
-
-
-#define print_error_no_exit(...)		\
-printf(_("ERROR: \n"));	\
-printf(__VA_ARGS__);			\
-printf("\n");			\
-
-
-#define print_warning(...)			\
-printf(_("WARNING: \n"));	\
-printf(__VA_ARGS__);				\
-printf("\n");
-
-#endif
 
 bool print_debug_enable;
 

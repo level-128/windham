@@ -503,15 +503,15 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 	// ── Argument validation DSL (see include/valid_args.c) ──
 
 #define need_dev(_action) \
-   if (action_num == NMOBJ_action_##_action && device == NULL) \
+   if (action_num == (_action) && device == NULL) \
       print_error(_("<target> not provided. type 'windham Help' to view help"));
 
 #define need_dev_if(_action, _cond) \
-   if (action_num == NMOBJ_action_##_action && device == NULL && (_cond)) \
+   if (action_num == (_action) && device == NULL && (_cond)) \
       print_error(_("<target> not provided. type 'windham Help' to view help"));
 
 #define opt_allow(_action, ...) \
-   if (action_num == NMOBJ_action_##_action) { \
+   if (action_num == (_action)) { \
       const uint8_t _a[] = { __VA_ARGS__ }; \
       for (unsigned _i = 0; _i < NMOBJ_target_SIZE; _i++) { \
          if (options[_i] == 1) { \
@@ -528,7 +528,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
    }
 
 #define ent(_action_num, _warn_or_err, _msg, _options) \
-   if ((action_num == -1 || action_num == (NMOBJ_action_##_action_num)) && !(_options)) { \
+   if ((action_num == -1 || action_num == (_action_num)) && !(_options)) { \
     if (strcmp(#_warn_or_err, "warn") == 0) { \
       print_warning(_(_msg)); \
     } else if (strcmp(#_warn_or_err, "err") == 0) { \
