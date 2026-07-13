@@ -4,6 +4,7 @@
 
 #include "include/windham_const.h"
 #include "include/getopt.h"
+#include "libplat/headerio.c"
 
 // gettext only works when frontend.c as cmake target
 #ifndef IS_FRONTEND_ENTRY
