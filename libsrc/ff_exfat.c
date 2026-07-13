@@ -41,7 +41,7 @@ void ff_exfat_create(const char *device_path, const char *hex_key,
 
     MKFS_PARM opt;
     memset(&opt, 0, sizeof(opt));
-    opt.fmt = FM_EXFAT;
+    opt.fmt = FM_EXFAT | FM_SFD;	/* super-floppy: no MBR, volume starts at sector 0 */
 
     BYTE work[4096];
     FRESULT fr = f_mkfs(u"0:", &opt, work, sizeof(work));
