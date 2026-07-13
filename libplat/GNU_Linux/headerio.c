@@ -17,6 +17,10 @@ void device_close(void *handle) {
 	if (handle) close((int)(intptr_t)handle);
 }
 
+int device_get_fd(void *handle) {
+	return handle ? (int)(intptr_t)handle : -1;
+}
+
 int device_seek(void *handle, int64_t offset) {
 	return lseek((int)(intptr_t)handle, offset, SEEK_SET) == (off_t)-1 ? -1 : 0;
 }
