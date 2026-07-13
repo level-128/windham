@@ -103,7 +103,7 @@ bool    is_device_mapper_available = false;
 
 void driver_init_all(const char *act_driver_name) {
     if (!act_driver_name || !act_driver_name[0])
-        print_error(_("no driver specified."));
+        return;  // no driver needed for this action (e.g. Close, Probe, etc.)
 
     for (int i = 0; drivers[i]; i++) {
         if (strcmp(drivers[i]->name, act_driver_name) == 0) {
