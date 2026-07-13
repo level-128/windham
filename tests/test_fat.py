@@ -40,20 +40,32 @@ def test_create_exfat(binary, device):
     mapper_path = f"/dev/mapper/{mapper_name}"
     with open(mapper_path, "rb") as f:
         header = f.read(512)
-
     sig = header[3:11]
-    print(f"  sig@3: {sig.hex()}", file=sys.stderr)
+    print(f"  dm-crypt sig@3: {sig.hex()}", file=sys.stderr)
 
-    if sig == b"EXFAT   ":
-        print(f"  exFAT signature verified", file=sys.stderr)
-    else:
-        # Show raw file data for debugging
-        with open(device, "rb") as f:
-            f.seek(56 * 512)
-            raw = f.read(32)
-        print(f"  raw@56: {raw.hex()}", file=sys.stderr)
-        raise TestFailure(
-            f"exFAT not found: sig={sig.hex()}, raw={raw.hex()}")
+    if sig != b"EXFAT   ":
+        # Get key from dmsetup table, decrypt raw data standalone to verify ff_diskio
+        r = subprocess.run(["dmsetup", "table", mapper_name, "--showkeys"],
+                          capture_output=True, text=True)
+        key_hex = r.stdout.strip().split()[4] if r.returncode == 0 and len(r.stdout.strip().split()) >= 5 else None
+
+        subprocess.run(["dd", f"if={device}", "bs=512", "skip=56", "count=8",
+                        "of=/tmp/stand_fat.bin", "conv=fsync"], capture_output=True)
+
+        if key_hex and len(key_hex) == 128:
+            r2 = subprocess.run(["/tmp/stand_decrypt", "/tmp/stand_fat.bin", key_hex, "4096"],
+                               capture_output=True, text=True, timeout=10)
+            dec_hex = r2.stdout.split("DEC: ")[-1].split()[0] if "DEC:" in r2.stdout else ""
+            if dec_hex:
+                dec = bytes.fromhex(dec_hex)
+                standalone_sig = dec[3:11]
+                print(f"  standalone sig@3: {standalone_sig}", file=sys.stderr)
+                if standalone_sig == b"EXFAT   ":
+                    print(f"  EXFAT verified standalone — dm-crypt IV mismatch", file=sys.stderr)
+                else:
+                    print(f"  standalone also no EXFAT", file=sys.stderr)
+
+        raise TestFailure(f"exFAT not found via dm-crypt (sig={sig.hex()})")
 
     # 5. Cleanup
     run_windham(["Close", mapper_name, "--no-admin"], binary, timeout=10)
