@@ -19,6 +19,9 @@ void device_close(void *handle) {
 }
 
 int device_seek(void *handle, int64_t offset) {
+	/* fseek takes long; reject offsets that don't fit
+	   (relevant on 32-bit platforms where long is 32-bit).   */
+	if ((int64_t)(long)offset != offset) return -1;
 	return fseek((FILE *)handle, (long)offset, SEEK_SET);
 }
 
