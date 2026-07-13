@@ -11,6 +11,8 @@ void operate_aux_zone_on_device(uint8_t *aux_zone, size_t aux_zone_size, const c
 
 /* Platform-abstracted device I/O — handle is opaque (int fd / FILE *).
    Returns bytes transferred on success, -1 on error.                     */
+void   *device_open(const char *path, bool writable);
+void    device_close(void *handle);
 int     device_seek(void *handle, int64_t offset);
 int64_t device_read(void *handle, void *buf, size_t count);
 int64_t device_write(void *handle, const void *buf, size_t count);

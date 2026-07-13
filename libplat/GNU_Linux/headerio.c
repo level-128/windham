@@ -7,6 +7,16 @@
 
 /* ── Platform device I/O (POSIX fd) ────────────────────────── */
 
+void *device_open(const char *path, bool writable) {
+	int fd = open(path, writable ? O_RDWR : O_RDONLY);
+	if (fd < 0) return NULL;
+	return (void *)(intptr_t)fd;
+}
+
+void device_close(void *handle) {
+	if (handle) close((int)(intptr_t)handle);
+}
+
 int device_seek(void *handle, int64_t offset) {
 	return lseek((int)(intptr_t)handle, offset, SEEK_SET) == (off_t)-1 ? -1 : 0;
 }

@@ -10,6 +10,14 @@
 
 /* ── Platform device I/O (stdio FILE *) ────────────────────── */
 
+void *device_open(const char *path, bool writable) {
+	return (void *)fopen(path, writable ? "r+b" : "rb");
+}
+
+void device_close(void *handle) {
+	if (handle) fclose((FILE *)handle);
+}
+
 int device_seek(void *handle, int64_t offset) {
 	return fseek((FILE *)handle, (long)offset, SEEK_SET);
 }

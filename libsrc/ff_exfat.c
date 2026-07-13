@@ -4,12 +4,6 @@
 #ifndef INCL_FF_EXFAT
 #define INCL_FF_EXFAT
 
-#ifndef WINDHAM_ISOC
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,15 +32,8 @@ void ff_exfat_create(const char *device_path, const char *hex_key,
     if (!disk_key) { perror("malloc"); exit(1); }
     ff_ex_hex_to_bin(hex_key, disk_key, key_size);
 
-#ifndef WINDHAM_ISOC
-    int fd = open(device_path, O_RDWR);
-    if (fd < 0) { perror(device_path); free(disk_key); exit(1); }
-    void *dev_handle = (void *)(intptr_t)fd;
-#else
-    FILE *fp = fopen(device_path, "r+b");
-    if (!fp) { perror(device_path); free(disk_key); exit(1); }
-    void *dev_handle = (void *)fp;
-#endif
+    void *dev_handle = device_open(device_path, true);
+    if (!dev_handle) { perror(device_path); free(disk_key); exit(1); }
 
     size_t part_sectors = end_sector - start_sector;
     ff_diskio_init(dev_handle, disk_key, block_size, start_sector, part_sectors, 1);
@@ -68,11 +55,7 @@ void ff_exfat_create(const char *device_path, const char *hex_key,
     }
 
     free(disk_key);
-#ifndef WINDHAM_ISOC
-    close(fd);
-#else
-    fclose(fp);
-#endif
+    device_close(dev_handle);
 }
 
 #endif
