@@ -149,7 +149,6 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | Feature | Full mode (GNU/Linux) | Basic mode (ISO C11) |
 |---|---|---|
 | dm-crypt mount/operate | ✓ | ✗ |
-| Run as PID 1 | ✓ | ✗ |
 | `/etc/windhamtab` | ✓ | ✗ |
 | Probe `/proc/partitions` | ✓ | ✗ |
 | Device UUID resolution | ✓ | ✗ |
@@ -158,6 +157,8 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | AddKey / DelKey | ✓ | ✓ |
 | Suspend / Resume | ✓ | ✓ |
 | Backup / Restore / Destroy | ✓ | ✓ |
+| File-based create (`--diskfile`, `--create-exfat`) | ✓ | ✓ |
+| Offline decrypt (`--decrypt`, `--print-encryption`) | ✓ | ✓ |
 | Master key extraction | ✓ | ✓ |
 | Argon2 KDF | ✓ | ✓ (slower if no threads) |
 | Unicode password input | ✓ | depends on compiler |
@@ -182,7 +183,23 @@ The KDF loop probes both keypool zone 0 and zone 1. With threads, they run in
 parallel; without, they run sequentially. For devices with few registered
 passphrases, the difference is minor.
 
-#### Unicode (`__STDC_UTF_32__`)
+#### Unicode UTF-16 (`__STDC_UTF_16__`)
+
+Required for `--create-exfat` and the interactive FatFs shell driver.
+When `__STDC_UTF_16__` is not defined, the entire exFAT subsystem is excluded
+from compilation — build will fail if `ff_exfat.c` or `driver_fat_shell.c`
+is included.
+
+| `__STDC_UTF_16__` | Behavior |
+|---|---|
+| **Defined** | `--create-exfat` available. On ISO C builds without dm-crypt, the "ff" driver provides an interactive filesystem shell. |
+| **Not defined** | `--create-exfat` and FatFs shell driver disabled. Use `--decrypt` or `--print-encryption` to read encrypted data. |
+
+The compiler defines this macro when `char16_t` and `u"..."` string
+literals work per the C11 Unicode specification. Most modern GCC/Clang
+compilers define it; some embedded cross-compilers do not.
+
+#### Unicode UTF-32 (`__STDC_UTF_32__`)
 
 | `__STDC_UTF_32__` | Behavior |
 |---|---|

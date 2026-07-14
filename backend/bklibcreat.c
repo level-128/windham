@@ -9,7 +9,9 @@
 #include "../libplat/chk_enc_supp_stat.c"
 #include "../libplat/get_entropy.c"
 #include "../libplat/loopctl.c"
+#if defined(__STDC_UTF_16__)
 #include "../libsrc/ff_exfat.c"
+#endif
 
 
 
@@ -160,6 +162,7 @@ void action_create(
     OPERATION_LOCK_AND_WRITE
 
     if (create_exfat) {
+#if defined(__STDC_UTF_16__)
        uint8_t disk_key[DEFAULT_DISK_KEY_SIZE_BYTES];
        get_metadata_key_or_disk_key_from_master_key(
           master_key, saved_disk_key_mask, saved_uuid_and_salt,
@@ -167,6 +170,9 @@ void action_create(
       char hex_key[DEFAULT_DISK_KEY_SIZE_BYTES * 2 + 1];
        convert_disk_key_to_hex_format(disk_key, DEFAULT_DISK_KEY_SIZE_BYTES, hex_key);
        ff_exfat_create(device, hex_key, block_size, start_sector, end_sector);
+#else
+       print_error(_("--create-exfat requires __STDC_UTF_16__ support"));
+#endif
    }
 
    free(aux_zone);

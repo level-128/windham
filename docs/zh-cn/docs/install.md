@@ -145,7 +145,6 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | 功能 | 完整模式 (GNU/Linux) | 基础模式 (ISO C11) |
 |---|---|---|
 | dm-crypt 挂载与读写 | ✓ | ✗ |
-| 以 PID 1 运行 | ✓ | ✗ |
 | 解析 /etc/windhamtab | ✓ | ✗ |
 | 扫描 /proc/partitions 探测设备 | ✓ | ✗ |
 | 根据 UUID 定位设备 | ✓ | ✗ |
@@ -154,6 +153,8 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | 添加/删除密钥 | ✓ | ✓ |
 | 悬置/恢复 | ✓ | ✓ |
 | 备份/恢复/销毁 | ✓ | ✓ |
+| 文件形式创建（`--diskfile`、`--create-exfat`） | ✓ | ✓ |
+| 离线解密（`--decrypt`、`--print-encryption`） | ✓ | ✓ |
 | 提取主密钥 | ✓ | ✓ |
 | Argon2 密钥派生 | ✓ | ✓（没有线程支持时较慢） |
 | Unicode 密码输入 | ✓ | 取决于编译器 |
@@ -172,6 +173,17 @@ ISO C 模式可以在任何符合 C11 的环境下运行，但部分"可选"的�
 |---|---|
 | **未定义**（线程可用） | KDF 并行处理两个密钥池区域，解锁速度可能翻倍，但在内存相比于CPU较慢的系统中可能速度没有变化。随机数使用线程局部状态。 |
 | **已定义**（没有线程） | KDF 单线程运行。随机数使用全局状态。功能不受影响，只慢一些。 |
+
+#### Unicode UTF-16（`__STDC_UTF_16__`）
+
+`--create-exfat` 和交互式 FatFs shell 驱动需要该宏。当 `__STDC_UTF_16__` 未定义时，整个 exFAT 子系统在编译阶段就被排除。
+
+| `__STDC_UTF_16__` | 实际表现 |
+|---|---|
+| **已定义** | `--create-exfat` 可用。ISOC 构建无 dm-crypt 时，"ff" 驱动提供交互式文件系统 shell。 |
+| **未定义** | `--create-exfat` 和 FatFs shell 均不可用。请使用 `--decrypt` 或 `--print-encryption` 读取加密数据。 |
+
+当编译器支持 C11 的 `char16_t` 和 `u"..."` 字符串字面量时，会自动定义该宏。大多数现代 GCC/Clang 编译器都会定义；部分嵌入式交叉编译器不会。
 
 #### Unicode 支持（__STDC_UTF_32__）
 
