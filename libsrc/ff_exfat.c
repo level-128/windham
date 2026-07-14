@@ -1,8 +1,12 @@
 // ff_exfat.c — Create an exFAT filesystem on an encrypted Windham partition
 // Depends only on FatFs declarations + ff_diskio, not on any driver.
 // FatFs symbols are provided by an earlier #include in the chain.
+// Requires __STDC_UTF_16__ (char16_t / u"" literals); provides a no-op
+// stub that prints a warning when unavailable.
 #ifndef INCL_FF_EXFAT
 #define INCL_FF_EXFAT
+
+#if defined(__STDC_UTF_16__)
 
 #include <stdlib.h>
 #include <string.h>
@@ -57,5 +61,20 @@ void ff_exfat_create(const char *device_path, const char *hex_key,
     free(disk_key);
     device_close(dev_handle);
 }
+
+#else   /* !__STDC_UTF_16__ */
+
+#include "../include/windham_const.h"
+#include "../libsrc/srclib.c"
+
+void ff_exfat_create(const char *device_path, const char *hex_key,
+                     size_t block_size, size_t start_sector, size_t end_sector)
+{
+    (void)device_path; (void)hex_key;
+    (void)block_size; (void)start_sector; (void)end_sector;
+    print_warning(_("--create-exfat requires __STDC_UTF_16__ support (char16_t / u\"\" literals)"));
+}
+
+#endif  /* __STDC_UTF_16__ */
 
 #endif
