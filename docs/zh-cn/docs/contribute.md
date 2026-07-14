@@ -61,7 +61,7 @@ python3 tests/run_tests.py --list
 ```
 windham/
 ├── main.c              # 命令行解析，操作分发
-├── frontend.c          # main() 入口、shebang 支持、pid1 初始化
+├── frontend.c          # main() 入口、平台初始化
 ├── backend/            # 各操作的实现
 │   ├── bklibopen.c     # Open 及链接解锁级联
 │   ├── bklibcreat.c    # New（新建）

@@ -61,7 +61,7 @@ test case. Tests spawn `windham_debug` via `subprocess` and capture stdin/stdout
 ```
 windham/
 ├── main.c              # CLI parsing, action dispatch
-├── frontend.c          # main(), shebang, pid1 init
+├── frontend.c          # main(), platform init
 ├── backend/            # Action implementations
 │   ├── bklibopen.c     # Open + LINK_OPEN cascade
 │   ├── bklibcreat.c    # New

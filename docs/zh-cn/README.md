@@ -73,7 +73,6 @@ sudo windham Close --all                          # 锁定所有设备
 | [辅助数据区](docs/auxzone.md) | Aux zone 类型（PLAINTEXT、SHELL、LINK_OPEN）、标志、RAID 级联 |
 | [诱饵分区](docs/decoy.md) | 诱饵分区指南 — GPT 布局、TRIM 问题、文件系统建议 |
 | [启动时解锁](docs/windhamtab.md) | /etc/windhamtab、Clevis + TPM2 集成、systemd init |
-| [PID 1 模式](docs/pid1.md) | 以 PID 1 运行（嵌入式 / 早期用户空间） |
 | [参与贡献](docs/contribute.md) | 开发环境、测试套件、代码结构 |
 | [windham-raid-setup.sh](../scripts/windham-raid-setup.sh) | 一键 RAID 级联脚本（N 磁盘，冗余 SHORTCUT 链路） |
 
