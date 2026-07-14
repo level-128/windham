@@ -114,7 +114,11 @@
 // jump back to test when running unit test
 #if defined(WINDHAM_TEST) || !defined(IS_FRONTEND_ENTRY)
 #ifndef WINDHAM_TEST
+#if (__STDC_VERSION__ >= 202311L)
 #warning "Test target"
+#else
+#pragma message("Test target")
+#endif
 #endif
 
 #ifndef WINDHAM_TEST

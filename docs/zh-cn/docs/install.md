@@ -153,8 +153,10 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | 添加/删除密钥 | ✓ | ✓ |
 | 悬置/恢复 | ✓ | ✓ |
 | 备份/恢复/销毁 | ✓ | ✓ |
-| 文件形式创建（`--diskfile`、`--create-exfat`） | ✓ | ✓ |
+| 文件形式创建（`--diskfile`） | ✓ | ✓ |
+| exFAT 格式化（`--create-exfat`） | ✓ | ✓¹ |
 | 离线解密（`--decrypt`、`--print-encryption`） | ✓ | ✓ |
+| FatFs 命令终端（ls、cd、cp、导出…） | ✓ | ✓¹ |
 | 提取主密钥 | ✓ | ✓ |
 | Argon2 密钥派生 | ✓ | ✓（没有线程支持时较慢） |
 | Unicode 密码输入 | ✓ | 取决于编译器 |
@@ -162,6 +164,25 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | 链接解锁级联 | ✓ | ✗（无 dm-crypt，无 UUID 扫描） |
 | 探测单个文件 | ✓ | ✓ |
 | gettext 国际化 | ✓ | ✗ |
+
+¹ 需要 `__STDC_UTF_16__`（C11 `char16_t` / `u""` 字面量）。
+
+### ISO C 默认驱动行为
+
+当 ISO C 构建打开 aes-xts 加密设备时（或使用 `--decrypt` / `--print-encryption`），
+默认驱动提供一个 **FatFs 交互式命令终端**，类似 UNIX 命令行，用于浏览和操作加密文件系统：
+
+```
+> ls           列出目录内容（支持 -l、-h、-a）
+> ls -lh
+> cd <目录>      切换目录
+> cp <源> <目标>  在加密卷内复制文件
+> export <源> <主机路径>  将文件导出到主机文件系统
+> import <主机路径> <目标>  将主机文件导入加密卷
+> help         显示所有命令
+```
+
+支持 **FAT32 和 exFAT** 文件系统。如没有 `__STDC_UTF_16__`，仅保留 `--decrypt` 和 `--print-encryption`（将解密数据写入文件）。
 
 ### 强烈建议的平台特性
 
@@ -176,12 +197,12 @@ ISO C 模式可以在任何符合 C11 的环境下运行，但部分"可选"的�
 
 #### Unicode UTF-16（`__STDC_UTF_16__`）
 
-`--create-exfat` 和交互式 FatFs shell 驱动需要该宏。当 `__STDC_UTF_16__` 未定义时，整个 exFAT 子系统在编译阶段就被排除。
+`--create-exfat` 和交互式 FatFs shell 驱动需要该宏。当 `__STDC_UTF_16__` 未定义时，`--create-exfat` 在运行时会打印警告后退出；FatFs shell 驱动在编译期产生 `#warning` 提示。
 
 | `__STDC_UTF_16__` | 实际表现 |
 |---|---|
 | **已定义** | `--create-exfat` 可用。ISOC 构建无 dm-crypt 时，"ff" 驱动提供交互式文件系统 shell。 |
-| **未定义** | `--create-exfat` 和 FatFs shell 均不可用。请使用 `--decrypt` 或 `--print-encryption` 读取加密数据。 |
+| **未定义** | `--create-exfat` 运行时打印警告后退出。FatFs shell 驱动禁用。请使用 `--decrypt` 或 `--print-encryption` 读取加密数据。 |
 
 当编译器支持 C11 的 `char16_t` 和 `u"..."` 字符串字面量时，会自动定义该宏。大多数现代 GCC/Clang 编译器都会定义；部分嵌入式交叉编译器不会。
 

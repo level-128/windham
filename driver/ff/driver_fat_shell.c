@@ -5,7 +5,11 @@
 // Only available when __STDC_UTF_16__ is defined (C11 uchar.h).
 
 #if !defined(__STDC_UTF_16__)
+#if (__STDC_VERSION__ >= 202311L)
 #warning "FatFs ff driver disabled: __STDC_UTF_16__ not supported. Use --decrypt or --print-encryption instead."
+#else
+#pragma message("FatFs ff driver disabled: __STDC_UTF_16__ not supported. Use --decrypt or --print-encryption instead.")
+#endif
 
 #else
 

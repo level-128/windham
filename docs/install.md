@@ -157,8 +157,10 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | AddKey / DelKey | ✓ | ✓ |
 | Suspend / Resume | ✓ | ✓ |
 | Backup / Restore / Destroy | ✓ | ✓ |
-| File-based create (`--diskfile`, `--create-exfat`) | ✓ | ✓ |
+| File-based create (`--diskfile`) | ✓ | ✓ |
+| exFAT format (`--create-exfat`) | ✓ | ✓¹ |
 | Offline decrypt (`--decrypt`, `--print-encryption`) | ✓ | ✓ |
+| FatFs shell (ls, cd, cp, export…) | ✓ | ✓¹ |
 | Master key extraction | ✓ | ✓ |
 | Argon2 KDF | ✓ | ✓ (slower if no threads) |
 | Unicode password input | ✓ | depends on compiler |
@@ -166,6 +168,29 @@ cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
 | LINK_OPEN cascade | ✓ | ✗ (no dm-crypt, no UUID scan) |
 | Probe single file | ✓ | ✓ |
 | gettext i18n | ✓ | ✗ |
+
+¹ Requires `__STDC_UTF_16__` (C11 `char16_t` / `u""` literals).
+
+### ISO C default driver behavior
+
+When the ISO C build opens an aes-xts encrypted device (or uses `--decrypt` /
+`--print-encryption`), the default driver provides a **FatFs interactive shell**
+— a UNIX-like command terminal for browsing and manipulating the encrypted
+filesystem:
+
+```
+> ls            List directory contents (supports -l, -h, -a)
+> ls -lh
+> cd <dir>      Change directory
+> cp <src> <dst>  Copy files inside the encrypted volume
+> export <src> <host-path>  Copy a file out to the host filesystem
+> import <host-path> <dst>  Copy a host file into the encrypted volume
+> help          Show all commands
+```
+
+This works with **FAT32 and exFAT** filesystems. Without `__STDC_UTF_16__`,
+only `--decrypt` and `--print-encryption` remain available (write raw
+decrypted data to a file).
 
 ### Recommended platform features
 
@@ -186,14 +211,13 @@ passphrases, the difference is minor.
 #### Unicode UTF-16 (`__STDC_UTF_16__`)
 
 Required for `--create-exfat` and the interactive FatFs shell driver.
-When `__STDC_UTF_16__` is not defined, the entire exFAT subsystem is excluded
-from compilation — build will fail if `ff_exfat.c` or `driver_fat_shell.c`
-is included.
+When `__STDC_UTF_16__` is not defined, `--create-exfat` prints a runtime
+warning and exits; the FatFs shell driver produces a compile-time `#warning`.
 
 | `__STDC_UTF_16__` | Behavior |
 |---|---|
 | **Defined** | `--create-exfat` available. On ISO C builds without dm-crypt, the "ff" driver provides an interactive filesystem shell. |
-| **Not defined** | `--create-exfat` and FatFs shell driver disabled. Use `--decrypt` or `--print-encryption` to read encrypted data. |
+| **Not defined** | `--create-exfat` prints a warning at runtime. FatFs shell driver disabled. Use `--decrypt` or `--print-encryption` to read encrypted data. |
 
 The compiler defines this macro when `char16_t` and `u"..."` string
 literals work per the C11 Unicode specification. Most modern GCC/Clang
