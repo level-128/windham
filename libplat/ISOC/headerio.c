@@ -34,11 +34,6 @@ void device_close(void *handle) {
 	if (h) { fclose(h->fp); free(h); }
 }
 
-int device_get_fd(void *handle) {
-	(void)handle;
-	return -1;  /* no fd under stdio */
-}
-
 int device_seek(void *handle, int64_t offset) {
 	struct device_handle *h = handle;
 	int64_t delta = offset - (int64_t)h->offset;
