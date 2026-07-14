@@ -29,6 +29,10 @@ passphrases are registered.
   modification history (defeats slot-history attack)
 - **Variable key derivation** — memory-hard KDF (Argon2id) with runtime-variable
   parameters, significantly mitigating ASIC-based brute-force attacks
+- **File-based encrypted containers** — `--diskfile` creates a sparse-file
+  encrypted volume, optionally formatted with exFAT (`--create-exfat`)
+- **Offline decryption** — decrypt to a plaintext file with `--decrypt --to=<file>`
+  without requiring dm-crypt or root
 
 ---
 

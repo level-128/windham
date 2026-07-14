@@ -148,6 +148,6 @@ sudo windham Restore /dev/sdb --to=windham_backup
 ## Next steps
 
 - Run `windham Help <action>` for complete option reference
-- Set up [LINK_OPEN cascade](aux.md) for multi-device unlock
+- Set up [LINK_OPEN cascade](auxzone.md) for multi-device unlock
 - Configure [/etc/windhamtab](windhamtab.md) for boot-time unlock
 - Read the [security documentation](security.md)

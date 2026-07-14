@@ -140,6 +140,6 @@ sudo windham Restore /dev/sdb --to=加密头备份文件
 ## 接下来可以
 
 - 运行 `windham Help <操作名>` 查看完整选项
-- 设置[链接解锁级联](aux.md)实现多设备联动打开
+- 设置[链接解锁级联](auxzone.md)实现多设备联动打开
 - 配置 [/etc/windhamtab](windhamtab.md) 实现开机自动解锁
 - 阅读[安全文档](security.md)深入了解 Windham 的密钥体系与攻击防御
