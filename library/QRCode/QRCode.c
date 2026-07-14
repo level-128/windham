@@ -801,13 +801,8 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
 #endif
 
     struct BitBucket codewords;
-#ifdef __STDC_NO_VLA__
     int32_t codewordBufSize = (int32_t)bb_getBufferSizeBytes(moduleCount);
     uint8_t * codewordBytes = malloc((size_t)codewordBufSize);
-#else
-    uint8_t codewordBytes[bb_getBufferSizeBytes(moduleCount)];
-    #define codewordBufSize ((int32_t)sizeof(codewordBytes))
-#endif
 
     bb_initBuffer(&codewords, codewordBytes, codewordBufSize);
 
@@ -832,12 +827,8 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
     bb_initGrid(&modulesGrid, modules, size);
 
     BitBucket isFunctionGrid;
-#ifdef __STDC_NO_VLA__
     int32_t gridBufSize = (int32_t)bb_getGridSizeBytes(size);
     uint8_t * isFunctionGridBytes = malloc((size_t)gridBufSize);
-#else
-    uint8_t isFunctionGridBytes[bb_getGridSizeBytes(size)];
-#endif
     bb_initGrid(&isFunctionGrid, isFunctionGridBytes, size);
 
     // Draw function patterns, draw all codewords, do masking
