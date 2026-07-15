@@ -1,21 +1,21 @@
 /*
- * valid_args.c — argument validation DSL.
+ * valid_args.c -- argument validation DSL.
  *
  * Included ONCE inside frontend_check_validity_and_execute().
  * The caller must have defined these macros before #include:
  *
- *   need_dev(_action)            — device-required check
- *   opt_allow(_action, ...)      — per-action option allow-list
- *   ent(_action, warn|err, msg, condition) — cross-cutting rules
- *   is(_x)                       — options[_x] == 1
- *   has(_cnt, ...)               — at most _cnt of the listed options set
+ *   need_dev(_action)            -- device-required check
+ *   opt_allow(_action, ...)      -- per-action option allow-list
+ *   ent(_action, warn|err, msg, condition) -- cross-cutting rules
+ *   is(_x)                       -- options[_x] == 1
+ *   has(_cnt, ...)               -- at most _cnt of the listed options set
  */
 
 // ===================================================================
-// Section 1 — Device requirements
+// Section 1 -- Device requirements
 // ===================================================================
-// 需要 <target> 的 action 列表。
-// probe / close (--all) / list / bench / help 不需要。
+// Actions that require a <target>.
+// probe / close (--all) / list / bench / help do not
 
 need_dev(NMOBJ_action_open)
 need_dev(NMOBJ_action_new)
@@ -33,9 +33,9 @@ need_dev_if(NMOBJ_action_close, !is(NMOBJ_close_all))
 
 
 // ===================================================================
-// Section 2 — Per-action option allow-list
+// Section 2 -- Per-action option allow-list
 // ===================================================================
-// 未在 allow-list 中出现的选项会被拒绝：
+// Options not in the allow-list are rejected:
 //   "argument --<name> is not valid under action: <action>"
 
 opt_allow(NMOBJ_action_open,
@@ -143,14 +143,14 @@ opt_allow(NMOBJ_action_probe,
 opt_allow(NMOBJ_action_list,
   ALLOW_COMMON)
 
-// help 在 main_() 中提前拦截 frontend_help()，不经过这里。
+// help is intercepted early in main_() by frontend_help(), not routed here.
 
 
 // ===================================================================
-// Section 3 — Cross-cutting rules
+// Section 3 -- Cross-cutting rules
 // ===================================================================
 // ent(_action, err|warn, _("message"), condition)
-// 跨 action 的互斥 / 条件 / windhamtab 约束。
+// Cross-action mutual exclusion / conditions / windhamtab constraints.
 
 ent(NMOBJ_action_ALL, err,
 "argument --key, --key-file, --keystdin and --master-key are mutually exclusive.",

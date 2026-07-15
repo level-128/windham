@@ -91,7 +91,7 @@ static double inverse_normal_cdf(double p) {
 
 bool check_head(Data * data) {
     // False-positive rate for each individual test.
-    // Combined rate ≤ 3 × p ≈ 3e-8 for a truly random header.
+    // Combined rate <= 3 * p \approx 3e-8 for a truly random header.
     double p = 1e-8;
 
     size_t N = (sizeof(Data) - offsetof(Data, master_key_mask)) * CHAR_BIT;

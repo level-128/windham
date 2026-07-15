@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------*/
-/* OS Dependent Functions for FatFs — Windham                              */
+/* OS Dependent Functions for FatFs -- Windham                              */
 /*------------------------------------------------------------------------*/
 /*
 / Copyright (C) 2025, ChaN, all right reserved.

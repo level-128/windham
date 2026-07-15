@@ -59,7 +59,7 @@ bool is_shebang(const char * WINDHAM_ATTRIBUTE(maybe_unused) args0,
  * Also locks in PR_SET_NO_NEW_PRIVS (required by seccomp).
  *
  * Allowed syscalls pass through to SECCOMP_RET_ALLOW.  Forbidden ones
- * return SECCOMP_RET_KILL_PROCESS — the kernel kills the entire process
+ * return SECCOMP_RET_KILL_PROCESS -- the kernel kills the entire process
  * with SIGSYS on violation.
  *
  * Windham itself never needs any of the blocked categories, so this

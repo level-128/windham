@@ -153,7 +153,7 @@ int action_addkey(
     } else { // is_random_key_stdout == true
        uint8_t new_key_uint8[HASHLEN];
        fill_secure_random_bits(new_key_uint8, HASHLEN);
-       // Encode as 64-character hex string — behaves like a normal --key=<value> password
+       // Encode as 64-character hex string -- behaves like a normal --key=<value> password
        static char rand_key_hex[HASHLEN * 2 + 1];
        for (size_t i = 0; i < HASHLEN; i++) {
           sprintf(rand_key_hex + i * 2, "%02x", new_key_uint8[i]);

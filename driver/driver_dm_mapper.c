@@ -1,4 +1,4 @@
-// driver_dm_mapper.c — dm-crypt ioctl driver
+// driver_dm_mapper.c -- dm-crypt ioctl driver
 
 #define _GNU_SOURCE
 #include <stdbool.h>
@@ -11,14 +11,14 @@
 #include "../libsrc/srclib.c"
 #include "../libplat/GNU_Linux/dm_ioctl.c"
 
-// ── init ────────────────────────────────────────────
+// -- init --------------------------------------------
 
 static void dm_mapper_init(const char *driver_name) {
     (void)driver_name;
-    mapper_init();  // from dm_ioctl.c — opens /dev/mapper/control
+    mapper_init();  // from dm_ioctl.c -- opens /dev/mapper/control
 }
 
-// ── try_create ──────────────────────────────────────
+// -- try_create --------------------------------------
 
 static int dm_mapper_try_create(const char *file, const char *enc, const char *tmp) {
     if (!is_device_mapper_available)
@@ -57,7 +57,7 @@ static int dm_mapper_try_create(const char *file, const char *enc, const char *t
     return EMOBJ_try_create_crypt_mapping_OK;
 }
 
-// ── create ──────────────────────────────────────────
+// -- create ------------------------------------------
 
 static int dm_mapper_create(
     const char *device, const char *name, const char *enc_type,
@@ -80,7 +80,7 @@ static int dm_mapper_create(
     return 0;
 }
 
-// ── remove ──────────────────────────────────────────
+// -- remove ------------------------------------------
 
 static void dm_mapper_remove(const char *name, bool deferred) {
     if (!is_device_mapper_available) {
@@ -91,14 +91,14 @@ static void dm_mapper_remove(const char *name, bool deferred) {
     }
 }
 
-// ── remove_by_uuid ──────────────────────────────────
+// -- remove_by_uuid ----------------------------------
 
 static void dm_mapper_remove_by_uuid(const char uuid_str[37]) {
     if (!is_device_mapper_available) return;
     dm_remove_by_uuid(uuid_str);
 }
 
-// ── linear_map ──────────────────────────────────────
+// -- linear_map --------------------------------------
 
 static bool dm_mapper_linear_map(const char *dev, const char *name,
                                  uint64_t start, uint64_t size,
@@ -114,10 +114,10 @@ static bool dm_mapper_linear_map(const char *dev, const char *name,
     return true;
 }
 
-// ── map_partition_table ─────────────────────────────
+// -- map_partition_table -----------------------------
 
 static void dm_mapper_map_partitions(const char *name, bool is_new) {
-    // requires blkid — keep this as a no-op for now
+    // requires blkid -- keep this as a no-op for now
     // (was in libplat/GNU_Linux/mapper.c but depends on blkid dynamic loading)
     (void)name; (void)is_new;
 }

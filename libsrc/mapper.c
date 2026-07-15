@@ -26,7 +26,7 @@ extern bool is_device_mapper_available;
 #define GPT_MBR_TYPE_EE   0xEE
 
 
-/* ── CRC32 (UEFI 2.10 uses standard CRC-32/MPEG-2, poly 0xEDB88320) ── */
+/* -- CRC32 (UEFI 2.10 uses standard CRC-32/MPEG-2, poly 0xEDB88320) -- */
 
 static uint32_t crc32_table[256];
 static bool     crc32_table_init = false;
@@ -53,7 +53,7 @@ static uint32_t crc32_compute(const uint8_t *data, size_t len) {
 }
 
 
-/* ── Protective MBR: LBA 0 must contain a type-0xEE partition ── */
+/* -- Protective MBR: LBA 0 must contain a type-0xEE partition -- */
 
 static bool check_protective_mbr(FILE *fd) {
     uint8_t mbr[512];

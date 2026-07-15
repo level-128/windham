@@ -1,24 +1,15 @@
-// driver_fat_shell.c — FatFs shell driver for Windham (single file)
+// driver_fat_shell.c -- FatFs shell driver for Windham (single file)
 // Reads a decrypted block device, mounts FAT/exFAT, provides
 // an interactive shell for browsing the filesystem.
 //
 // Only available when __STDC_UTF_16__ is defined (C11 uchar.h).
 
-#if !defined(__STDC_UTF_16__)
-#if (__STDC_VERSION__ >= 202311L)
-#warning "FatFs ff driver disabled: __STDC_UTF_16__ not supported. Use --decrypt or --print-encryption instead."
-#else
-#pragma message("FatFs ff driver disabled: __STDC_UTF_16__ not supported. Use --decrypt or --print-encryption instead.")
-#endif
-
-#else
 
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <uchar.h>
 #include <sys/types.h>
 
 #include "../../include/windham_const.h"
@@ -47,18 +38,75 @@ static TCHAR        TPathBuf2[MAX_PATH];
 
 static void cstr_to_tchar(TCHAR *dst, const char *src, size_t dsize)
 {
-	size_t i;
-	for (i = 0; i + 1 < dsize && src[i]; i++)
-		dst[i] = (TCHAR)(unsigned char)src[i];
-	dst[i] = 0;
+	size_t i, j;
+	for (i = 0, j = 0; j + 1 < dsize && src[i]; ) {
+		if (src[i] == '\\' && src[i+1]) {
+			int is_wide = (src[i+1] == 'U');
+			if (src[i+1] == 'u' || is_wide) {
+				int ndigits = is_wide ? 8 : 4;
+				DWORD val = 0;
+				int k;
+				for (k = 0; k < ndigits && src[i+2+k]; k++) {
+					char c = src[i+2+k];
+					if (c >= '0' && c <= '9')
+						val = (val << 4) | (DWORD)(c - '0');
+					else if (c >= 'A' && c <= 'F')
+						val = (val << 4) | (DWORD)(c - 'A' + 10);
+					else if (c >= 'a' && c <= 'f')
+						val = (val << 4) | (DWORD)(c - 'a' + 10);
+					else break;
+				}
+				if (k == ndigits) {
+					i += (size_t)(2 + ndigits);
+					if (is_wide && val >= 0x10000 && val <= 0x10FFFF) {
+						val -= 0x10000;
+						dst[j++] = (TCHAR)(0xD800 | (val >> 10));
+						if (j + 1 < dsize)
+							dst[j++] = (TCHAR)(0xDC00 | (val & 0x3FF));
+					} else {
+						dst[j++] = (TCHAR)val;
+					}
+					continue;
+				}
+			}
+		}
+#if !defined(__STDC_UTF_16__)
+		if ((unsigned char)src[i] >= 128) { i++; continue; }
+#endif
+		dst[j++] = (TCHAR)(unsigned char)src[i++];
+	}
+	dst[j] = 0;
 }
 
 static void tchar_to_cstr(char *dst, const TCHAR *src, size_t dsize)
 {
-	size_t i;
-	for (i = 0; i + 1 < dsize && src[i]; i++)
-		dst[i] = (src[i] < 128) ? (char)src[i] : '?';
-	dst[i] = 0;
+#define IsSurrogateH(c) ((c) >= 0xD800 && (c) <= 0xDBFF)
+#define IsSurrogateL(c) ((c) >= 0xDC00 && (c) <= 0xDFFF)
+	size_t i, j;
+	for (i = 0, j = 0; j + 1 < dsize && src[i]; i++) {
+		if (src[i] < 128) {
+			dst[j++] = (char)src[i];
+#if defined(__STDC_UTF_16__)
+		} else {
+			dst[j++] = '?';
+#else
+		} else if (IsSurrogateH(src[i]) && src[i+1] && IsSurrogateL(src[i+1])) {
+			if (j + 11 <= dsize) {
+				DWORD cp = 0x10000 + (((DWORD)src[i] - 0xD800) << 10)
+				           + ((DWORD)src[i+1] - 0xDC00);
+				j += (size_t)snprintf(&dst[j], 11, "\\U%08lX",
+				                      (unsigned long)cp);
+				i++;
+			}
+		} else if (j + 7 <= dsize) {
+			j += (size_t)snprintf(&dst[j], 7, "\\u%04X",
+			                      (unsigned)src[i]);
+#endif
+		}
+	}
+#undef IsSurrogateH
+#undef IsSurrogateL
+	dst[j] = 0;
 }
 
 static size_t tchar_len(const TCHAR *s)
@@ -1058,5 +1106,3 @@ Driver driver_ff = {
     .linear_map         = ff_linear_map,
     .map_partition_table = ff_map_partitions,
 };
-
-#endif // __STDC_UTF_16__

@@ -9,7 +9,7 @@
 
 #include "../include/windham_const.h"
 
-// ── Driver vtable ──────────────────────────────────
+// -- Driver vtable ----------------------------------
 
 typedef struct Driver {
     const char *name;       // "dm-mapper", "decrypt", "print"
@@ -35,7 +35,7 @@ typedef struct Driver {
     void (*map_partition_table)(const char *name, bool is_new_map);
 } Driver;
 
-// ── Dispatch API ───────────────────────────────────
+// -- Dispatch API -----------------------------------
 
 void driver_init_all(const char *act_driver_name);
 int  try_create_crypt_mapping(const char *file_name, const char *enc_type,
@@ -72,14 +72,12 @@ enum {
 
 void decrypt_set_output_file(const char *path);
 
-// ── Driver registry (ordered by priority) ───────────
+// -- Driver registry (ordered by priority) -----------
 
 #ifndef WINDHAM_ISOC
 extern Driver driver_dm_mapper;
 #endif
-#if defined(__STDC_UTF_16__)
 extern Driver driver_ff;
-#endif
 extern Driver driver_decrypt;
 extern Driver driver_print;
 
@@ -87,9 +85,7 @@ static Driver *drivers[] = {
 #ifndef WINDHAM_ISOC
     &driver_dm_mapper,
 #endif
-#if defined(__STDC_UTF_16__)
     &driver_ff,
-#endif
     &driver_decrypt,
     &driver_print,
     NULL
@@ -98,7 +94,7 @@ static Driver *drivers[] = {
 Driver *current_driver = NULL;
 bool    is_device_mapper_available = false;
 
-// ── init ────────────────────────────────────────────
+// -- init --------------------------------------------
 
 void driver_init_all(const char *act_driver_name) {
     if (!act_driver_name || !act_driver_name[0])
@@ -117,7 +113,7 @@ void driver_init_all(const char *act_driver_name) {
     print_error(_("unknown driver '%s'."), act_driver_name);
 }
 
-// ── dispatch wrappers ───────────────────────────────
+// -- dispatch wrappers -------------------------------
 
 int try_create_crypt_mapping(const char *f, const char *e, const char *t) {
     return current_driver->try_create(f, e, t);
@@ -140,7 +136,7 @@ bool linear_map(const char *d, const char *n, uint64_t s, uint64_t sz, const cha
 
 void map_partition_table(const char *n, bool b) { current_driver->map_partition_table(n, b); }
 
-// ── convert_disk_key_to_hex_format ──────────────────
+// -- convert_disk_key_to_hex_format ------------------
 
 void convert_disk_key_to_hex_format(const uint8_t *key, size_t key_size, char *out) {
     const char *hex = "0123456789abcdef";
@@ -151,7 +147,7 @@ void convert_disk_key_to_hex_format(const uint8_t *key, size_t key_size, char *o
     out[key_size * 2] = '\0';
 }
 
-// ── create_crypt_mapping_from_disk_key (library fn) ──
+// -- create_crypt_mapping_from_disk_key (library fn) --
 
 void create_crypt_mapping_from_disk_key(
     const char *device, const char *target_name, const char *enc_type,
@@ -178,14 +174,12 @@ void create_crypt_mapping_from_disk_key(
         map_partition_table(target_name, true);
 }
 
-// ── Driver implementations ──────────────────────────
+// -- Driver implementations --------------------------
 
 #ifndef WINDHAM_ISOC
 #include "driver_dm_mapper.c"
 #endif
-#if defined(__STDC_UTF_16__)
 #include "ff/driver_fat_shell.c"
-#endif
 #include "driver_decrypt.c"
 #include "driver_print.c"
 

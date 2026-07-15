@@ -1,4 +1,4 @@
-// driver_decrypt.c — full-disk decryption driver
+// driver_decrypt.c - full-disk decryption driver
 // create() decodes the hex password (which is the disk key) back to
 // binary, reads the header for sector layout, and decrypts all data
 // to the file specified by --to.
@@ -17,7 +17,7 @@ void decrypt_set_output_file(const char *path) {
     output_file_path = path;
 }
 
-// hex char → nibble
+// hex char -> nibble
 static int hex_nibble(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -30,7 +30,7 @@ static void hex_to_bin(const char *hex, uint8_t *bin, size_t bin_len) {
         bin[i] = (uint8_t)((hex_nibble(hex[i * 2]) << 4) | hex_nibble(hex[i * 2 + 1]));
 }
 
-// ── Driver interface ───────────────────────────────
+// -- Driver interface 
 
 static void decrypt_init(const char *driver_name) {
     (void)driver_name;
@@ -56,7 +56,7 @@ static int decrypt_create(
     if (!output_file_path)
         print_error(_("decrypt driver requires --to=<output_file>"));
 
-    // hex password is the disk key — decode it
+    // hex password is the disk key -- decode it
     size_t disk_key_size = DEFAULT_DISK_KEY_SIZE_BYTES;
     uint8_t *disk_key = calloc(1, disk_key_size);
     if (!disk_key) { perror("malloc"); exit(1); }

@@ -190,7 +190,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 					putchar(7);
 				}
 			}
-			/* inner while exited via break — restart outer loop for next U+ */
+			/* inner while exited via break -- restart outer loop for next U+ */
 			continue;
 		}
 

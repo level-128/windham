@@ -1,4 +1,4 @@
-// driver_print.c — print driver (no-op, just displays what would happen)
+// driver_print.c -- print driver (no-op, just displays what would happen)
 
 #include <stdio.h>
 

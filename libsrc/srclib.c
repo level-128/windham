@@ -608,7 +608,7 @@ uint64_t parse_size(const char * size_str) {
 }
 
 
-/* ── Dynamic buffer (type-erased growable array) ── */
+/* -- Dynamic buffer (type-erased growable array) -- */
 
 typedef struct {
     uint8_t *data;

@@ -1,9 +1,9 @@
 /*-----------------------------------------------------------------------*/
-/* Encrypted disk I/O for block device — Windham                         */
+/* Encrypted disk I/O for block device -- Windham                         */
 /*-----------------------------------------------------------------------*/
 /* Reads and writes sectors on a raw block device, encrypting/decrypting */
 /* with XTS-AES on the fly.  When writable==0, disk_write returns        */
-/* RES_WRPRT (read‑only).                                                */
+/* RES_WRPRT (read-only).                                                */
 /*-----------------------------------------------------------------------*/
 /* I/O is routed through libplat via the device_seek/read/write
    abstraction so this file works unchanged on both POSIX and ISOC
@@ -16,7 +16,7 @@
 
 #include "diskio.h"
 
-/* Platform-abstracted I/O — defined in libplat/headerio.c               */
+/* Platform-abstracted I/O -- defined in libplat/headerio.c               */
 int     device_seek(void *handle, int64_t offset);
 int64_t device_read(void *handle, void *buf, size_t count);
 int64_t device_write(void *handle, const void *buf, size_t count);

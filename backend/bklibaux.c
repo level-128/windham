@@ -214,7 +214,7 @@ void action_aux_add_link(
 	case NMOBJ_Enclib_calc_failed_no_time:
 	case NMOBJ_Enclib_calc_failed_level_exceeded:
 	case NMOBJ_Enclib_calc_failed_reached_max_mem:
-		print_error(_("Cannot unlock linked device %s — possibly incorrect key or insufficient time/memory."), link_path);
+		print_error(_("Cannot unlock linked device %s -- possibly incorrect key or insufficient time/memory."), link_path);
 	default: break;
 	}
 

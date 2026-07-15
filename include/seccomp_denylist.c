@@ -1,12 +1,12 @@
-// seccomp_denylist.c — included inside seccomp_init()'s BPF array
+// seccomp_denylist.c -- included inside seccomp_init()'s BPF array
 // initializer.  The caller must have defined:
-//   DENY(nr) → expands to a jump-kill BPF instruction pair.
+//   DENY(nr) -> expands to a jump-kill BPF instruction pair.
 //
 // Every entry is guarded by #ifdef on the SYS_* constant so that
-// the file compiles on any architecture — missing syscalls are
+// the file compiles on any architecture -- missing syscalls are
 // simply skipped (they do not exist on that arch anyway).
 
-// ── networking ──────────────────────────────────────
+// -- networking --------------------------------------
 #ifdef SYS_socket
         DENY(SYS_socket),
 #endif
@@ -59,7 +59,7 @@
         DENY(SYS_recvmsg),
 #endif
 
-// ── io_uring (bypass seccomp read/write paths) ──────
+// -- io_uring (bypass seccomp read/write paths) ------
 #ifdef SYS_io_uring_setup
         DENY(SYS_io_uring_setup),
 #endif
@@ -70,7 +70,7 @@
         DENY(SYS_io_uring_register),
 #endif
 
-// ── kernel modules (rootkit) ─────────────────────────
+// -- kernel modules (rootkit) -------------------------
 #ifdef SYS_init_module
         DENY(SYS_init_module),
 #endif
@@ -90,7 +90,7 @@
         DENY(SYS_get_kernel_syms),
 #endif
 
-// ── kexec (hot-reboot into malicious kernel) ─────────
+// -- kexec (hot-reboot into malicious kernel) ---------
 #ifdef SYS_kexec_load
         DENY(SYS_kexec_load),
 #endif
@@ -98,7 +98,7 @@
         DENY(SYS_kexec_file_load),
 #endif
 
-// ── deprecated kernel interfaces ─────────────────────
+// -- deprecated kernel interfaces ---------------------
 #ifdef SYS_uselib
         DENY(SYS_uselib),
 #endif
@@ -106,7 +106,7 @@
         DENY(SYS_nfsservctl),
 #endif
 
-// ── device-node creation ─────────────────────────────
+// -- device-node creation -----------------------------
 #ifdef SYS_mknod
         DENY(SYS_mknod),
 #endif
@@ -114,12 +114,12 @@
         DENY(SYS_mknodat),
 #endif
 
-// ── filesystem escape (CAP_SYS_ADMIN would permit) ────
+// -- filesystem escape (CAP_SYS_ADMIN would permit) ----
 #ifdef SYS_pivot_root
         DENY(SYS_pivot_root),
 #endif
 
-// ── information leaks ─────────────────────────────────
+// -- information leaks ---------------------------------
 #ifdef SYS_syslog
         DENY(SYS_syslog),
 #endif
@@ -130,7 +130,7 @@
         DENY(SYS_perf_event_open),
 #endif
 
-// ── process manipulation ──────────────────────────────
+// -- process manipulation ------------------------------
 #ifdef SYS_acct
         DENY(SYS_acct),
 #endif
@@ -138,7 +138,7 @@
         DENY(SYS_personality),
 #endif
 
-// ── arch-specific hardware / VM escapes ──────────────
+// -- arch-specific hardware / VM escapes --------------
 #ifdef SYS_vm86
         DENY(SYS_vm86),
 #endif
@@ -164,7 +164,7 @@
         DENY(SYS_ioperm),
 #endif
 
-// ── swap control (memory exfiltration) ───────────────
+// -- swap control (memory exfiltration) ---------------
 #ifdef SYS_swapoff
         DENY(SYS_swapoff),
 #endif
@@ -172,7 +172,7 @@
         DENY(SYS_swapon),
 #endif
 
-// ── seccomp / BPF (escape sandbox) ───────────────────
+// -- seccomp / BPF (escape sandbox) -------------------
 #ifdef SYS_seccomp
         DENY(SYS_seccomp),
 #endif
@@ -180,7 +180,7 @@
         DENY(SYS_bpf),
 #endif
 
-// ── process injection ────────────────────────────────
+// -- process injection --------------------------------
 #ifdef SYS_ptrace
         DENY(SYS_ptrace),
 #endif
@@ -191,7 +191,7 @@
         DENY(SYS_process_vm_readv),
 #endif
 
-// ── system power ─────────────────────────────────────
+// -- system power -------------------------------------
 #ifdef SYS_reboot
         DENY(SYS_reboot),
 #endif

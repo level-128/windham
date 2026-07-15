@@ -600,7 +600,7 @@ void register_key_slot_as_used2(
    const int      index,
    const int      level,
    const int      free_slot_index) {
-#define SET_BIT(n, x, y) ((n & ~(1U << (x))) | ((y & 1) << (x)))
+#define SET_BIT(n, x, y) ((n & ~(1ULL << (x))) | (((uint64_t)(y) & 1) << (x)))
    metadata->keyslot_location_area = SET_BIT(metadata->keyslot_location_area, free_slot_index, index);
    memcpy(metadata->keyslot_key[free_slot_index], inited_key, HASHLEN);
    metadata->keyslot_level[free_slot_index]    = level;

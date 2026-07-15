@@ -11,9 +11,9 @@
 #include "../include/windham_const.h"
 
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
  * UUID → device path map
- * ─────────────────────────────────────────── */
+ * ------------------------------------------- */
 
 typedef struct {
     uint8_t uuid[16];
@@ -68,7 +68,7 @@ static void build_uuid_map(const char *restrict_paths) {
     // Default: scan /proc/partitions
     FILE *pp = fopen("/proc/partitions", "r");
     if (!pp) {
-        print_warning(_("Cannot open /proc/partitions — linked partition resolution disabled."));
+        print_warning(_("Cannot open /proc/partitions -- linked partition resolution disabled."));
         return;
     }
 
@@ -151,9 +151,9 @@ static const char *uuid_map_get_path(const uint8_t uuid[16]) {
 }
 
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
  * FIFO (deque at front)
- * ─────────────────────────────────────────── */
+ * ------------------------------------------- */
 
 #define FIFO_MAX 256
 
@@ -213,10 +213,10 @@ static bool fifo_is_empty(void) {
 }
 
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
  * Global shell command queue
  * Collected from all devices during cascade, executed after all LINK_OPEN.
- * ─────────────────────────────────────────── */
+ * ------------------------------------------- */
 
 typedef struct {
     AuxSlot *slot_copy;   // deep copy (malloc'd, owned by this entry)
@@ -300,9 +300,9 @@ static void shell_queue_execute_all(void) {
 }
 
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
  * LINK_OPEN collected entries
- * ─────────────────────────────────────────── */
+ * ------------------------------------------- */
 
 typedef struct {
     char32_t *target_key;
@@ -329,9 +329,9 @@ static int link_open_prio_cmp_desc(const void *a, const void *b) {
 }
 
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
  * check_sector_size_for_resize
- * ─────────────────────────────────────────── */
+ * ------------------------------------------- */
 
 void check_sector_size_for_resize(const char * device, Data * data_, uint8_t master_key[HASHLEN], bool is_suspend) {
    if (STR_device->block_count < 0) {
@@ -380,13 +380,13 @@ void check_sector_size_for_resize(const char * device, Data * data_, uint8_t mas
 }
 
 
-/* ───────────────────────────────────────────
- * action_open_single — opens ONE device
+/* -------------------------------------------
+ * action_open_single -- opens ONE device
  * Returns: true if successfully opened & mapped
  *          (dry-run always returns true)
  * out_links: LINK_OPEN entries found (caller frees keys)
  * out_uuid:  UUID of the opened device
- * ─────────────────────────────────────────── */
+ * ------------------------------------------- */
 
 static bool action_open_single(
    FifoEntry *   entry,
@@ -543,7 +543,7 @@ static bool action_open_single(
             check_sector_size_for_resize(entry->device_path, &data, master_key, false);
          }
       }
-      // Metadata is now decrypted — compute actual disk key size
+      // Metadata is now decrypted -- compute actual disk key size
       dk_size = (size_t)data.metadata.disk_key_size_in_bits_div_64 * 64 / 8;
       disk_key = calloc(1, dk_size);
       if (!disk_key) { 
@@ -684,9 +684,9 @@ static bool action_open_single(
 }
 
 
-/* ───────────────────────────────────────────
- * action_open — FIFO loop with LINK_OPEN cascade
- * ─────────────────────────────────────────── */
+/* -------------------------------------------
+ * action_open -- FIFO loop with LINK_OPEN cascade
+ * ------------------------------------------- */
 
 void action_open(
    const char * device,
@@ -855,9 +855,9 @@ void action_open(
 }
 
 
-/* ───────────────────────────────────────────
- * action_open_ — outer wrapper
- * ─────────────────────────────────────────── */
+/* -------------------------------------------
+ * action_open_ -- outer wrapper
+ * ------------------------------------------- */
 
 #ifndef WINDHAM_ISOC
 static void _action_open_print_summary(int i, WindhamtabEntity entities) {

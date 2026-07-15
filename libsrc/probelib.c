@@ -20,7 +20,7 @@ enum ProbeResultType {
 };
 
 
-/* ── read the Data header from a device path, return true on success ── */
+/* -- read the Data header from a device path, return true on success -- */
 
 static bool probe_read_header(const char *device_path, Data *out) {
 	memset(out, 0, sizeof(Data));
@@ -33,7 +33,7 @@ static bool probe_read_header(const char *device_path, Data *out) {
 }
 
 
-/* ── probe a single device; returns true if windham or encrypted, fills uuid and type ── */
+/* -- probe a single device; returns true if windham or encrypted, fills uuid and type -- */
 
 bool probe_single_device(const char *device_path, uint8_t out_uuid[16], int *out_type) {
 	Data buf;
@@ -79,7 +79,7 @@ bool probe_single_device(const char *device_path, uint8_t out_uuid[16], int *out
 }
 
 
-/* ── probe multiple devices, return UUIDs (all-zero for non-windham devices) ── */
+/* -- probe multiple devices, return UUIDs (all-zero for non-windham devices) -- */
 
 uint8_t *probe_multiple_devices(const char *device_paths[], size_t device_count) {
 	if (device_count == 0) return NULL;

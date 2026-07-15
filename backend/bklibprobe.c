@@ -13,7 +13,7 @@
 #endif
 
 
-/* ── read a line from /sys/dev/block/<major>:<minor>/<file>, trim newline ── */
+/* -- read a line from /sys/dev/block/<major>:<minor>/<file>, trim newline -- */
 
 static bool read_sysfs_block_line(unsigned major_num, unsigned minor_num,
                                   const char *fname, char *out, size_t out_size) {
@@ -40,7 +40,7 @@ static uint64_t read_sysfs_ulong(unsigned major_num, unsigned minor_num,
 }
 
 
-/* ── print device info from /sys/dev/block/<major>:<minor>/ ── */
+/* -- print device info from /sys/dev/block/<major>:<minor>/ -- */
 
 static void print_device_sysfs_info(const char *device_path,
                                     unsigned major_num, unsigned minor_num) {
@@ -110,7 +110,7 @@ static void print_device_sysfs_info(const char *device_path,
 }
 
 
-/* ── print formatted probe result ── */
+/* -- print formatted probe result -- */
 
 void print_probe_device_result(const char *device_path,
                                unsigned major_num, unsigned minor_num,
@@ -143,7 +143,7 @@ void print_probe_device_result(const char *device_path,
 }
 
 
-/* ── probe a single device via pattern filter, then print result ── */
+/* -- probe a single device via pattern filter, then print result -- */
 
 static void probe_and_print(const char *device_path,
                             unsigned major_num, unsigned minor_num,
@@ -173,7 +173,7 @@ static void probe_and_print(const char *device_path,
 }
 
 
-/* ── scan /proc/partitions for block devices ── */
+/* -- scan /proc/partitions for block devices -- */
 
 static void probe_linux_block_devices(const char *pattern) {
 	FILE *pp = fopen("/proc/partitions", "r");

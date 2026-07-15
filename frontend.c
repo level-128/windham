@@ -7,7 +7,7 @@
 #include "main.c"
 
 
-// ── main ────────────────────────────────────────────
+// -- main --------------------------------------------
 
 int main(int argc, char *argv[]) {
     init_val = malloc(sizeof(PlatInitVal));

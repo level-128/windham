@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------*/
 /* Low level disk interface module include file   (C)ChaN, 2025          */
-/* Adapted for Windham — encrypted block device I/O                      */
+/* Adapted for Windham -- encrypted block device I/O                      */
 /*-----------------------------------------------------------------------*/
 
 #ifndef _DISKIO_DEFINED

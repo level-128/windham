@@ -6,7 +6,7 @@
 //   - Root privileges or CAP_SYS_ADMIN
 //   - Kernel version
 //   - Seccomp/capabilities configuration
-// There is no runtime fallback from ioctl to losetup — it is decided at build time.
+// There is no runtime fallback from ioctl to losetup -- it is decided at build time.
 
 #include <fcntl.h>
 #include <linux/loop.h>

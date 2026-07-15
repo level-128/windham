@@ -433,7 +433,7 @@ void add_key_to_keyslot(
    const bool    is_anonymous_key,
    const bool    is_allow_nolock,
    int *         ret_target_level) {
-#define SET_BIT(n, x, y) ((n & ~(1U << (x))) | ((y & 1) << (x)))
+#define SET_BIT(n, x, y) ((n & ~(1ULL << (x))) | (((uint64_t)(y) & 1) << (x)))
 
    uint8_t inited_key[HASHLEN];
 
