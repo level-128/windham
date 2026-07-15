@@ -66,13 +66,11 @@ static int decrypt_create(
     unsigned ratio = block_size / 512;
     uint64_t logical_sectors = total_512 / ratio;
 
-    FILE *dev_f = fopen(device, "rb");
-    if (!dev_f) { perror(device); exit(1); }
-    void *dev_handle = (void *)dev_f;
+    void *dev_handle = device_open(device, false);
+    if (!dev_handle) { perror(device); exit(1); }
 
     FILE *out_f = fopen(output_file_path, "wb");
     if (!out_f) { perror(output_file_path); exit(1); }
-    void *out_handle = (void *)out_f;
 
     uint8_t *buf = malloc(block_size);
     if (!buf) { perror("malloc"); exit(1); }
@@ -91,12 +89,12 @@ static int decrypt_create(
         if (device_read(dev_handle, buf, block_size) != (int64_t)block_size)
             print_error(_("read error at sector %"PRIu64), start_sector + ls * ratio);
         aes_xts_decrypt_sectors(buf, 1, disk_key, (uint64_t)(ls * ratio), block_size);
-        if (device_write(out_handle, buf, block_size) != (int64_t)block_size)
+        if (fwrite(buf, 1, block_size, out_f) != block_size)
             print_error(_("write error for output file"));
     }
 
     free(buf); free(disk_key);
-    fclose(dev_f); fclose(out_f);
+    device_close(dev_handle); fclose(out_f);
     printf("decrypted %"PRIu64" sectors to %s\n", logical_sectors, output_file_path);
     return 0;
 }
