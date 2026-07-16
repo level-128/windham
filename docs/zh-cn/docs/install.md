@@ -37,11 +37,16 @@ cmake --build cmake-build-debug
 | 选项 | 作用 |
 |---|---|
 | `CFG_NO_MODULE_KEYRING` | 禁用内核密钥保留服务 |
-| `CFG_WINDHAM_ALLOW_ATTACH` | 允许调试器附加到进程 |
-| `CFG_NO_ENFORCE_SPEC_MITIGATION` | 跳过 Spectre 漏洞缓解 |
+| `WINDHAM_NO_DISABLE_ATTACH` | 允许调试器附加到进程 |
+| `WINDHAM_NO_ENFORCE_SPEC_MITIGATION` | 跳过 Spectre 漏洞缓解 |
+| `WINDHAM_NO_SECCOMP` | 禁用 seccomp 过滤器 |
 | `CFG_NO_OPT` | 关闭 x86-64 SIMD 优化 |
 | `CFG_USE_SWAP` | 允许 KDF 使用交换空间（⚠ 不安全） |
 | `CFG_WIPE_MEMORY` | KDF 完成后清零工作内存 |
+| `CFG_32BIT_ADDR_SPACE` | 32位地址空间下限制 Argon2 内存 |
+| `CFG_DRIVER_FF` | 启用 FatFs 交互式 Shell 驱动 |
+| `CFG_FF_CREATE` | 启用 --create-exfat 创建 exFAT 文件系统 |
+| `CFG_DRIVER_DECRYPT` | 启用全盘解密驱动 |
 
 ---
 

@@ -22,7 +22,7 @@ void frontend_print_unlock_args() {
       "\t                         is used by default. DO NOT enable if swap stores plaintext!\n"
       "\t--systemd-dialog:        use systemd password dialog for interactive input.\n")
       );
-#ifndef CONFIG_USE_SWAP
+#ifndef CFG_USE_SWAP
    print_warning(_("--allow-swap disabled by compile configuration."));
 #endif
 }
@@ -78,15 +78,15 @@ void frontend_help(const char * the_3rd_argv) {
 
       printf(_("\nSecutity:\n"));
       int issue_count = 0;
-#if WINDHAM_SPEC_MITIGATION == -1
+#ifdef WINDHAM_NO_ENFORCE_SPEC_MITIGATION
       printf(_("\033[33mspeculation mitigation not enforced!\033[0m\n"));
    	issue_count++;
 #endif
-#ifdef WINDHAM_ALLOW_ATTACH
+#ifdef WINDHAM_NO_DISABLE_ATTACH
       printf(_("\033[33mAllowing debugger to attach! This should be enabled only in debug mode.\033[0m\n"));
    	issue_count++;
 #endif
-#ifdef CONFIG_USE_SWAP
+#ifdef CFG_USE_SWAP
       printf(_("\033[33mSwap space is used by default. Turning swap space on and wipe memory off will expose your key to the "
                "attacker.\033[0m\n"));
    	issue_count++;
@@ -116,7 +116,7 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\tDefault decryption target time (per slot): %i\n"), MAX_UNLOCK_TIME_FACTOR);
       printf(_("\tDefault encryption capped memory: %i\n"), DEFAULT_DISK_ENC_MEM_RATIO_CAP);
       printf(_("\tDefault encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
       printf(_("\tchar32_t encoding:       UTF-32\n"));
 #else
       printf(_("\tchar32_t encoding:       unspecified, system reduced to ASCII support!\n"));
@@ -222,8 +222,11 @@ void frontend_help(const char * the_3rd_argv) {
             "\t--block-size <n>:     encryption sector size: 512, 1024, 2048, or 4096.\n"
             "\t--decoy-size <n>:     create a decoy partition of <n> MiB instead.\n"
              "\t--aux-sector-size <n>: size of the aux metadata zone, in 512-byte sectors.\n"
+#ifdef CFG_FF_CREATE
              "\t--create-exfat:       after creating the header, format the encrypted data\n"
-             "\t                       area as an exFAT filesystem using FatFs.\n"));
+             "\t                       area as an exFAT filesystem using FatFs.\n"
+#endif
+             ));
       frontend_print_newpw_args();
       frontend_print_common_args();
       printf(
@@ -315,7 +318,7 @@ void frontend_help(const char * the_3rd_argv) {
             "\n"
             "Action options (exactly one required):\n"
             "\t--aux-add=<content>:       add a plaintext entry (multibyte/UTF-8 → char32_t).\n"
-            "\t                             On platforms without __STDC_UTF_32__, ASCII only.\n"
+            "\t                             On platforms without WINDHAM_UTF_32, ASCII only.\n"
             "\t--aux-add-command=<cmd>:   add a SHELL command entry. Executed after all\n"
             "\t                             cascade links are opened. \"@\" in the command\n"
             "\t                             is replaced with comma-separated mapper names.\n"

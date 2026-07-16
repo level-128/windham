@@ -40,7 +40,7 @@ WCHAR ff_uni2oem (	/* Returns OEM code character, zero on error */
 {
 	(void)cp;
 	if (uni < 0x80) return (WCHAR)uni;
-#if defined(__STDC_UTF_16__)
+#if defined(WINDHAM_UTF_16)
 	if (uni < 0x10000) {
 		char s[4];
 		mbstate_t state = {0};
@@ -59,7 +59,7 @@ WCHAR ff_oem2uni (	/* Returns Unicode character in UTF-16, zero on error */
 {
 	(void)cp;
 	if (oem < 0x80) return oem;
-#if defined(__STDC_UTF_16__)
+#if defined(WINDHAM_UTF_16)
 	{
 		char s[2] = { (char)oem, 0 };
 		char16_t c16 = 0;
@@ -80,7 +80,7 @@ DWORD ff_wtoupper (	/* Returns up-converted code point */
 	DWORD uni		/* Unicode code point to be up-converted */
 )
 {
-#if defined(__STDC_UTF_16__)
+#if defined(WINDHAM_UTF_16)
 	wint_t up = towupper((wint_t)uni);
 	return (up != WEOF) ? (DWORD)up : uni;
 #else

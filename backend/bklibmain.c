@@ -56,7 +56,7 @@ void init(bool is_root, const char *act_driver) {
       if (! (speculation_stat | PR_SPEC_DISABLE || speculation_stat | PR_SPEC_FORCE_DISABLE)) {
          const bool WINDHAM_ATTRIBUTE(maybe_unused) result = prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_STORE_BYPASS, PR_SPEC_FORCE_DISABLE, 0, 0) ||
                              prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_INDIRECT_BRANCH, PR_SPEC_FORCE_DISABLE, 0, 0);
-#if WINDHAM_SPEC_MITIGATION != -1
+#ifndef WINDHAM_NO_ENFORCE_SPEC_MITIGATION
          if (result != 0) {
             if (errno == ENODEV) {
                if (WINDHAM_SPEC_MITIGATION != 2) {
@@ -83,7 +83,7 @@ void init(bool is_root, const char *act_driver) {
       }
    }
 
-#ifndef WINDHAM_ALLOW_ATTACH
+#ifndef WINDHAM_NO_DISABLE_ATTACH
    // Not dumpable and traceable
    prctl(PR_SET_DUMPABLE, 0);
 

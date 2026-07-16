@@ -6,7 +6,7 @@
 bool is_kernel_keyring_exist;
 
 
-#if !defined(WINDHAM_ISOC) && !defined(NO_KEYCTL)
+#if !defined(WINDHAM_ISOC) && !defined(CFG_NO_MODULE_KEYRING)
 #include "GNU_Linux/keyctl.c"
 #else
 #include "ISOC/keyctl.c"

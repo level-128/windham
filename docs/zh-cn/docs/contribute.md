@@ -10,8 +10,8 @@ cmake --build cmake-build-debug
 ```
 
 Debug 构建的特点：
-- 允许 gdb 等调试器附加（`CFG_WINDHAM_ALLOW_ATTACH`）
-- 关闭 Spectre 缓解措施，避免干扰调试（`CFG_NO_ENFORCE_SPEC_MITIGATION`）
+- 允许 gdb 等调试器附加（`WINDHAM_NO_DISABLE_ATTACH`）
+- 关闭 Spectre 缓解措施，避免干扰调试（`WINDHAM_NO_ENFORCE_SPEC_MITIGATION`）
 - 为方便单测启用交换空间支持（`CFG_USE_SWAP`）
 
 ## 运行测试

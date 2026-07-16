@@ -2,7 +2,7 @@
 // Reads a decrypted block device, mounts FAT/exFAT, provides
 // an interactive shell for browsing the filesystem.
 //
-// Only available when __STDC_UTF_16__ is defined (C11 uchar.h).
+// Only available when WINDHAM_UTF_16 is defined (C11 uchar.h).
 
 
 #include <inttypes.h>
@@ -70,7 +70,7 @@ static void cstr_to_tchar(TCHAR *dst, const char *src, size_t dsize)
 				}
 			}
 		}
-#if !defined(__STDC_UTF_16__)
+#if !defined(WINDHAM_UTF_16)
 		if ((unsigned char)src[i] >= 128) { i++; continue; }
 #endif
 		dst[j++] = (TCHAR)(unsigned char)src[i++];
@@ -86,7 +86,7 @@ static void tchar_to_cstr(char *dst, const TCHAR *src, size_t dsize)
 	for (i = 0, j = 0; j + 1 < dsize && src[i]; i++) {
 		if (src[i] < 128) {
 			dst[j++] = (char)src[i];
-#if defined(__STDC_UTF_16__)
+#if defined(WINDHAM_UTF_16)
 		} else {
 			dst[j++] = '?';
 #else

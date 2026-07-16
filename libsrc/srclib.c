@@ -10,6 +10,8 @@
 
 #include "../include/windham_const.h"
 
+#include "aes_xts_impl.c"
+
 #ifndef WINDHAM_ISOC
 #include <spawn.h>
 #include <sys/wait.h>

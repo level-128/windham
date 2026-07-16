@@ -4,7 +4,7 @@
 
 #define MIN_KEY_CHAR 7
 
-#ifndef __STDC_UTF_32__
+#ifndef WINDHAM_UTF_32
 static bool stdin_is_unbuffered = false;
 #endif
 
@@ -15,7 +15,7 @@ static void terminal_restore_echo(void) {
 }
 
 static int terminal_read_char(void) {
-#ifndef __STDC_UTF_32__
+#ifndef WINDHAM_UTF_32
 	if (!stdin_is_unbuffered) {
 		setvbuf(stdin, NULL, _IONBF, 0);
 		stdin_is_unbuffered = true;
@@ -73,7 +73,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 						/* Empty line: display all characters, then resume */
 						printf("\n");
 						if (index > 0) {
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
 							char utf8_out[8]; // MB_CUR_MAX <= 6, + 1 for NUL
 							mbstate_t mbs;
 							for (unsigned i = 0; i < index; i++) {
@@ -136,7 +136,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 
 					/* Display the character */
 					printf(" ");
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
 					char utf8_out[8]; // MB_CUR_MAX <= 6, + 1 for NUL
 					mbstate_t mbs = {0};
 					size_t len = c32rtomb(utf8_out, (char32_t)val, &mbs);
@@ -221,7 +221,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 			continue;
 		}
 
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
 		/* Decode UTF-8 to char32_t */
 		int utf8_len = 1;
 		unsigned char lead = (unsigned char)ch;
@@ -262,10 +262,10 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 		password[index] = wc;
 		index++;
 #else
-		/* __STDC_UTF_32__ not defined: only accept ASCII */
+		/* WINDHAM_UTF_32 not defined: only accept ASCII */
 		if ((unsigned char)ch > 0x7F) {
 			print_error(
-				_("Non-ASCII character detected. This ISO C platform does not define __STDC_UTF_32__, "
+				_("Non-ASCII character detected. This ISO C platform does not define WINDHAM_UTF_32, "
 				  "so multi-byte encodings cannot be handled reliably. "
 				  "Use unicode mode instead: type Space then Enter at empty input."));
 		}
@@ -314,7 +314,7 @@ unsigned get_key_input_from_the_console_systemd(const char *WINDHAM_ATTRIBUTE(ma
 }
 
 char32_t *convert_key_to_unicode(const char *input, unsigned *out_len) {
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
 	size_t input_len = strlen(input);
 	char32_t *result = malloc((input_len + 1) * sizeof(char32_t));
 	if (!result) {
@@ -352,7 +352,7 @@ char32_t *convert_key_to_unicode(const char *input, unsigned *out_len) {
 			free(result);
 			print_error(
 				_("Non-ASCII character in --key argument. This ISO C platform does not define "
-				  "__STDC_UTF_32__, so only ASCII passwords are supported via --key. "
+				  "WINDHAM_UTF_32, so only ASCII passwords are supported via --key. "
 				  "Use --key-file for arbitrary binary keys."));
 		}
 		result[count++] = (char32_t)(unsigned char)*p;

@@ -545,8 +545,8 @@ bool remove_single_aux_by_index(uint8_t aux_zone[], size_t aux_zone_size,
 // input: null-terminated multibyte string (e.g., UTF-8 from command line)
 // out_content: pointer to char32_t* that will be set to a malloc'd array (caller must free)
 // out_content_size: pointer to size_t that will be set to the number of char32_t elements
-// On platforms with __STDC_UTF_32__, uses mbrtoc32 for full multibyte conversion.
-// On platforms without __STDC_UTF_32__, only ASCII input is allowed.
+// On platforms with WINDHAM_UTF_32, uses mbrtoc32 for full multibyte conversion.
+// On platforms without WINDHAM_UTF_32, only ASCII input is allowed.
 void parse_mb_to_char32(const char * input, char32_t ** out_content, size_t * out_content_size) {
     size_t input_len = strlen(input);
 
@@ -558,7 +558,7 @@ void parse_mb_to_char32(const char * input, char32_t ** out_content, size_t * ou
     }
 
     size_t content_size = 0;
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
     // Platform supports UTF-32: use mbrtoc32 to convert multibyte to char32_t
     mbstate_t state = {0};
     const char * ptr = input;
@@ -581,7 +581,7 @@ void parse_mb_to_char32(const char * input, char32_t ** out_content, size_t * ou
         }
     }
 #else
-    // No __STDC_UTF_32__: only allow ASCII input
+    // No WINDHAM_UTF_32: only allow ASCII input
     for (size_t i = 0; i < input_len; i++) {
         unsigned char ch = (unsigned char)input[i];
         if (ch > 0x7F) {
@@ -672,7 +672,7 @@ void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int 
     printf("  Content: ");
     for (size_t i = 0; i < content_count; i++) {
         char32_t c32 = slot->content_char32_be[i];
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
         mbstate_t mbs = {0};
         char mb[MB_LEN_MAX];
         size_t r = c32rtomb(mb, c32, &mbs);
@@ -753,7 +753,7 @@ void print_shell_entry(const AuxSlot * slot, uint32_t offset, bool is_public, in
         const char32_t *cmd_chars = slot->content_char32_be + sizeof(AuxContentShell) / sizeof(char32_t);
         for (uint16_t i = 0; i < cmd_len; i++) {
             char32_t c32 = cmd_chars[i];
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
             mbstate_t mbs = {0};
             char mb[MB_LEN_MAX];
             size_t r = c32rtomb(mb, c32, &mbs);
@@ -783,7 +783,7 @@ static char *parse_char32_to_mb(const char32_t *input, size_t input_size) {
     if (!mb) return NULL;
 
     size_t mb_pos = 0;
-#ifdef __STDC_UTF_32__
+#ifdef WINDHAM_UTF_32
     mbstate_t state = {0};
     for (size_t i = 0; i < input_size; i++) {
         char buf[MB_LEN_MAX];
@@ -797,7 +797,7 @@ static char *parse_char32_to_mb(const char32_t *input, size_t input_size) {
         }
     }
 #else
-    // No __STDC_UTF_32__: only allow ASCII range
+    // No WINDHAM_UTF_32: only allow ASCII range
     for (size_t i = 0; i < input_size; i++) {
         if (input[i] > 0x7F) {
             free(mb);

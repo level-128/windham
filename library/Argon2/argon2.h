@@ -62,10 +62,14 @@ extern "C" {
 
 #define ARGON2_MIN(a, b) ((a) < (b) ? (a) : (b))
 /* Max memory size is addressing-space/2, topping at 2^32 blocks (4 TB) */
+#ifndef ARGON2_MAX_MEMORY_BITS
 #define ARGON2_MAX_MEMORY_BITS                                                 \
     ARGON2_MIN(UINT32_C(32), (sizeof(void *) * CHAR_BIT - 10 - 1))
+#endif
+#ifndef ARGON2_MAX_MEMORY
 #define ARGON2_MAX_MEMORY                                                      \
     ARGON2_MIN(UINT32_C(0xFFFFFFFF), UINT64_C(1) << ARGON2_MAX_MEMORY_BITS)
+#endif
 
 /* Minimum and maximum number of passes */
 #define ARGON2_MIN_TIME UINT32_C(1)

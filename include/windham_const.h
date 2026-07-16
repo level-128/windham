@@ -41,8 +41,25 @@
 
 
 /*
+ * ---------- UTF-16 / UTF-32 support ----------
+ * When CFG_ASCII is defined, both are masked out (ASCII-only fallback).
+ */
+
+#ifdef CFG_ASCII
+// WINDHAM_UTF_16 and WINDHAM_UTF_32 are intentionally left undefined
+#else
+#ifdef __STDC_UTF_16__
+#define WINDHAM_UTF_16
+#endif
+#ifdef __STDC_UTF_32__
+#define WINDHAM_UTF_32
+#endif
+#endif
+
+
+/*
  * ---------- Define consts ----------
-*/
+ */
 // Some consts are defined in CMake, these are:
 #ifndef DEFAULT_TARGET_TIME
 #define DEFAULT_TARGET_TIME 1.5
@@ -84,6 +101,10 @@
 #define ARGON2_CLEAR_INTERNAL_MEMORY 0
 #endif
 
+#if defined(CFG_FF_CREATE) && !defined(CFG_DRIVER_FF)
+#error "CFG_FF_CREATE requires CFG_DRIVER_FF to be enabled"
+#endif
+
 
 // those are constants, not defined by cmake
 #define KEY_SLOT_COUNT 16
@@ -110,6 +131,7 @@
 #define _(STRING) STRING
 #endif
 
+#ifndef WINDHAM_CONST_HEADER_ONLY
 
 // jump back to test when running unit test
 #if defined(WINDHAM_TEST) || !defined(IS_FRONTEND_ENTRY)
@@ -202,6 +224,8 @@ uint8_t suspend_hint_tag[16] = {128, 128, 128, 128, 128, 128, 128, 128, 128, 's'
 // External Partition software should write this. Windham will ignore this head.
 uint8_t windham_partition_magic[16] = {'w', 'i', 'n', 'd', 'h', 'a', 'm', 'l', 'e', 'v',
    'e', 'l', '-', '1', '2', '8'};
+
+#endif // WINDHAM_CONST_HEADER_ONLY
 
 
 // Metadata struct

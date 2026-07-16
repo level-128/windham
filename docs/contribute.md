@@ -10,8 +10,8 @@ cmake --build cmake-build-debug
 ```
 
 The Debug build:
-- Allows debugger attachment (`CFG_WINDHAM_ALLOW_ATTACH`)
-- Disables speculation mitigation (`CFG_NO_ENFORCE_SPEC_MITIGATION`)
+- Allows debugger attachment (`WINDHAM_NO_DISABLE_ATTACH`)
+- Disables speculation mitigation (`WINDHAM_NO_ENFORCE_SPEC_MITIGATION`)
 - Enables swap for testing convenience (`CFG_USE_SWAP`)
 
 ## Running tests

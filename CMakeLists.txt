@@ -147,7 +147,7 @@ else ()
     endif()
 
     if (CFG_USE_SWAP)
-        add_compile_definitions(CONFIG_USE_SWAP)
+        add_compile_definitions(CFG_USE_SWAP)
     endif ()
 
     if (CFG_WIPE_MEMORY)
@@ -163,6 +163,49 @@ else ()
     if (CFG_WINDHAMTAB_FILE)
         add_compile_definitions(WINDHAMTAB_FILE=${CFG_WINDHAMTAB_FILE})
     endif()
+
+    # driver features
+    if (NOT DEFINED CFG_DRIVER_FF)
+        set(CFG_DRIVER_FF TRUE)
+    endif ()
+    if (CFG_DRIVER_FF)
+        add_compile_definitions(CFG_DRIVER_FF)
+    endif ()
+
+    if (NOT DEFINED CFG_FF_CREATE)
+        set(CFG_FF_CREATE TRUE)
+    endif ()
+    if (CFG_FF_CREATE)
+        add_compile_definitions(CFG_FF_CREATE)
+    endif ()
+
+    if (NOT DEFINED CFG_DRIVER_DECRYPT)
+        set(CFG_DRIVER_DECRYPT TRUE)
+    endif ()
+    if (CFG_DRIVER_DECRYPT)
+        add_compile_definitions(CFG_DRIVER_DECRYPT)
+    endif ()
+
+    # seccomp filter
+    if (WINDHAM_NO_SECCOMP)
+        add_compile_definitions(WINDHAM_NO_SECCOMP)
+    endif ()
+
+    # 32-bit address space limit for Argon2
+    if (CFG_32BIT_ADDR_SPACE)
+        add_compile_definitions(CFG_32BIT_ADDR_SPACE)
+        add_compile_definitions(ARGON2_MAX_MEMORY_BITS=21)
+    endif ()
+
+    # force ASCII-only mode (mask UTF-16/UTF-32)
+    if (CFG_ASCII)
+        add_compile_definitions(CFG_ASCII)
+    endif ()
+
+    # allow debugger attach
+    if (WINDHAM_NO_DISABLE_ATTACH)
+        add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH)
+    endif ()
 
     # disabling Argon2 threads. We are not going to use them. All KDF has p=1
     add_compile_definitions(ARGON2_NO_THREADS)
@@ -212,7 +255,7 @@ else ()
 
     # test keyctl
     if (CFG_NO_MODULE_KEYRING)
-        add_compile_definitions(NO_KEYCTL)
+        add_compile_definitions(CFG_NO_MODULE_KEYRING)
         message(STATUS "Linux kernel key retention subsystem disabled by arguments")
     else ()
         try_run(
@@ -227,7 +270,7 @@ else ()
             message(SEND_ERROR "Cannot compile keyctl try run program. Possibly missing kernel header.")
         elseif (NOT CMAKE_CROSSCOMPILING)
             if (RUN_RESULT_VAR STREQUAL FAILED_TO_RUN)
-                add_compile_definitions(NO_KEYCTL)
+                add_compile_definitions(CFG_NO_MODULE_KEYRING)
                 message(WARNING "System call \"SYS_keyctl\" unsupported by this kernel. Disabling Linux kernel key"
             "retention service.")
             else ()
@@ -340,7 +383,7 @@ endif ()
 # build targets
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_compile_definitions(WINDHAM_ALLOW_ATTACH) # allow attach under debug
+    add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH) # allow attach under debug
     add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
 
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -351,7 +394,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     # debugger attach is not allowed under release.
-    if (NOT CFG_WINDHAM_ALLOW_ATTACH)
+    if (NOT WINDHAM_NO_DISABLE_ATTACH)
         if (NOT CMAKE_CROSSCOMPILING)
             try_run(
                     RUN_RESULT_VAR
@@ -364,18 +407,18 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
 
             if (NOT COMPILE_RESULT_VAR OR NOT RUN_RESULT_VAR EQUAL 0)
                 message(WARNING "Allowing debugger to attach under \"Release\" target: failed to set dumpable under prctl.")
-                add_compile_definitions(WINDHAM_ALLOW_ATTACH)
+                add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH)
             endif ()
         else ()
-            message(STATUS "Disallow debugger attach using prctl. Use CFG_WINDHAM_ALLOW_ATTACH to allow.")
+            message(STATUS "Disallow debugger attach using prctl. Use WINDHAM_NO_DISABLE_ATTACH to allow.")
         endif ()
     else()
         message(WARNING "Allowing debugger to attach under \"Release\" target.")
-        add_compile_definitions(WINDHAM_ALLOW_ATTACH)
+        add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH)
     endif()
 
     # detect spectre mitigation
-    if (NOT CFG_NO_ENFORCE_SPEC_MITIGATION AND NOT CMAKE_CROSSCOMPILING)
+    if (NOT WINDHAM_NO_ENFORCE_SPEC_MITIGATION AND NOT CMAKE_CROSSCOMPILING)
         try_run(
                 RUN_RESULT_VAR
                 COMPILE_RESULT_VAR
@@ -386,11 +429,13 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
         )
         if ((COMPILE_RESULT_VAR EQUAL 0) OR (RUN_RESULT_VAR EQUAL 1))
             message(WARNING "build system cannot determine speculation mitigation status.")
+            add_compile_definitions(WINDHAM_NO_ENFORCE_SPEC_MITIGATION)
             add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
         else () # 2 (not needed) or 0 (okay) are possible.
             add_compile_definitions(WINDHAM_SPEC_MITIGATION=${RUN_RESULT_VAR})
         endif ()
     else ()
+        add_compile_definitions(WINDHAM_NO_ENFORCE_SPEC_MITIGATION)
         add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
     endif ()
 

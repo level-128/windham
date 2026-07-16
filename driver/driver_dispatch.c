@@ -70,23 +70,33 @@ enum {
     EMOBJ_try_create_crypt_mapping_FAILED_MAPPING,
 };
 
+#ifdef CFG_DRIVER_DECRYPT
 void decrypt_set_output_file(const char *path);
+#endif
 
 // -- Driver registry (ordered by priority) -----------
 
 #ifndef WINDHAM_ISOC
 extern Driver driver_dm_mapper;
 #endif
+#ifdef CFG_DRIVER_FF
 extern Driver driver_ff;
+#endif
+#ifdef CFG_DRIVER_DECRYPT
 extern Driver driver_decrypt;
+#endif
 extern Driver driver_print;
 
 static Driver *drivers[] = {
 #ifndef WINDHAM_ISOC
     &driver_dm_mapper,
 #endif
+#ifdef CFG_DRIVER_FF
     &driver_ff,
+#endif
+#ifdef CFG_DRIVER_DECRYPT
     &driver_decrypt,
+#endif
     &driver_print,
     NULL
 };
@@ -179,8 +189,12 @@ void create_crypt_mapping_from_disk_key(
 #ifndef WINDHAM_ISOC
 #include "driver_dm_mapper.c"
 #endif
+#ifdef CFG_DRIVER_FF
 #include "ff/driver_fat_shell.c"
+#endif
+#ifdef CFG_DRIVER_DECRYPT
 #include "driver_decrypt.c"
+#endif
 #include "driver_print.c"
 
 #endif

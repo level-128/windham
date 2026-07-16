@@ -73,7 +73,9 @@ opt_allow(NMOBJ_action_new,
   NMOBJ_disk_file_size,
   NMOBJ_is_anonymous_key,
   NMOBJ_is_allow_swap,
+#ifdef CFG_FF_CREATE
   NMOBJ_create_exfat,
+#endif
   ALLOW_COMMON)
 
 opt_allow(NMOBJ_action_addkey,

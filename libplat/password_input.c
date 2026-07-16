@@ -6,7 +6,7 @@
 
 #define MAX_PASSWORD_INPUT_LEN 256
 
-#ifndef __STDC_UTF_32__
+#ifndef WINDHAM_UTF_32
 typedef uint_least32_t char32_t;
 #endif
 

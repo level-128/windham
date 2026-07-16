@@ -245,11 +245,15 @@ const struct option long_options[] = {
 	{"aux-rm", required_argument, &options[NMOBJ_aux_rm], 1},
 
 	/* -- Driver selection ----------------------- */
+#ifdef CFG_DRIVER_DECRYPT
 	{"decrypt", required_argument, &options[NMOBJ_decrypt], 1},
+#endif
 	{"print-encryption", no_argument, &options[NMOBJ_print_encryption], 1},
 
 	/* -- exFAT creation ------------------------- */
+#ifdef CFG_FF_CREATE
 	{"create-exfat", no_argument, &options[NMOBJ_create_exfat], 1},
+#endif
 
 	{0, 0, 0, 0}
 };
@@ -259,8 +263,12 @@ const struct option long_options[] = {
     NMOBJ_max_unlock_time, NMOBJ_max_unlock_level,			\
     NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail, NMOBJ_is_allow_swap
 
+#ifdef CFG_DRIVER_DECRYPT
 #define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help, \
-	NMOBJ_decrypt, NMOBJ_print_encryption
+    NMOBJ_decrypt, NMOBJ_print_encryption
+#else
+#define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help
+#endif
 
 
 int frontend_check_actions(const char *input) {
@@ -471,27 +479,34 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 	is_skip_conformation = options[NMOBJ_yes];
 	print_debug_enable = options[NMOBJ_print_debug];
 
-  	const char *driver_name = NULL;
-  	if (action_num == NMOBJ_action_open || action_num == NMOBJ_action_new || action_num == NMOBJ_action_close) {
-  	    if (options[NMOBJ_decrypt]) {
-  	        decrypt_set_output_file(params[NMOBJ_decrypt]);
-  	        driver_name = "decrypt";
-  	    } else if (options[NMOBJ_print_encryption]) {
-  	        driver_name = "print";
-  	    } else {
+   	const char *driver_name = NULL;
+   	if (action_num == NMOBJ_action_open || action_num == NMOBJ_action_new || action_num == NMOBJ_action_close) {
+#ifdef CFG_DRIVER_DECRYPT
+   	    if (options[NMOBJ_decrypt]) {
+   	        decrypt_set_output_file(params[NMOBJ_decrypt]);
+   	        driver_name = "decrypt";
+   	    } else
+#endif
+   	    if (options[NMOBJ_print_encryption]) {
+   	        driver_name = "print";
+   	    } else {
   #ifndef WINDHAM_ISOC
-  	        driver_name = "dm-mapper";
+   	        driver_name = "dm-mapper";
   #else
-  			driver_name = "ff";
+  #ifdef CFG_DRIVER_FF
+   			driver_name = "ff";
+  #else
+   			driver_name = "print";
   #endif
-  	    }
-  	}
+  #endif
+   	    }
+   	}
  	init(is_root, driver_name);
 #else
 	is_skip_conformation = 1;
 #endif
 
-#ifndef CONFIG_USE_SWAP
+#ifndef CFG_USE_SWAP
 	if (options[NMOBJ_is_allow_swap]) {
 		print_error(_("--allow-swap is disabled from the compile option. Recompile to enable this feature."));
 	}
@@ -609,7 +624,12 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				options[NMOBJ_is_no_detect_entropy],
 				options[NMOBJ_is_anonymous_key],
 				options[NMOBJ_is_allow_swap],
-				options[NMOBJ_create_exfat]);
+#ifdef CFG_FF_CREATE
+				options[NMOBJ_create_exfat]
+#else
+				false
+#endif
+			);
 			break;
 		case NMOBJ_action_addkey:
 			init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);

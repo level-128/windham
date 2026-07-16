@@ -137,7 +137,11 @@ void frontend_init(int argc, char *argv[]){
 
   // Shell aux auto-execution is allowed only when seccomp is available
   // (so child processes can be sandboxed).
+#ifndef WINDHAM_NO_SECCOMP
   init_val->is_secure_env = seccomp_init();
+#else
+  init_val->is_secure_env = false;
+#endif
 
   setlocale(LC_ALL, "");
   bindtextdomain("windham", "/usr/share/locale");
