@@ -47,6 +47,7 @@ cmake --build cmake-build-debug
 | `CFG_DRIVER_FF` | 启用 FatFs 交互式 Shell 驱动 |
 | `CFG_FF_CREATE` | 启用 --create-exfat 创建 exFAT 文件系统 |
 | `CFG_DRIVER_DECRYPT` | 启用全盘解密驱动 |
+| `WINDHAM_REPRODUCIBLE_BUILD` | 用固定字符串替换构建时间戳/内核版本 |
 
 ---
 

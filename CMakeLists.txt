@@ -5,19 +5,9 @@ set(CMAKE_C_STANDARD 11)
 # --------------------------------------------------------------------
 # define build type
 
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Debug" "Test" "ISOC")
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Debug" "Test")
 if (NOT CMAKE_BUILD_TYPE)
-    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the build type <Release | Debug | Test | ISOC>
-         (default: Release)" FORCE)
-    else()
-        set(CMAKE_BUILD_TYPE ISOC CACHE STRING "Choose the build type. ISOC is the only supported build
-         type under this system." FORCE)
-    endif ()
-endif ()
-
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_BUILD_TYPE STREQUAL "ISOC")
-    message(FATAL_ERROR "non-Linux platform only supports ISOC build type.")
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the build type <Release | Debug | Test> (default: Release)" FORCE)
 endif ()
 
 # --------------------------------------------------------------------
@@ -27,8 +17,8 @@ file(READ "build_misc/version.txt" WINDHAM_VERSION)
 string(STRIP "${WINDHAM_VERSION}" WINDHAM_VERSION)
 add_compile_definitions(WINDHAM_VERSION=\"${WINDHAM_VERSION}\")
 
-add_compile_definitions(HOST_ARCH=\"${CMAKE_HOST_SYSTEM_PROCESSOR}\")
-add_compile_definitions(TARGET_ARCH=\"${CMAKE_SYSTEM_PROCESSOR}\")
+add_compile_definitions(CMAKE_HOST_ARCH=\"${CMAKE_HOST_SYSTEM_PROCESSOR}\")
+add_compile_definitions(CMAKE_TARGET_ARCH=\"${CMAKE_SYSTEM_PROCESSOR}\")
 
 set(WINDHAM_AMD64_NAMES amd64 AMD64 x86_64)
 if (CMAKE_SYSTEM_PROCESSOR IN_LIST WINDHAM_AMD64_NAMES)
@@ -52,22 +42,8 @@ if(CFG_DEFAULT_BLOCK_SIZE)
     add_compile_definitions(DEFAULT_BLOCK_SIZE=${CFG_DEFAULT_BLOCK_SIZE})
 endif()
 
-set(WINDHAM_DEFAULT_DISK_ENC_MODE_LIST "aes-xts-plain64" "twofish-xts-plain64"
-        "serpent-xts-plain64" "twofish-xts-plain64be" "aes-xts-plain64be" "serpent-xts-plain64be" "uninit")
 if (NOT CFG_WINDHAM_DEFAULT_DISK_ENC_MODE)
-    if(CMAKE_BUILD_TYPE STREQUAL "ISOC")
-        set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64")
-    else()
-        set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64")
-    endif()
-elseif (NOT CFG_WINDHAM_DEFAULT_DISK_ENC_MODE IN_LIST WINDHAM_DEFAULT_DISK_ENC_MODE_LIST)
-    message(FATAL_ERROR "Unknown encryption mode ${WINDHAM_DEFAULT_DISK_ENC_MODE}. accept values are:
-    ${CFG_WINDHAM_DEFAULT_DISK_ENC_MODE_LIST}")
-else()
-    if(CMAKE_BUILD_TYPE STREQUAL "ISOC" AND CFG_WINDHAM_DEFAULT_DISK_ENC_MODE STREQUAL "uninit")
-        message(WARNING "using encryption mode other than uninit under ISOC build type will init the device and"
-        "forcing windham to open at such type on other platforms.")
-    endif()
+    set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64")
 endif ()
 add_compile_definitions(DEFAULT_DISK_ENC_MODE="${CFG_WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
@@ -75,7 +51,7 @@ add_compile_definitions(DEFAULT_DISK_ENC_MODE="${CFG_WINDHAM_DEFAULT_DISK_ENC_MO
 # define compiler options
 
 function(configure_global_flags)
-    if(CMAKE_BUILD_TYPE MATCHES "^(Release|ISOC)$")
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
         if(CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang|ZigCC|Intel)$")
             set(CMAKE_C_FLAGS "-O3 ${CMAKE_C_FLAGS}" PARENT_SCOPE)
         else()
@@ -95,52 +71,35 @@ function(configure_global_flags)
     endif()
 
     add_compile_options(${CMAKE_C_FLAGS})
-    add_compile_definitions(COMPILE_PARAMS="${CMAKE_C_FLAGS}")
+    add_compile_definitions(CMAKE_COMPILE_PARAMS="${CMAKE_C_FLAGS}")
 
-    if(CMAKE_BUILD_TYPE STREQUAL "ISOC")
-        if(UNIX)
-            find_library(IS_MATH_LIB m)
-            if (IS_MATH_LIB STREQUAL IS_MATH_LIB-NOTFOUND)
-                message(WARNING "cannot find math library. Use CMAKE_C_FLAGS to designate the math library for your
-                platform. compilation may fail if your libc requires linking with the math library to use math functions.")
-            else()
-                target_link_libraries(windham m)
-            endif()
-        else()
-            message(WARNING "Please link the math library if your platform requires it. Windham does not know what to
-            do because you are not running under UNIX-like systems. You can try compiling first to figure out whether
-            explicitly linking with math library is required under your platform.")
-        endif()
-   else()
-        find_library(IS_BLKID_LIB blkid)
-        if (IS_BLKID_LIB)
-            message(STATUS "Found blkid library for compile-time header definitions")
-        endif()
-        target_link_libraries(windham m)
-   endif()
+    find_library(IS_BLKID_LIB blkid)
+    if (IS_BLKID_LIB)
+        message(STATUS "Found blkid library for compile-time header definitions")
+    endif()
+    target_link_libraries(windham m)
 endfunction()
 
 
+include(GNUInstallDirs)
 # --------------------------------------------------------------------
-# ISOC build type
-
-if (CMAKE_BUILD_TYPE STREQUAL "ISOC")
-    add_executable(windham frontend.c)
-    configure_global_flags()
-    install(TARGETS windham
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BIN})
-else ()
-    include(GNUInstallDirs)
-    # --------------------------------------------------------------------
-    # define common options
-    set(WINDHAM_USING_CMAKE ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
-    add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
+# define common options
+set(WINDHAM_USING_CMAKE ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
+add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
 
     execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
-    add_compile_definitions(TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
+    if (WINDHAM_REPRODUCIBLE_BUILD)
+        add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"WIPED_REPRODUCIBLE\")
+    else ()
+        add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
+    endif ()
 
-    string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
-    add_compile_definitions(CURRENT_TIME=\"${CURRENT_TIME}\")
+    if (WINDHAM_REPRODUCIBLE_BUILD)
+        add_compile_definitions(CMAKE_BUILD_TIME=\"WIPED_REPRODUCIBLE\")
+    else ()
+        string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
+        add_compile_definitions(CMAKE_BUILD_TIME=\"${CURRENT_TIME}\")
+    endif ()
 
     if(CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP)
         add_compile_definitions(DEFAULT_DISK_ENC_MEM_RATIO_CAP=${CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP})
@@ -377,13 +336,12 @@ else ()
         message(STATUS "mntent.h not available (non-glibc libc). Probe mount info disabled.")
     endif ()
 
-endif ()
-
 # --------------------------------------------------------------------
 # build targets
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH) # allow attach under debug
+    add_compile_definitions(WINDHAM_NO_ENFORCE_SPEC_MITIGATION)
     add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
 
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -445,9 +403,23 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
             RUNTIME DESTINATION bin)
 
 elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
-    message(STATUS "Test build type uses Python test suite (tests/run_tests.py).")
-    message(STATUS "Build with Debug or Release type, then run: python3 tests/run_tests.py")
-    add_compile_definitions(WINDHAM_TEST)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    message(STATUS "Found Python3: ${Python3_EXECUTABLE}")
+    add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH)
+    add_compile_definitions(WINDHAM_NO_ENFORCE_SPEC_MITIGATION)
+    add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)
+
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+    add_executable(windham frontend.c ${LIBRARY_SOURCES})
+    set_target_properties(windham PROPERTIES OUTPUT_NAME windham_test)
+    configure_global_flags()
+
+    add_custom_target(check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/run_tests.py --binary $<TARGET_FILE:windham>
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        USES_TERMINAL
+        COMMENT "Running test suite"
+    )
 
 endif()
 

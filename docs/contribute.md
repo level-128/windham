@@ -16,22 +16,38 @@ The Debug build:
 
 ## Running tests
 
+Build with the Test profile, which configures the binary for testing and
+finds the Python interpreter:
+
+```bash
+cmake -B cmake-build-test -DCMAKE_BUILD_TYPE=Test -DCFG_USE_SWAP=TRUE
+cmake --build cmake-build-test
+```
+
+Run the test suite via the `check` target:
+
+```bash
+cmake --build cmake-build-test --target check
+```
+
+Or run manually:
+
 ```bash
 # Full suite
-sudo python3 tests/run_tests.py --binary cmake-build-debug/windham_debug
+sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test
 
 # Single test module
-sudo python3 tests/run_tests.py --binary cmake-build-debug/windham_debug test_link_open
+sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test test_link_open
 
 # Without root elevation (file-based operations only)
-python3 tests/run_tests.py --binary cmake-build-debug/windham_debug --no-elevate test_probe
+python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate test_probe
 
 # List available tests
 python3 tests/run_tests.py --list
 ```
 
 Tests are Python files under `tests/`. Each `def test_*()` function is a separate
-test case. Tests spawn `windham_debug` via `subprocess` and capture stdin/stdout/stderr.
+test case. Tests spawn `windham_test` via `subprocess` and capture stdin/stdout/stderr.
 
 ### Test infrastructure
 

@@ -47,6 +47,7 @@ Pass with `-D<flag>=TRUE` to `cmake`:
 | `CFG_DRIVER_FF` | Enable FatFs interactive shell driver |
 | `CFG_FF_CREATE` | Enable exFAT creation with --create-exfat |
 | `CFG_DRIVER_DECRYPT` | Enable full-disk decryption driver |
+| `WINDHAM_REPRODUCIBLE_BUILD` | Replace build timestamp/kernel version with fixed strings |
 
 ---
 

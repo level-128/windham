@@ -72,7 +72,7 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\tWindham version: %s\n"), WINDHAM_VERSION);
       printf(_("\tWindham header metadata version: %i\n"), WINDHAM_METADATA_VERSION);
 #ifndef WINDHAM_ISOC
-      printf(_("\tTarget Linux kernel version for this build: %s\n"), TARGET_KERNEL_VERSION);
+      printf(_("\tTarget Linux kernel version for this build: %s\n"), CMAKE_TARGET_KERNEL_VERSION);
 #endif
 
 
@@ -129,18 +129,18 @@ void frontend_help(const char * the_3rd_argv) {
 #else
       printf(_("\tUnknown compiler\n"));
 #endif
-#ifdef COMPILE_PARAMS
-      printf(_("\tCompile Params: %s\n"), COMPILE_PARAMS);
+#ifdef CMAKE_COMPILE_PARAMS
+      printf(_("\tCompile Params: %s\n"), CMAKE_COMPILE_PARAMS);
 #endif
 #if defined(WINDHAM_USING_CMAKE)
-      printf(_("\tSystem architecture: %s\n"), TARGET_ARCH);
+      printf(_("\tSystem architecture: %s\n"), CMAKE_TARGET_ARCH);
       printf(
          _("\tSystem endianness: %s\n"),
          __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
             ? "Big"
             : "Little");
-      printf(_("\tBuild host Architecture: %s\n"), HOST_ARCH);
-      printf(_("\tCompile time (GMT): %s\n"), CURRENT_TIME);
+      printf(_("\tBuild host Architecture: %s\n"), CMAKE_HOST_ARCH);
+      printf(_("\tCompile time (GMT): %s\n"), CMAKE_BUILD_TIME);
       printf(_("\tCMake version: %s\n"), WINDHAM_USING_CMAKE);
 
 #else // #if defined(WINDHAM_USING_CMAKE)

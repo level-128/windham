@@ -16,21 +16,36 @@ Debug 构建的特点：
 
 ## 运行测试
 
+使用 Test 构建类型，它会在编译测试二进制的同时找到 Python 解释器：
+
+```bash
+cmake -B cmake-build-test -DCMAKE_BUILD_TYPE=Test -DCFG_USE_SWAP=TRUE
+cmake --build cmake-build-test
+```
+
+通过 `check` 目标运行测试套件：
+
+```bash
+cmake --build cmake-build-test --target check
+```
+
+也可以手动运行：
+
 ```bash
 # 完整测试套件（需要 root）
-sudo python3 tests/run_tests.py --binary cmake-build-debug/windham_debug
+sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test
 
 # 只跑某一个模块
-sudo python3 tests/run_tests.py --binary cmake-build-debug/windham_debug test_link_open
+sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test test_link_open
 
 # 以普通用户身份跑不需要 root 的用例
-python3 tests/run_tests.py --binary cmake-build-debug/windham_debug --no-elevate test_probe
+python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate test_probe
 
 # 列出所有可用测试
 python3 tests/run_tests.py --list
 ```
 
-测试代码放在 `tests/` 目录，纯 Python 编写。每个 `def test_*()` 就是一个独立用例。运行时会通过 `subprocess` 启动 `windham_debug` 并捕获标准输入、标准输出和标准错误。
+测试代码放在 `tests/` 目录，纯 Python 编写。每个 `def test_*()` 就是一个独立用例。运行时会通过 `subprocess` 启动 `windham_test` 并捕获标准输入、标准输出和标准错误。
 
 ### 测试工具函数
 
