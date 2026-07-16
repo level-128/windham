@@ -3,6 +3,31 @@ project(windham C)
 set(CMAKE_C_STANDARD 11)
 
 # --------------------------------------------------------------------
+# user-configurable options (visible in ccmake / cmake-gui)
+
+option(CFG_USE_SWAP                 "Allow KDF memory to use swap space" OFF)
+option(CFG_WIPE_MEMORY              "Wipe Argon2 internal memory after KDF" OFF)
+option(CFG_NO_OPT                   "Disable x86-64 SIMD optimization in Argon2" OFF)
+option(CFG_NO_MODULE_KEYRING        "Disable kernel key retention service" OFF)
+option(CFG_DRIVER_FF                "Enable FatFs interactive shell driver" ON)
+option(CFG_FF_CREATE                "Enable --create-exfat (exFAT creation)" ON)
+option(CFG_DRIVER_DECRYPT           "Enable full-disk decryption driver" ON)
+option(CFG_32BIT_ADDR_SPACE         "Limit Argon2 memory for 32-bit address space" OFF)
+option(CFG_ASCII                    "Force ASCII-only mode (mask UTF-16/UTF-32)" OFF)
+option(WINDHAM_NO_SECCOMP           "Disable seccomp filter" OFF)
+option(WINDHAM_NO_DISABLE_ATTACH    "Allow debugger to attach" OFF)
+option(WINDHAM_NO_ENFORCE_SPEC_MITIGATION "Skip Spectre mitigation enforcement" OFF)
+option(WINDHAM_REPRODUCIBLE_BUILD   "Replace build timestamp/kernel version with fixed strings" OFF)
+
+set(CFG_DEFAULT_TARGET_TIME       "1.5"            CACHE STRING "Target KDF derivation time (seconds)")
+set(CFG_MAX_UNLOCK_TIME_FACTOR    "5"              CACHE STRING "Max unlock time = target × factor")
+set(CFG_DEFAULT_BLOCK_SIZE        "4096"           CACHE STRING "Default encryption sector size (bytes)")
+set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64" CACHE STRING "Default cipher-chainmode-ivmode")
+set(CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP "30"        CACHE STRING "Memory cap ratio for encryption KDF")
+set(CFG_MIN_MEMLOCK_SIZE          "8388608"        CACHE STRING "Minimum mlock memory (bytes)")
+set(CFG_WINDHAMTAB_FILE           "/etc/windhamtab" CACHE STRING "Path to windhamtab config file")
+
+# --------------------------------------------------------------------
 # define build type
 
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Debug" "Test")
@@ -42,9 +67,6 @@ if(CFG_DEFAULT_BLOCK_SIZE)
     add_compile_definitions(DEFAULT_BLOCK_SIZE=${CFG_DEFAULT_BLOCK_SIZE})
 endif()
 
-if (NOT CFG_WINDHAM_DEFAULT_DISK_ENC_MODE)
-    set(CFG_WINDHAM_DEFAULT_DISK_ENC_MODE "aes-xts-plain64")
-endif ()
 add_compile_definitions(DEFAULT_DISK_ENC_MODE="${CFG_WINDHAM_DEFAULT_DISK_ENC_MODE}")
 
 # --------------------------------------------------------------------
@@ -119,28 +141,19 @@ add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
         add_compile_definitions(DEFAULT_MIN_MEMLOCK_SIZE=${CFG_MIN_MEMLOCK_SIZE})
     endif()
 
-    if (CFG_WINDHAMTAB_FILE)
-        add_compile_definitions(WINDHAMTAB_FILE=${CFG_WINDHAMTAB_FILE})
+    if (NOT CFG_WINDHAMTAB_FILE STREQUAL "/etc/windhamtab")
+        add_compile_definitions(WINDHAMTAB_FILE="${CFG_WINDHAMTAB_FILE}")
     endif()
 
     # driver features
-    if (NOT DEFINED CFG_DRIVER_FF)
-        set(CFG_DRIVER_FF TRUE)
-    endif ()
     if (CFG_DRIVER_FF)
         add_compile_definitions(CFG_DRIVER_FF)
     endif ()
 
-    if (NOT DEFINED CFG_FF_CREATE)
-        set(CFG_FF_CREATE TRUE)
-    endif ()
     if (CFG_FF_CREATE)
         add_compile_definitions(CFG_FF_CREATE)
     endif ()
 
-    if (NOT DEFINED CFG_DRIVER_DECRYPT)
-        set(CFG_DRIVER_DECRYPT TRUE)
-    endif ()
     if (CFG_DRIVER_DECRYPT)
         add_compile_definitions(CFG_DRIVER_DECRYPT)
     endif ()
