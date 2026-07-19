@@ -889,7 +889,7 @@ bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], si
     int ret;
 
     if (timeout_secs > 0) {
-#ifdef __STDC_NO_THREADS__
+#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
         print_warning(_("Shell command timeout (%u sec) requested but ISO C threads unavailable. "
                         "Command will run without timeout."), timeout_secs);
         ret = system(mb_cmd);

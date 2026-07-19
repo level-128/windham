@@ -17,7 +17,9 @@ void windham_exit(int exitno) {
 #endif
 }
 
-#ifdef WINDHAM_PLAT_GNU_LINUX
+#ifdef WINDHAM_PLAT_WASI
+#include "WASI/init.c"
+#elif defined(WINDHAM_PLAT_GNU_LINUX)
 #include "GNU_Linux/init.c"
 #else
 #include "ISOC/init.c"

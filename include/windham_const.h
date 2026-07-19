@@ -2,7 +2,9 @@
 #define WINDHAM_INCL_WINDHAM_CONST_H
 
 #include <stdio.h>
+#ifndef WINDHAM_PLAT_WASI
 #include <setjmp.h>
+#endif
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdalign.h>
@@ -14,6 +16,16 @@
 
 #ifndef WINDHAM_VERSION
 #define WINDHAM_VERSION "unknown"
+#endif
+
+#ifndef CMAKE_TARGET_ARCH
+#define CMAKE_TARGET_ARCH "unknown"
+#endif
+#ifndef CMAKE_HOST_ARCH
+#define CMAKE_HOST_ARCH "unknown"
+#endif
+#ifndef CMAKE_BUILD_TIME
+#define CMAKE_BUILD_TIME "unknown"
 #endif
 
 

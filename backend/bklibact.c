@@ -514,7 +514,7 @@ void action_destory(const char * device, bool is_decoy) {
       // depends on target.
 #ifdef WINDHAM_PLAT_GNU_LINUX
       sleep(1);
-#elif defined(__STDC_NO_THREADS__)
+#elif defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
       struct timespec start, current;
 
       if (timespec_get(&start, TIME_UTC) != TIME_UTC) {

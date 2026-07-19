@@ -95,11 +95,13 @@ function(configure_global_flags)
     add_compile_options(${CMAKE_C_FLAGS})
     add_compile_definitions(CMAKE_COMPILE_PARAMS="${CMAKE_C_FLAGS}")
 
-    find_library(IS_BLKID_LIB blkid)
-    if (IS_BLKID_LIB)
-        message(STATUS "Found blkid library for compile-time header definitions")
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "WASI")
+        find_library(IS_BLKID_LIB blkid)
+        if (IS_BLKID_LIB)
+            message(STATUS "Found blkid library for compile-time header definitions")
+        endif()
+        target_link_libraries(windham m)
     endif()
-    target_link_libraries(windham m)
 endfunction()
 
 
@@ -109,21 +111,32 @@ include(GNUInstallDirs)
 set(WINDHAM_USING_CMAKE ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
 add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
 
-add_compile_definitions(WINDHAM_PLAT_GNU_LINUX)
+# Platform selection — ISOC is the baseline (no macro needed).
+# WASI and GNU/Linux opt in for extra features.
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+    add_compile_definitions(WINDHAM_PLAT_WASI)
+else()
+    add_compile_definitions(WINDHAM_PLAT_GNU_LINUX)
+endif()
 
-    execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if (WINDHAM_REPRODUCIBLE_BUILD)
-        add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"WIPED_REPRODUCIBLE\")
-    else ()
-        add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
-    endif ()
-
-    if (WINDHAM_REPRODUCIBLE_BUILD)
+    if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+        add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"wasi\")
         add_compile_definitions(CMAKE_BUILD_TIME=\"WIPED_REPRODUCIBLE\")
-    else ()
-        string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
-        add_compile_definitions(CMAKE_BUILD_TIME=\"${CURRENT_TIME}\")
-    endif ()
+    else()
+        execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if (WINDHAM_REPRODUCIBLE_BUILD)
+            add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"WIPED_REPRODUCIBLE\")
+        else ()
+            add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
+        endif ()
+
+        if (WINDHAM_REPRODUCIBLE_BUILD)
+            add_compile_definitions(CMAKE_BUILD_TIME=\"WIPED_REPRODUCIBLE\")
+        else ()
+            string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
+            add_compile_definitions(CMAKE_BUILD_TIME=\"${CURRENT_TIME}\")
+        endif ()
+    endif()
 
     if(CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP)
         add_compile_definitions(DEFAULT_DISK_ENC_MEM_RATIO_CAP=${CFG_DEFAULT_DISK_ENC_MEM_RATIO_CAP})
@@ -354,7 +367,12 @@ add_compile_definitions(WINDHAM_PLAT_GNU_LINUX)
 # --------------------------------------------------------------------
 # build targets
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+    add_executable(windham frontend.c ${LIBRARY_SOURCES})
+    set_target_properties(windham PROPERTIES OUTPUT_NAME windham)
+    configure_global_flags()
+
+elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH) # allow attach under debug
     add_compile_definitions(WINDHAM_NO_ENFORCE_SPEC_MITIGATION)
     add_compile_definitions(WINDHAM_SPEC_MITIGATION=-1)

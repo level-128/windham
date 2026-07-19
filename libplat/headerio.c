@@ -17,7 +17,9 @@ int     device_seek(void *handle, int64_t offset);
 int64_t device_read(void *handle, void *buf, size_t count);
 int64_t device_write(void *handle, const void *buf, size_t count);
 
-#ifdef WINDHAM_PLAT_GNU_LINUX
+#ifdef WINDHAM_PLAT_WASI
+#include "WASI/headerio.c"
+#elif defined(WINDHAM_PLAT_GNU_LINUX)
 #include "GNU_Linux/headerio.c"
 #else
 #include "ISOC/headerio.c"

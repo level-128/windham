@@ -3,7 +3,9 @@
 
 void action_new_check_crypt_support_status(const char *);
 
-#ifdef WINDHAM_PLAT_GNU_LINUX
+#ifdef WINDHAM_PLAT_WASI
+#include "WASI/chk_enc_supp_stat.c"
+#elif defined(WINDHAM_PLAT_GNU_LINUX)
 #include "GNU_Linux/chk_enc_supp_stat.c"
 #else
 #include "ISOC/chk_enc_supp_stat.c"

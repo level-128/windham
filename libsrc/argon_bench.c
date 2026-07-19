@@ -88,7 +88,7 @@ void benchmark() {
         printf("Single-threaded time cost:  %.3f ms\n", time1);
 
 
-#ifndef __STDC_NO_THREADS__
+#if !defined(__STDC_NO_THREADS__) && !defined(WINDHAM_NO_ISOC_THREAD)
         printf("Multi-threaded mode:\n");
         struct timespec global_start, global_end;
 
