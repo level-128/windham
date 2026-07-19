@@ -213,7 +213,7 @@ async function openDisk() {
     $('#status').textContent = 'Deriving key...';
 
     // callMain with ASYNCIFY returns immediately
-    Module.callMain(['Open', '/disk.img', '--key-file', '/password', '--driver', 'ff']);
+    Module.callMain(['Open', '/disk.img', '--key-file', '/password']);
 
     waitForShell();
 }
