@@ -231,17 +231,19 @@ static void format_time(char *buf, size_t bufsz, WORD ftime)
 
 static int cmd_ls(int argc, char **argv)
 {
-	int opt_l = 0, opt_h = 0, opt_a = 0;
+	int opt_l = 0, opt_h = 0, opt_a = 0, opt_p = 0;
 	const char *path = NULL;
 	int i;
 
 	for (i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
+			if (strcmp(argv[i], "--plain") == 0) { opt_p = 1; continue; }
 			const char *o = argv[i] + 1;
 			while (*o) {
 				if (*o == 'l') opt_l = 1;
 				else if (*o == 'h') opt_h = 1;
 				else if (*o == 'a') opt_a = 1;
+				else if (*o == 'p') opt_p = 1;
 				else { fprintf(stderr, "ls: unknown option '%c'\n", *o); return 1; }
 				o++;
 			}
@@ -263,7 +265,12 @@ static int cmd_ls(int argc, char **argv)
 
 		if (!opt_a && name[0] == '.') continue;
 
-		if (opt_l) {
+		if (opt_p) {
+			char type = (fno.fattrib & AM_DIR) ? 'd' : 'f';
+			printf("%c\t%llu\t%s\n", type,
+			       (unsigned long long)(fno.fattrib & AM_DIR ? (QWORD)0 : (QWORD)fno.fsize),
+			       name);
+		} else if (opt_l) {
 			char attr[16], szstr[32], dstr[32], tstr[32];
 			format_attr(attr, &fno);
 			if (opt_h)
@@ -284,7 +291,7 @@ static int cmd_ls(int argc, char **argv)
 		}
 	}
 
-	if (!opt_l) printf("\n");
+	if (!opt_l && !opt_p) printf("\n");
 	f_closedir(&dir);
 	return 0;
 }
@@ -555,10 +562,13 @@ static int cmd_find(int argc, char **argv)
 {
 	const char *pattern = NULL;
 	const char *path = ".";
+	int opt_p = 0;
 	int i;
 
 	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-name") == 0 && i + 1 < argc) {
+		if (strcmp(argv[i], "--plain") == 0 || strcmp(argv[i], "-p") == 0) {
+			opt_p = 1;
+		} else if (strcmp(argv[i], "-name") == 0 && i + 1 < argc) {
 			pattern = argv[++i];
 		} else if (argv[i][0] != '-') {
 			path = argv[i];
@@ -585,9 +595,16 @@ static int cmd_find(int argc, char **argv)
 	do {
 		char name[MAX_PATH];
 		tchar_to_cstr(name, fno.fname, MAX_PATH);
-		printf("%s/%s", path, name);
-		if (fno.fattrib & AM_DIR) printf("/");
-		printf("\n");
+		if (opt_p) {
+			char type = (fno.fattrib & AM_DIR) ? 'd' : 'f';
+			printf("%c\t%llu\t%s/%s\n", type,
+			       (unsigned long long)(fno.fattrib & AM_DIR ? (QWORD)0 : (QWORD)fno.fsize),
+			       path, name);
+		} else {
+			printf("%s/%s", path, name);
+			if (fno.fattrib & AM_DIR) printf("/");
+			printf("\n");
+		}
 	} while ((fr = f_findnext(&dir, &fno)) == FR_OK && fno.fname[0]);
 
 	f_closedir(&dir);
@@ -866,8 +883,12 @@ static int cmd_export(int argc, char **argv)
 /* df                                                                    */
 /*-----------------------------------------------------------------------*/
 
-static int cmd_df(void)
+static int cmd_df(int argc, char **argv)
 {
+	int opt_p = 0;
+	if (argc >= 2 && (strcmp(argv[1], "--plain") == 0 || strcmp(argv[1], "-p") == 0))
+		opt_p = 1;
+
 	FATFS *fs;
 	DWORD free_clst;
 	FRESULT fr = f_getfree(u"", &free_clst, &fs);
@@ -882,18 +903,26 @@ static int cmd_df(void)
 	QWORD used_bytes  = used_clst  * csize * ssize;
 	int pct = total_clst ? (int)(used_clst * 100 / total_clst) : 0;
 
-	char tbuf[32], ubuf[32], fbuf[32];
-	format_size(tbuf, sizeof(tbuf), (FSIZE_t)total_bytes);
-	format_size(ubuf, sizeof(ubuf), (FSIZE_t)used_bytes);
-	format_size(fbuf, sizeof(fbuf), (FSIZE_t)free_bytes);
+	if (opt_p) {
+		printf("total\t%llu\nfree\t%llu\nused\t%llu\npct\t%d\n",
+		       (unsigned long long)total_bytes,
+		       (unsigned long long)free_bytes,
+		       (unsigned long long)used_bytes,
+		       pct);
+	} else {
+		char tbuf[32], ubuf[32], fbuf[32];
+		format_size(tbuf, sizeof(tbuf), (FSIZE_t)total_bytes);
+		format_size(ubuf, sizeof(ubuf), (FSIZE_t)used_bytes);
+		format_size(fbuf, sizeof(fbuf), (FSIZE_t)free_bytes);
 
-	printf("  %10s  %10s  %10s  Use%%  Type\n", "Total", "Used", "Free");
-	printf("  %10s  %10s  %10s  %3d%%  %s\n",
-	       tbuf, ubuf, fbuf, pct,
-	       (fs->fs_type == FS_FAT12) ? "FAT12" :
-	       (fs->fs_type == FS_FAT16) ? "FAT16" :
-	       (fs->fs_type == FS_FAT32) ? "FAT32" :
-	       (fs->fs_type == FS_EXFAT) ? "exFAT" : "?");
+		printf("  %10s  %10s  %10s  Use%%  Type\n", "Total", "Used", "Free");
+		printf("  %10s  %10s  %10s  %3d%%  %s\n",
+		       tbuf, ubuf, fbuf, pct,
+		       (fs->fs_type == FS_FAT12) ? "FAT12" :
+		       (fs->fs_type == FS_FAT16) ? "FAT16" :
+		       (fs->fs_type == FS_FAT32) ? "FAT32" :
+		       (fs->fs_type == FS_EXFAT) ? "exFAT" : "?");
+	}
 	return 0;
 }
 
@@ -935,7 +964,7 @@ static int exec_command(int argc, char **argv)
 	if (strcmp(argv[0], "find") == 0)         return cmd_find(argc, argv);
 	if (strcmp(argv[0], "import") == 0)       return cmd_import(argc, argv);
 	if (strcmp(argv[0], "export") == 0)       return cmd_export(argc, argv);
-	if (strcmp(argv[0], "df") == 0)           return cmd_df();
+	if (strcmp(argv[0], "df") == 0)           return cmd_df(argc, argv);
 	if (strcmp(argv[0], "help") == 0)         return cmd_help();
 	fprintf(stderr, "Unknown command: %s\nType 'help' for available commands.\n", argv[0]);
 	return 1;
