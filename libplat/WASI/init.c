@@ -1,5 +1,8 @@
 /*
- * WASI platform init — no /dev filesystem, no locale, trust WASI CSPRNG.
+ * WASI / Emscripten platform init.
+ *
+ * WASI (wasi-sdk):  no /dev, no locale, CSPRNG via __wasi_random_get
+ * Emscripten:       same baseline; Emscripten provides system()
  */
 
 #include <stdbool.h>
@@ -10,11 +13,14 @@
 #include "../../library/include_all_libs.c"
 
 
-/* WASI has no process spawning — stub out system(). */
+#ifndef __EMSCRIPTEN__
+/* WASI has no process spawning — stub out system().
+   Emscripten provides its own system() via the runtime. */
 int system(const char *command) {
     (void)command;
     return -1;
 }
+#endif
 
 
 void frontend_init(int argc, char *argv[]){
