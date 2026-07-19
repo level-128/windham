@@ -170,7 +170,7 @@ bool read_key_from_data_one_level_dispatch(
    unsigned * ret_key_zone,
    int *      ret_result) {
 #if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
-   return read_key_from_data_one_level_st(
+   int st_ret = read_key_from_data_one_level_st(
    data,
    inited_keys_cpy,
    keypool_loc,
@@ -178,6 +178,8 @@ bool read_key_from_data_one_level_dispatch(
    i,
    ret_master_key,
    ret_key_zone);
+   *ret_result = st_ret;
+   return st_ret == NMOBJ_Enclib_calc_done;
 
 #else
    static bool is_mt_mem_okay = true;
