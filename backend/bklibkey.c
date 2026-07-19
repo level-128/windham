@@ -184,7 +184,7 @@ void read_key_file(const Key key, uint8_t inited_key[HASHLEN]) {
 
 
 void read_key_stdin(uint8_t inited_key[HASHLEN]) {
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
    char buffer[4096];
    ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
    if (n <= 0) {

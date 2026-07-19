@@ -169,3 +169,6 @@ void init_device(
 
    fclose(file);
 }
+
+void fin_device(void) {
+}

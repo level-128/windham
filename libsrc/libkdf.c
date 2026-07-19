@@ -78,7 +78,7 @@ bool is_allow_nolock;
 
 #endif
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 
 #include <sys/mman.h>
 #include <stdio.h>

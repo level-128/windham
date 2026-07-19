@@ -12,7 +12,7 @@
 
 #include "aes_xts_impl.c"
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -194,7 +194,7 @@ typedef enum {
    NMOBJ_exec_name_dup_stderr_only = 4
 } Exec_name_flags;
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 bool exec_name(
    char *    exec_name,
    char *    exec_dir[],

@@ -859,7 +859,7 @@ void action_open(
  * action_open_ -- outer wrapper
  * ------------------------------------------- */
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 static void _action_open_print_summary(int i, WindhamtabEntity entities) {
 #define HAS_FLG(x) entities.option_flags & (1 << x)
    printf("Entity %d, pass %hu:\n", i + 1, entities.pass);
@@ -903,7 +903,7 @@ void action_open_(
    aux_link_paths_global = aux_link_paths;
 
    if (strcmp(uninit_device, "TAB") == 0) {
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
       int entity_count;
       if (windhamtab_file == NULL) {
          windhamtab_file = WINDHAMTAB_FILE;

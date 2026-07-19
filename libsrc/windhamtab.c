@@ -3,7 +3,7 @@
 
 
 // not avaliable under ISO C
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 
 #include "srclib.c"
 

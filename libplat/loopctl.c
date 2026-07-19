@@ -12,7 +12,9 @@ void init_device(
 
 void create_file(const char *path, size_t size);
 
-#ifndef WINDHAM_ISOC
+void fin_device(void);
+
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include "GNU_Linux/loopctl.c"
 #else
 #include "ISOC/loopctl.c"

@@ -76,7 +76,7 @@ void decrypt_set_output_file(const char *path);
 
 // -- Driver registry (ordered by priority) -----------
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 extern Driver driver_dm_mapper;
 #endif
 #ifdef CFG_DRIVER_FF
@@ -88,7 +88,7 @@ extern Driver driver_decrypt;
 extern Driver driver_print;
 
 static Driver *drivers[] = {
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
     &driver_dm_mapper,
 #endif
 #ifdef CFG_DRIVER_FF
@@ -186,7 +186,7 @@ void create_crypt_mapping_from_disk_key(
 
 // -- Driver implementations --------------------------
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include "driver_dm_mapper.c"
 #endif
 #ifdef CFG_DRIVER_FF

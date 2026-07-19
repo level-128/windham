@@ -1,7 +1,7 @@
 #ifndef INCL_BKLIBACT
 #define INCL_BKLIBACT
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include <dirent.h>
 #endif
 
@@ -89,7 +89,7 @@ void action_close(const char * device, bool is_deferred_remove) {
 }
 
 void action_close_all(bool is_deferred_remove) {
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
     if (!current_driver || !current_driver->remove) {
         print_warning(_("cannot close: no driver loaded."));
         return;
@@ -161,7 +161,7 @@ int action_addkey(
        rand_key_hex[HASHLEN * 2] = '\0';
        new_key.key_type                = NMOBJ_key_file_type_key;
        new_key.key_or_keyfile_location = rand_key_hex;
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
        // Print to stdout as a single hex string (no spaces), suitable for --target-key
        if (write(stdout_fd, rand_key_hex, HASHLEN * 2) != (ssize_t)HASHLEN * 2) {
           printf("Cannot print key to stdout: write failed.\n");
@@ -323,7 +323,7 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
 
    printf(_("Creating header backup for device %s to %s\n"), device, filename);
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
    if (access(filename, F_OK) != -1) {
       print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
    }
@@ -339,7 +339,7 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
    int64_t             offset;
    ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &data, &offset, is_decoy, false);
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
    int fd = creat(filename, S_IRUSR);
    if (fd == -1) {
       print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
@@ -507,12 +507,12 @@ void action_destory(const char * device, bool is_decoy) {
       }
 
       // sync the disk.
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
       sync();
 #endif
 
       // depends on target.
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
       sleep(1);
 #elif defined(__STDC_NO_THREADS__)
       struct timespec start, current;
@@ -540,7 +540,7 @@ void action_destory(const char * device, bool is_decoy) {
 }
 
 void action_list(void) {
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
    if (!is_device_mapper_available) {
       print_error(_("Device mapper library is not available."));
    }

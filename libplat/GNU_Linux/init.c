@@ -4,6 +4,10 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <limits.h>
+#ifdef __GLIBC__
+#include <execinfo.h>
+#endif
+#include <signal.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <linux/seccomp.h>
@@ -100,6 +104,42 @@ static bool seccomp_init(void) {
     return true;
 }
 
+/* ── Signal handlers ────────────────────────────────────────── */
+
+static void print_stack_trace(void) {
+#ifdef __GLIBC__
+   void * array[40];
+
+   const size_t size    = backtrace(array, 40);
+   char **      strings = backtrace_symbols(array, size);
+
+   printf(_("Backtrace information:\n\n"));
+
+   for (size_t i = 0; i < size; i ++) {
+      printf("  %zu: %s\n", i, strings[i]);
+   }
+   free(strings);
+#endif
+}
+
+static void segfault_handler(__attribute__((unused)) int signum) {
+#ifdef IS_FRONTEND_ENTRY
+   tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+#endif
+   fprintf(stderr, "%s\n", _("Caught segmentation fault!"));
+   print_stack_trace();
+   windham_exit(1);
+}
+
+static void sigint_handler(__attribute__((unused)) int signum) {
+#ifdef IS_FRONTEND_ENTRY
+   tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+#endif
+   fprintf(stderr, "%s\n", _("Interrupt signal captured, exiting..."));
+   windham_exit(1);
+}
+
+
 void frontend_init(int argc, char *argv[]){
 
   init_val->is_random_number_trustworthy = EMOBJ_RANDOM_NUMBER_SYSTEM;
@@ -147,6 +187,8 @@ void frontend_init(int argc, char *argv[]){
   bindtextdomain("windham", "/usr/share/locale");
   textdomain("windham");
   tcgetattr(STDIN_FILENO, &oldt);
+  signal(SIGSEGV, segfault_handler);
+  signal(SIGINT, sigint_handler);
 
   init_val->is_color_print = should_use_color();
 }

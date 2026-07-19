@@ -1,5 +1,5 @@
 // Include all libraries if build system not present.
-#ifdef WINDHAM_ISOC
+#ifndef WINDHAM_PLAT_GNU_LINUX
 
 
 

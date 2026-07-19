@@ -18,12 +18,10 @@
 
 
 /*
- * ---------- Define for ISO C compatibility ----------
-*/
-
-#ifndef WINDHAM_USING_CMAKE
-#define WINDHAM_ISOC
-#endif
+ * ---------- Platform detection ----------
+ * ISOC is the baseline — platforms opt in for extra features via CMake.
+ * Non-CMake builds default to ISOC baseline (no platform macro defined).
+ */
 
 #if (__STDC_VERSION__ >= 202311L)
 #define WINDHAM_ATTRIBUTE(x) [[x]] // attribute syntax in C23
@@ -121,7 +119,7 @@
 */
 
 // GNU gettext
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include <locale.h>
 #include <libintl.h>
 #include <termios.h>
@@ -133,26 +131,14 @@
 
 #ifndef WINDHAM_CONST_HEADER_ONLY
 
-// jump back to test when running unit test
-#if defined(WINDHAM_TEST) || !defined(IS_FRONTEND_ENTRY)
-#ifndef WINDHAM_TEST
-#if (__STDC_VERSION__ >= 202311L)
-#warning "Test target"
-#else
-#pragma message("Test target")
-#endif
-#endif
-
-#ifndef WINDHAM_TEST
+// Library mode (not frontend entry): strip gettext, provide exit_jmp
+#ifndef IS_FRONTEND_ENTRY
 #define _(STRING) STRING
-#endif
-
 jmp_buf exit_jmp;
-
 #endif
 
 // backup terminal config
-#if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_ISOC)
+#if defined(IS_FRONTEND_ENTRY) && defined(WINDHAM_PLAT_GNU_LINUX)
 struct termios oldt;
 #endif
 

@@ -368,7 +368,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 
 	bool is_root = is_running_as_root();
 
-#if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_TEST)
+#ifdef IS_FRONTEND_ENTRY
 	if (!options[NMOBJ_is_noadmin]) {
 		if (is_root == false) {
 			print_error(_(
@@ -379,7 +379,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 #endif
 
 	// redirect the stdout to stderr for NMOBJ_gen_randkey. ISO C mode print to stdout withoud redirect.
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 	if (options[NMOBJ_gen_randkey] == 1) {
 		fflush(stdout);
 		stdout_fd = dup(STDOUT_FILENO);
@@ -475,7 +475,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 
 	// Done parsing the arguments.
 
-#if defined(IS_FRONTEND_ENTRY) && !defined(WINDHAM_TEST)
+#ifdef IS_FRONTEND_ENTRY
 	is_skip_conformation = options[NMOBJ_yes];
 	print_debug_enable = options[NMOBJ_print_debug];
 
@@ -490,7 +490,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
    	    if (options[NMOBJ_print_encryption]) {
    	        driver_name = "print";
    	    } else {
-  #ifndef WINDHAM_ISOC
+  #ifdef WINDHAM_PLAT_GNU_LINUX
    	        driver_name = "dm-mapper";
   #else
   #ifdef CFG_DRIVER_FF
@@ -802,7 +802,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 			bool probe_linux = options[NMOBJ_probe_linux];
 			const char *pattern = params[NMOBJ_probe_pattern];
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 			if (!dir_path && !probe_linux) {
 				probe_linux = true;
 			}

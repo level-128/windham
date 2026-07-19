@@ -178,7 +178,7 @@ static void probe_and_print(const char *device_path,
 static void probe_linux_block_devices(const char *pattern) {
 	FILE *pp = fopen("/proc/partitions", "r");
 	if (!pp) {
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 		print_error(_(
 			"Cannot open /proc/partitions. This system may be running a GNU-like OS "
 			"on a non-Linux kernel (e.g., WSL1, FreeBSD Linuxulator), or the procfs "

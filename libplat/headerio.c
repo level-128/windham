@@ -17,7 +17,7 @@ int     device_seek(void *handle, int64_t offset);
 int64_t device_read(void *handle, void *buf, size_t count);
 int64_t device_write(void *handle, const void *buf, size_t count);
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include "GNU_Linux/headerio.c"
 #else
 #include "ISOC/headerio.c"

@@ -7,7 +7,7 @@
 
 void fill_secure_random_bits(uint8_t * address, const size_t size);
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include "GNU_Linux/get_entropy.c"
 #else
 #include "ISOC/get_entropy.c"

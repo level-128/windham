@@ -71,7 +71,7 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\nVersion:\n"));
       printf(_("\tWindham version: %s\n"), WINDHAM_VERSION);
       printf(_("\tWindham header metadata version: %i\n"), WINDHAM_METADATA_VERSION);
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
       printf(_("\tTarget Linux kernel version for this build: %s\n"), CMAKE_TARGET_KERNEL_VERSION);
 #endif
 

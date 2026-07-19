@@ -2,7 +2,7 @@
 #define INCL_BKLIBMAIN
 
 
-#include "../libsrc/libexit.c"
+#include "../libsrc/srclib.c"
 #include "../libplat/loopctl.c"
 #include "bklibact.c"
 #include "bklibaux.c"
@@ -16,7 +16,7 @@
 
 
 bool is_running_as_root() {
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
    if (getuid() != 0) {
       if (setuid(0) == 0) {
          return true;
@@ -30,7 +30,7 @@ bool is_running_as_root() {
 }
 
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 void set_oom_score_adj(int value) {
    int fd = open("/proc/self/oom_score_adj", O_WRONLY);
    if (fd == -1) {
@@ -104,8 +104,6 @@ void init(bool is_root, const char *act_driver) {
             "Windham refuses to run. To debug Windham, rebuild Windham with CMake \"Debug\" profile."));
    }
 #endif
-   signal(SIGSEGV, segfault_handler);
-   signal(SIGINT, sigint_handler);
 
    if (is_root) {
       set_oom_score_adj(-500);

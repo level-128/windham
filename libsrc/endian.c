@@ -1,7 +1,7 @@
 #ifndef INCL_ENDIAN
 #define INCL_ENDIAN
 
-#ifndef WINDHAM_ISOC
+#ifdef WINDHAM_PLAT_GNU_LINUX
 #include <endian.h>
 #else
 
