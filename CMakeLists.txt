@@ -130,30 +130,7 @@ else()
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # Web/Emscripten: same platform flags as WASI, plus ASYNCIFY.
-    add_compile_definitions(WINDHAM_PLAT_WASI)
-    add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
-    add_compile_definitions(CFG_NO_MODULE_KEYRING)
-    add_compile_definitions(WINDHAM_NO_SECCOMP)
-    add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH)
-    add_compile_definitions(WINDHAM_NO_ENFORCE_SPEC_MITIGATION)
-    add_compile_definitions(WINDHAM_NO_SHEBANG_ENTRY)
-    set(CFG_DRIVER_FF ON CACHE BOOL "" FORCE)
-    set(CFG_FF_CREATE ON CACHE BOOL "" FORCE)
-    set(CFG_DRIVER_DECRYPT ON CACHE BOOL "" FORCE)
-
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ASYNCIFY=1 -s ASSERTIONS=2")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s INITIAL_MEMORY=64MB -s STACK_SIZE=4MB -s MAXIMUM_MEMORY=2GB")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s FORCE_FILESYSTEM=1")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS','callMain']")
-    # wasm32 has 4GB address space; override Argon2's conservative 21-bit default
-    add_compile_definitions(ARGON2_MAX_MEMORY_BITS=32)
-
-    set(CMAKE_EXECUTABLE_SUFFIX ".js")
-    add_executable(windham frontend.c)
-    set_target_properties(windham PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/web")
-
+    # Flags and compile definitions in web/emscripten-toolchain.cmake
 elseif(CMAKE_SYSTEM_NAME STREQUAL "WASI")
         add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"wasi\")
         add_compile_definitions(CMAKE_BUILD_TIME=\"WIPED_REPRODUCIBLE\")
@@ -402,10 +379,6 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "WASI")
 # build targets
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # Web/Emscripten: same platform as WASI, compile only frontend.c.
-    add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
-
-    set(CMAKE_EXECUTABLE_SUFFIX ".js")
     add_executable(windham-web frontend.c)
     set_target_properties(windham-web PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/web" OUTPUT_NAME windham)
 
@@ -500,8 +473,12 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Test")
 
 endif()
 
-# ── Install ──
-install(TARGETS windham RUNTIME DESTINATION bin)
+# ── Install (native targets only) ──
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI" OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # No install for web/wasm targets
+else()
+    install(TARGETS windham RUNTIME DESTINATION bin)
+endif()
 install(FILES README.md DESTINATION share/doc/windham)
 install(DIRECTORY docs/ DESTINATION share/doc/windham/docs
         FILES_MATCHING PATTERN "*.md")

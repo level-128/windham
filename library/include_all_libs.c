@@ -4,10 +4,6 @@
 
 
 
-#define ARGON2_NO_THREADS
-
-#define __Argon2_opt_disable__
-
 #include "Argon2/argon2.c"
 #include "Argon2/core.c"
 #include "Argon2/ref.c"
