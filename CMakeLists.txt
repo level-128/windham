@@ -112,14 +112,46 @@ set(WINDHAM_USING_CMAKE ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PA
 add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
 
 # Platform selection — ISOC is the baseline (no macro needed).
-# WASI and GNU/Linux opt in for extra features.
-if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+# WASI/Emscripten and GNU/Linux opt in for extra features.
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI" OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     add_compile_definitions(WINDHAM_PLAT_WASI)
+    # Force-disable all Linux-specific features early (before try_run blocks)
+    set(CFG_NO_MODULE_KEYRING ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_SECCOMP ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_DISABLE_ATTACH ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_ENFORCE_SPEC_MITIGATION ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_SHEBANG_ENTRY ON CACHE BOOL "" FORCE)
+    set(CFG_DRIVER_FF ON CACHE BOOL "" FORCE)
+    set(CFG_FF_CREATE ON CACHE BOOL "" FORCE)
+    set(CFG_DRIVER_DECRYPT ON CACHE BOOL "" FORCE)
 else()
     add_compile_definitions(WINDHAM_PLAT_GNU_LINUX)
 endif()
 
-    if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Web/Emscripten: same platform flags as WASI, plus ASYNCIFY.
+    add_compile_definitions(WINDHAM_PLAT_WASI)
+    add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
+    add_compile_definitions(CFG_NO_MODULE_KEYRING)
+    add_compile_definitions(WINDHAM_NO_SECCOMP)
+    add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH)
+    add_compile_definitions(WINDHAM_NO_ENFORCE_SPEC_MITIGATION)
+    add_compile_definitions(WINDHAM_NO_SHEBANG_ENTRY)
+    set(CFG_DRIVER_FF ON CACHE BOOL "" FORCE)
+    set(CFG_FF_CREATE ON CACHE BOOL "" FORCE)
+    set(CFG_DRIVER_DECRYPT ON CACHE BOOL "" FORCE)
+
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ASYNCIFY=1 -s ASSERTIONS=2")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s INITIAL_MEMORY=64MB -s STACK_SIZE=4MB -s MAXIMUM_MEMORY=2GB")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s FORCE_FILESYSTEM=1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS','callMain']")
+
+    set(CMAKE_EXECUTABLE_SUFFIX ".js")
+    add_executable(windham frontend.c)
+    set_target_properties(windham PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/web")
+
+elseif(CMAKE_SYSTEM_NAME STREQUAL "WASI")
         add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"wasi\")
         add_compile_definitions(CMAKE_BUILD_TIME=\"WIPED_REPRODUCIBLE\")
     else()
@@ -367,7 +399,15 @@ endif()
 # --------------------------------------------------------------------
 # build targets
 
-if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Web/Emscripten: same platform as WASI, compile only frontend.c.
+    add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
+
+    set(CMAKE_EXECUTABLE_SUFFIX ".js")
+    add_executable(windham-web frontend.c)
+    set_target_properties(windham-web PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/web" OUTPUT_NAME windham)
+
+elseif(CMAKE_SYSTEM_NAME STREQUAL "WASI")
     # WASI/ISOC: source files are #include'd via libplat/WASI/init.c
     # and library/include_all_libs.c. Only compile frontend.c.
     add_executable(windham frontend.c)
