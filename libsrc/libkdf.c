@@ -245,13 +245,17 @@ int kdf_hash(
       kdf_memalloc,
       kdf_memfree);
 
-   // ARGON2 errors are always negative, while NMOBJ_Enclib_xxxx are positive.
-   if (result == ARGON2_MEMORY_ALLOCATION_ERROR || result == ARGON2_MEMORY_TOO_MUCH) {
-      result = Kdf_step_result;
-   } else if (result != ARGON2_OK) {
-      perror("Argon2 hash"); // not possible
-   } else {
+   // ARGON2 errors are always negative, while NMOBJ_Enclib_xxxx are non-negative.
+   if (result == ARGON2_OK) {
       result = NMOBJ_Enclib_calc_okay;
+   } else if (result == ARGON2_MEMORY_ALLOCATION_ERROR) {
+      result = Kdf_step_result;
+   } else if (result == ARGON2_MEMORY_TOO_MUCH) {
+      Kdf_step_result = NMOBJ_Enclib_calc_failed_reached_max_mem;
+      result = Kdf_step_result;
+   } else {
+      // Unexpected error — treat as fatal
+      print_error(_("Argon2 hash failed with error code %d"), result);
    }
 
    return result;
