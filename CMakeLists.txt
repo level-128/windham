@@ -12,7 +12,8 @@ option(CFG_NO_MODULE_KEYRING        "Disable kernel key retention service" OFF)
 option(CFG_DRIVER_FF                "Enable FatFs interactive shell driver" ON)
 option(CFG_FF_CREATE                "Enable --create-exfat (exFAT creation)" ON)
 option(CFG_DRIVER_DECRYPT           "Enable full-disk decryption driver" ON)
-option(CFG_32BIT_ADDR_SPACE         "Limit Argon2 memory for 32-bit address space" OFF)
+set(CFG_32BIT_ADDR_SPACE "" CACHE STRING
+    "Override ARGON2_MAX_MEMORY_BITS (max m_cost=2^bits KiB). 21=2 GiB, 22=4 GiB, 31=2 TiB. Empty = auto detect.")
 option(CFG_ASCII                    "Force ASCII-only mode (mask UTF-16/UTF-32)" OFF)
 option(WINDHAM_NO_SECCOMP           "Disable seccomp filter" OFF)
 option(WINDHAM_NO_DISABLE_ATTACH    "Allow debugger to attach" OFF)
@@ -212,10 +213,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "WASI")
         add_compile_definitions(WINDHAM_NO_SECCOMP)
     endif ()
 
-    # 32-bit address space limit for Argon2
+    # Override ARGON2_MAX_MEMORY_BITS (bits for max m_cost in KiB)
     if (CFG_32BIT_ADDR_SPACE)
-        add_compile_definitions(CFG_32BIT_ADDR_SPACE)
-        add_compile_definitions(ARGON2_MAX_MEMORY_BITS=21)
+        add_compile_definitions(ARGON2_MAX_MEMORY_BITS=${CFG_32BIT_ADDR_SPACE})
     endif ()
 
     # force ASCII-only mode (mask UTF-16/UTF-32)

@@ -83,6 +83,9 @@ set(WINDHAM_NO_SHEBANG_ENTRY ON CACHE BOOL "" FORCE)
 set(CFG_DRIVER_FF ON CACHE BOOL "" FORCE)
 set(CFG_FF_CREATE ON CACHE BOOL "" FORCE)
 set(CFG_DRIVER_DECRYPT ON CACHE BOOL "" FORCE)
+# wasm32 has ~4 GiB available address space; Argon2's auto-formula
+# gives only 21 (2 GiB) for 32-bit pointers.  Bump to 22 = 4 GiB.
+add_compile_definitions(ARGON2_MAX_MEMORY_BITS=22)
 
 add_compile_definitions(WINDHAM_PLAT_WASI)
 add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
