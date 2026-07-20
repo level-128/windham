@@ -1,8 +1,17 @@
 // Include all libraries if build system not present.
 #ifndef WINDHAM_PLAT_GNU_LINUX
 
+// Map compiler thread-disabled state to Argon2's no-threads macro.
+// CMake handles this via -D; direct compiles need the fallback.
+#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
+#ifndef ARGON2_NO_THREADS
+#define ARGON2_NO_THREADS
+#endif
+#endif
 
-
+#ifndef __Argon2_opt_disable__
+#define __Argon2_opt_disable__
+#endif
 
 #include "Argon2/argon2.c"
 #include "Argon2/core.c"
