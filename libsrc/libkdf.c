@@ -34,6 +34,15 @@ uint64_t kdf_mem_bounds[26][2] = {
    {236590727168,236638045313}
 };
 
+const intmax_t t_cost_equal_3_limit = 6100;
+const intmax_t t_cost_equal_2_limit = 451332;
+
+static uint32_t kdf_t_cost_for_mem(intmax_t m_cost) {
+   if (m_cost <= t_cost_equal_3_limit) return 3;
+   if (m_cost <= t_cost_equal_2_limit) return 2;
+   return 1;
+}
+
 typedef enum {
    NMOBJ_Enclib_calc_okay,
    // okay

@@ -1,6 +1,8 @@
 cmake-build-*
 build*
 compile_commands.json
+web/windham.js
+web/windham.wasm
 .*
 *__pycache__
 debian

@@ -95,7 +95,7 @@ int read_key_from_data_one_level_st(
    for (int j = 0; j < 2; j ++) {
       uint64_t mem = generate_memory_based_on_hash_value(inited_keys_cpy[j], data.master_key_mask, i);
       int result = kdf_hash(
-         1,
+         kdf_t_cost_for_mem(mem),
          mem,
          PARALLELISM,
          inited_keys_cpy[j],
@@ -138,7 +138,7 @@ int read_key_from_data_one_level_mt_thread_function(void * arg) {
    uint64_t mem = generate_memory_based_on_hash_value(args->inited_keys_cpy, args->data->master_key_mask, args->i);
 
    int                                                    result = kdf_hash(
-      1,
+      kdf_t_cost_for_mem(mem),
       mem,
       PARALLELISM,
       args->inited_keys_cpy,
@@ -375,7 +375,7 @@ int generate_key_slot_key_mask(
       uint64_t mem = generate_memory_based_on_hash_value(inited_key_cpy, data.master_key_mask, i);
 
       int     result = kdf_hash(
-         1,
+         kdf_t_cost_for_mem(mem),
          mem,
          PARALLELISM,
          inited_key_cpy,
