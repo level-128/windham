@@ -246,7 +246,7 @@ int kdf_hash(
       kdf_memfree);
 
    // ARGON2 errors are always negative, while NMOBJ_Enclib_xxxx are positive.
-   if (result == ARGON2_MEMORY_ALLOCATION_ERROR) {
+   if (result == ARGON2_MEMORY_ALLOCATION_ERROR || result == ARGON2_MEMORY_TOO_MUCH) {
       result = Kdf_step_result;
    } else if (result != ARGON2_OK) {
       perror("Argon2 hash"); // not possible
