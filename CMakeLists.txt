@@ -368,8 +368,10 @@ endif()
 # build targets
 
 if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
-    add_executable(windham frontend.c ${LIBRARY_SOURCES})
-    set_target_properties(windham PROPERTIES OUTPUT_NAME windham)
+    # WASI/ISOC: source files are #include'd via libplat/WASI/init.c
+    # and library/include_all_libs.c. Only compile frontend.c.
+    add_executable(windham frontend.c)
+    set_target_properties(windham PROPERTIES OUTPUT_NAME windham SUFFIX ".wasm")
     configure_global_flags()
 
 elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
