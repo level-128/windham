@@ -146,6 +146,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s INITIAL_MEMORY=64MB -s STACK_SIZE=4MB -s MAXIMUM_MEMORY=2GB")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s FORCE_FILESYSTEM=1")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS','callMain']")
+    # wasm32 has 4GB address space; override Argon2's conservative 21-bit default
+    add_compile_definitions(ARGON2_MAX_MEMORY_BITS=32)
 
     set(CMAKE_EXECUTABLE_SUFFIX ".js")
     add_executable(windham frontend.c)
