@@ -615,17 +615,152 @@ static int cmd_find(int argc, char **argv)
 /* import <host-path> <fat-path>                                         */
 /*-----------------------------------------------------------------------*/
 
+#define TAR_BLOCK  512
+
 static int cmd_import(int argc, char **argv)
 {
-	if (argc < 3) {
-		fprintf(stderr, "import: missing operand\nUsage: import <host-path> <fat-path>\n");
+	int opt_tar = 0;
+	const char *hostpath = NULL;
+	const char *fatpath = NULL;
+	int i;
+
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-tar") == 0) {
+			opt_tar = 1;
+		} else if (!hostpath) {
+			hostpath = argv[i];
+		} else if (!fatpath) {
+			fatpath = argv[i];
+		}
+	}
+
+	if (!hostpath || !fatpath) {
+		fprintf(stderr, "import: missing operand\nUsage: import [-tar] <host-path> <fat-path>\n");
 		return 1;
 	}
 
-	FILE *hf = fopen(argv[1], "rb");
+	if (opt_tar) {
+		/* --- tar mode: extract archive into fatpath directory --- */
+		FILE *hf = fopen(hostpath, "rb");
+		if (!hf) { perror("import -tar: fopen host"); return 1; }
+
+		/* Create the target directory */
+		user_path_to_tchar(TPathBuf, MAX_PATH, fatpath);
+		FRESULT fr = f_mkdir(TPathBuf);
+
+		unsigned char block[TAR_BLOCK];
+		while (fread(block, 1, TAR_BLOCK, hf) == TAR_BLOCK) {
+			/* Two consecutive zero blocks = end of archive */
+			if (block[0] == 0) {
+				unsigned char nxt[TAR_BLOCK];
+				if (fread(nxt, 1, TAR_BLOCK, hf) != TAR_BLOCK || nxt[0] == 0)
+					break;
+				memcpy(block, nxt, TAR_BLOCK);
+			}
+
+			char fname[256];
+			memset(fname, 0, sizeof(fname));
+
+			/* Merge ustar prefix (offset 345, 155 bytes) + name (offset 0, 100 bytes) */
+			if (block[345] != 0) {
+				char prefix[156];
+				memcpy(prefix, block + 345, 155);
+				prefix[155] = '\0';
+				size_t pl = strlen(prefix);
+				memcpy(fname, prefix, pl);
+				fname[pl] = '/';
+				memcpy(fname + pl + 1, block, 100);
+				fname[sizeof(fname) - 1] = '\0';
+			} else {
+				memcpy(fname, block, 100);
+				fname[100] = '\0';
+			}
+
+			/* Strip leading "./" or "/" */
+			char *n = fname;
+			while (n[0] == '.' && n[1] == '/') n += 2;
+			while (n[0] == '/') n++;
+			if (n[0] == '\0') continue;
+
+			/* Strip trailing '/' from directory names */
+			size_t nl = strlen(n);
+			if (nl > 1 && n[nl - 1] == '/') n[--nl] = '\0';
+
+			/* Relative to target dir */
+			char fullpath[MAX_PATH];
+			snprintf(fullpath, sizeof(fullpath), "%s/%s", fatpath, n);
+			user_path_to_tchar(TPathBuf, MAX_PATH, fullpath);
+
+			/* Parse octal size (offset 124, 12 bytes) */
+			QWORD fsize = 0;
+			for (i = 0; i < 12 && block[124 + i] >= '0' && block[124 + i] <= '7'; i++)
+				fsize = (fsize << 3) | (QWORD)(block[124 + i] - '0');
+
+			char type = block[156];
+			/* Padded size: round fsize up to next 512-byte boundary */
+			QWORD padded = (fsize + TAR_BLOCK - 1) & ~(QWORD)(TAR_BLOCK - 1);
+
+			if (type == '5' || (nl > 0 && fsize == 0 && block[0] != 0)) {
+				/* Directory entry */
+				fr = f_mkdir(TPathBuf);
+				if (fr != FR_OK && fr != FR_EXIST)
+					fprintf(stderr, "import -tar: mkdir '%s' failed: %d\n", fullpath, (int)fr);
+				continue;
+			}
+
+			if (type != '0' && type != '\0' && type != '7') {
+				/* Not a regular file — skip */
+				if (padded > 0) fseek(hf, (long)padded, SEEK_CUR);
+				continue;
+			}
+
+			/* Create parent directories */
+			{
+				char parent[MAX_PATH];
+				strcpy(parent, fullpath);
+				char *sl = strrchr(parent, '/');
+				if (sl && sl != parent) {
+					*sl = '\0';
+					user_path_to_tchar(TPathBuf2, MAX_PATH, parent);
+					f_mkdir(TPathBuf2);
+				}
+			}
+
+			FIL ff;
+			fr = f_open(&ff, TPathBuf, FA_WRITE | FA_CREATE_ALWAYS);
+			if (fr != FR_OK) {
+				fprintf(stderr, "import -tar: create '%s' failed: %d\n", fullpath, (int)fr);
+				if (padded > 0) fseek(hf, (long)padded, SEEK_CUR);
+				continue;
+			}
+
+			for (QWORD left = fsize; left > 0; ) {
+				size_t chunk = left > COPY_BUF_SIZE ? COPY_BUF_SIZE : (size_t)left;
+				size_t rd = fread(CopyBuf, 1, chunk, hf);
+				if (rd == 0) break;
+				UINT bw;
+				fr = f_write(&ff, CopyBuf, (UINT)rd, &bw);
+				if (fr != FR_OK || bw != (UINT)rd) { fr = FR_DISK_ERR; break; }
+				left -= rd;
+			}
+			f_close(&ff);
+
+			/* Skip padding bytes to next 512-aligned entry */
+			QWORD remain = padded - fsize;
+			if (remain > 0) fseek(hf, (long)remain, SEEK_CUR);
+
+			if (fr != FR_OK) break;
+		}
+
+		fclose(hf);
+		return (fr != FR_OK) ? 1 : 0;
+	}
+
+	/* --- file mode (original behaviour) --- */
+	FILE *hf = fopen(hostpath, "rb");
 	if (!hf) { perror("import: fopen host"); return 1; }
 
-	user_path_to_tchar(TPathBuf, MAX_PATH, argv[2]);
+	user_path_to_tchar(TPathBuf, MAX_PATH, fatpath);
 
 	FIL ff;
 	FRESULT fr = f_open(&ff, TPathBuf, FA_WRITE | FA_CREATE_ALWAYS);
@@ -651,8 +786,6 @@ static int cmd_import(int argc, char **argv)
 /*-----------------------------------------------------------------------*/
 /* Tar helpers                                                           */
 /*-----------------------------------------------------------------------*/
-
-#define TAR_BLOCK  512
 
 static void tar_octal(char *dst, size_t len, QWORD val)
 {
@@ -1028,6 +1161,43 @@ static int ff_shell_run(void)
 	char line[4096];
 	char *line_argv[64];
 
+#ifdef __EMSCRIPTEN__
+// Avoid including <emscripten.h> which can conflict with <stdio.h> FILE type.
+extern void emscripten_sleep(unsigned int ms);
+	// Emscripten ASYNCIFY cannot safely unwind through Module.stdin.
+	// Instead, poll a virtual file for commands (written by JS).
+	for (;;) {
+		get_cwd_display();
+		printf("fat:%s>\n", CwdBuf); // \n flushes line-buffered stdout
+		fflush(stdout);
+
+		emscripten_sleep(100);
+
+		FILE *qf = fopen("/cmd_queue", "r");
+		if (!qf) continue;
+		fseek(qf, 0, SEEK_END);
+		long qsz = ftell(qf);
+		fclose(qf);
+		if (qsz == 0) continue;
+
+		qf = fopen("/cmd_queue", "r");
+		if (!qf) continue;
+		if (!fgets(line, sizeof(line), qf)) { fclose(qf); continue; }
+		fclose(qf);
+
+		// Clear the queue file for next command
+		qf = fopen("/cmd_queue", "w");
+		if (qf) fclose(qf);
+
+		int nargs = tokenize(line, line_argv, 64);
+		if (nargs == 0) continue;
+
+		if (strcmp(line_argv[0], "exit") == 0 || strcmp(line_argv[0], "quit") == 0)
+			break;
+
+		exec_command(nargs, line_argv);
+	}
+#else
 	for (;;) {
 		get_cwd_display();
 		printf("fat:%s> ", CwdBuf);
@@ -1043,6 +1213,7 @@ static int ff_shell_run(void)
 
 		exec_command(nargs, line_argv);
 	}
+#endif
 
 	if (Mounted) {
 		f_mount(NULL, u"0:", 0);
@@ -1088,7 +1259,6 @@ static int ff_create(
     bool is_no_read_workqueue, bool is_no_write_workqueue)
 {
     (void)name;
-    (void)is_read_only;
     (void)is_allow_discards;
     (void)is_no_read_workqueue;
     (void)is_no_write_workqueue;
@@ -1101,11 +1271,11 @@ static int ff_create(
     if (!disk_key) { perror("malloc"); exit(1); }
     ff_hex_to_bin(password, disk_key, key_size);
 
-    void *dev_handle = device_open(device, false);
+    void *dev_handle = device_open(device, !is_read_only);
     if (!dev_handle) { perror(device); exit(1); }
 
     size_t part_sectors = end_sector - start_sector;
-    ff_diskio_init(dev_handle, disk_key, block_size, start_sector, part_sectors, 0);
+    ff_diskio_init(dev_handle, disk_key, block_size, start_sector, part_sectors, is_read_only ? 0 : 1);
 
     printf("UUID:   %s\n", uuid_str);
     printf("Device: %s\n", device);

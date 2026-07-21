@@ -137,9 +137,12 @@ void frontend_init(int argc, char *argv[]){
         }
     }
 
+#if defined(__STDC_ISO_10646__) && defined(WINDHAM_UTF_16) && !defined(CFG_ASCII)
     char * locale_str = setlocale(LC_ALL, "");
     init_val->is_color_print = contains_utf_ic(locale_str);
-
+#else
+    init_val->is_color_print = false;
+#endif
     if (verify_unix_device("/dev/null", validate_dev_null) &&
         verify_unix_device("/dev/zero", validate_dev_zero)){
             init_val->is_random_number_trustworthy = EMOBJ_RANDOM_NUMBER_SYSTEM;

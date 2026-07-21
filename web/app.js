@@ -1,19 +1,18 @@
-// Windham Web — WASM encrypted disk browser
-// Uses ASYNCIFY + Module.stdin callback for interactive shell.
-
+// Windham Web — File browser UI
+// All I/O callbacks and shared state are on the Module object,
+// set up in index.html's inline script before windham.js loads.
+var Windham = {};
 const $ = s => document.querySelector(s);
 
-// ── ASYNCIFY stdin ────────────────────────────────────────────
-let stdinWakeup = null;
-let stdinChars  = '';
-
-// ── Shell state ───────────────────────────────────────────────
-let stdoutAcc   = '';
-let shellReady  = false;
-let cwd         = '/';
-let fsType      = '';
-let fileTree    = { dirs: [], files: [] };
-let pendingCmd  = null;   // { resolve } — promise for current command
+// ── Error modal ───────────────────────────────────────────────
+function showError(title, msg) {
+    $('#errTitle').textContent = title;
+    $('#errBody').textContent  = msg;
+    $('#errorModal').style.display = 'flex';
+}
+function hideError() { $('#errorModal').style.display = 'none'; }
+$('#errorClose').onclick = hideError;
+$('#errorModal').onclick = function(e) { if (e.target === this) hideError(); };
 
 // ── Helpers ───────────────────────────────────────────────────
 function fmtSize(n) {
@@ -24,214 +23,208 @@ function fmtSize(n) {
 }
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function log(type, text) {
-    const d = document.createElement('div');
-    d.className = type;
-    d.textContent = text;
-    $('#logBody').appendChild(d);
-    $('#logBody').scrollTop = $('#logBody').scrollHeight;
-}
+// Shared state (initialized by inline script, consumed here)
+Module._cwd = Module._cwd || '/';
+Module._fsType = Module._fsType || '';
+Module._shellReady = Module._shellReady || false;
 
-// ── Emscripten Module (merge into existing) ────────────────────
-Module['noInitialRun'] = true;
-Module['noExitRuntime'] = true;
+var _fileTree = { dirs: [], files: [] };
+var _historyCwd = ['/'];
+var _historyIdx = 0;
 
-// stdout
-Module['print'] = function(text) {
-        // Detect shell prompt
-        if (text.indexOf('fat:') === 0) {
-            const i = text.indexOf('>');
-            if (i > 0) cwd = text.substring(text.indexOf(':')+1, i).trim();
-            shellReady = true;
-            if (pendingCmd) {
-                const r = pendingCmd.resolve;
-                pendingCmd = null;
-                stdoutAcc = '';
-                r();
-            }
-            return;
-        }
-
-        // Detect FS type
-        if (text.indexOf('Filesystem type:') === 0) {
-            fsType = text.split(':')[1].trim();
-            $('#fsInfo').textContent = fsType;
-            $('#stateRow').style.display = 'flex';
-            $('#mainLayout').style.display = 'flex';
-            return;
-        }
-
-        stdoutAcc += text + '\n';
-        if (text.trim()) log('out', text);
-};
-
-// stderr
-Module['printErr'] = function(text) {
-    log('err', text);
-};
-
-// ASYNCIFY stdin — yields until we wake it
-Module['stdin'] = function() {
-    return Asyncify.handleSleep(function(wakeUp) {
-        stdinWakeup = wakeUp;
-    });
-};
-
-Module['onRuntimeInitialized'] = function() {
+Windham.onReady = function() {
     $('#status').textContent = 'Ready';
     $('#openBtn').disabled = false;
 };
 
-// ── Feed a command to stdin (ASYNCIFY-safe) ───────────────────
+// ── Feed a command to stdin ───────────────────────────────────
 function shellCmd(cmd) {
     return new Promise(function(resolve) {
-        log('cmd', cmd);
-        pendingCmd = { resolve: resolve };
-        feedChars(cmd + '\n');
+        Module._lastError = '';
+        Module._stdoutAcc = '';
+        Module._pendingCmd = { resolve: resolve };
+        Module.FS.writeFile('/cmd_queue', cmd + '\n');
     });
 }
 
-function feedChars(s) {
-    stdinChars += s;
-    pumpStdin();
-}
-
-function pumpStdin() {
-    while (stdinChars.length > 0 && stdinWakeup) {
-        const ch = stdinChars.charCodeAt(0);
-        stdinChars = stdinChars.slice(1);
-        const w = stdinWakeup;
-        stdinWakeup = null;
-        w(ch);   // wake ASYNCIFY with next char
-    }
-}
-
 // ── Parse ls -p output ────────────────────────────────────────
-function parseLs() {
-    const result = { dirs: [], files: [] };
-    const lines = stdoutAcc.split('\n');
-    for (const line of lines) {
+function parseLs(output) {
+    var result = { dirs: [], files: [] };
+    var lines = output.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
         if (!line.trim()) continue;
-        const parts = line.split('\t');
+        var parts = line.split('\t');
         if (parts.length < 3) continue;
-        const [type, size, name] = parts;
+        var type = parts[0], size = parts[1], name = parts[2];
         if (name === '.' || name === '..') continue;
-        if (type === 'd') result.dirs.push({ name, size: 0 });
-        else if (type === 'f') result.files.push({ name, size: parseInt(size) || 0 });
+        if (type === 'd') result.dirs.push({ name: name, size: 0 });
+        else if (type === 'f') result.files.push({ name: name, size: parseInt(size) || 0 });
     }
     return result;
 }
 
 // ── Render file tree ──────────────────────────────────────────
 function renderTree() {
-    const el = $('#fileTree');
+    var el = $('#fileTree');
     el.innerHTML = '';
+    var cwd = Module._cwd;
 
-    if (cwd !== '/') {
-        const d = makeItem('📁', '..', 0, 'dir', function() { cd('..'); });
-        el.appendChild(d);
-    }
+    if (cwd !== '/') el.appendChild(makeItem('📂', '..', 0, 'dir', function() { cd('..'); }));
 
-    for (const e of fileTree.dirs) el.appendChild(dirItem(e.name));
-    for (const e of fileTree.files) el.appendChild(fileItem(e.name, e.size));
+    for (var i = 0; i < _fileTree.dirs.length; i++) (function(n){ el.appendChild(makeItem('📁', n, 0, 'dir', function(){ cd(n); })); })(_fileTree.dirs[i].name);
+    for (var i = 0; i < _fileTree.files.length; i++) (function(n,s){ el.appendChild(makeItem(iconFor(n), n, s, '', function(){ previewFile(n, s); })); })(_fileTree.files[i].name, _fileTree.files[i].size);
 
     $('#breadcrumb').textContent = cwd;
+    $('#fileCount').textContent = _fileTree.dirs.length + ' dirs, ' + _fileTree.files.length + ' files';
+}
+
+function iconFor(name) {
+    return /\.(jpg|png|gif|webp|bmp|svg|ico)$/i.test(name) ? '🖼' :
+           /\.(txt|md|log|cfg|ini|json|xml|yaml|yml|toml)$/i.test(name) ? '📄' :
+           /\.(zip|tar|gz|7z|rar|lz|xz)$/i.test(name) ? '📦' :
+           /\.(mp3|wav|flac|ogg|aac)$/i.test(name) ? '🎵' :
+           /\.(mp4|mov|avi|mkv|webm)$/i.test(name) ? '🎬' : '📄';
 }
 
 function makeItem(icon, name, size, cls, onclick) {
-    const d = document.createElement('div');
+    var d = document.createElement('div');
     d.className = 'tree-item ' + cls;
-    d.innerHTML =
-        '<span class="icon">' + icon + '</span>' +
+    d.innerHTML = '<span class="icon">' + icon + '</span>' +
         '<span class="name">' + esc(name) + '</span>' +
-        (size > 0 ? '<span class="size">' + fmtSize(size) + '</span>' : '') +
-        '<span class="dl">⬇</span>';
+        '<span class="size">' + (size > 0 ? fmtSize(size) : '') + '</span>' +
+        '<span class="dl" title="Download">⬇</span>';
     d.onclick = onclick;
-    return d;
-}
-
-function dirItem(name) {
-    const d = makeItem('📁', name, 0, 'dir', function() { cd(name); });
-    return d;
-}
-
-function fileItem(name, size) {
-    const icon = /\.(jpg|png|gif|webp|bmp|svg)$/i.test(name) ? '🖼' :
-                 /\.(txt|md|log|cfg|ini|json|xml)$/i.test(name) ? '📄' :
-                 /\.(zip|tar|gz|7z|rar)$/i.test(name) ? '📦' : '📎';
-    const d = makeItem(icon, name, size, '', null);
-    d.querySelector('.dl').onclick = function(e) {
-        e.stopPropagation();
-        exportFile(name);
-    };
+    var dl = d.querySelector('.dl');
+    if (dl && cls !== 'dir') dl.onclick = function(e) { e.stopPropagation(); exportFile(name); };
     return d;
 }
 
 // ── Actions ────────────────────────────────────────────────────
 async function cd(dir) {
     await shellCmd(dir === '..' ? 'cd ..' : 'cd ' + dir);
-    await ls();
+    if (Module._lastError) { showError('cd Failed', Module._lastError); return; }
+    _historyCwd = _historyCwd.slice(0, _historyIdx + 1);
+    _historyCwd.push(Module._cwd);
+    _historyIdx = _historyCwd.length - 1;
+    updateNavBtns();
+    await refresh();
 }
 
-async function ls() {
-    await shellCmd('ls -p');
-    fileTree = parseLs();
+async function navBack() {
+    if (_historyIdx > 0) { _historyIdx--; await shellCmd('cd ' + _historyCwd[_historyIdx]); await refresh(); }
+}
+async function navFwd() {
+    if (_historyIdx < _historyCwd.length - 1) { _historyIdx++; await shellCmd('cd ' + _historyCwd[_historyIdx]); await refresh(); }
+}
+function updateNavBtns() {
+    $('#navBack').disabled = _historyIdx <= 0;
+    $('#navFwd').disabled = _historyIdx >= _historyCwd.length - 1;
+}
+
+async function refresh() {
+    var output = await shellCmd('ls -p');
+    if (Module._lastError) { showError('ls Failed', Module._lastError); return; }
+    _fileTree = parseLs(output);
     renderTree();
+    $('#status').textContent = 'Mounted \u00b7 ' + Module._fsType;
 }
 
 async function exportFile(name) {
-    const fpath = cwd + '/' + name;
-    log('cmd', 'export ' + fpath);
+    var fpath = Module._cwd + '/' + name;
+    $('#status').textContent = 'Exporting...';
     try { Module.FS.unlink('/tmp/x'); } catch(e) {}
     await shellCmd('export ' + fpath + ' /tmp/x');
+    if (Module._lastError) { showError('Export Failed', Module._lastError); return; }
     try {
-        const data = Module.FS.readFile('/tmp/x');
-        const url  = URL.createObjectURL(new Blob([data]));
-        const a    = document.createElement('a');
+        var data = Module.FS.readFile('/tmp/x');
+        var url = URL.createObjectURL(new Blob([data]));
+        var a = document.createElement('a');
         a.href = url; a.download = name; a.click();
         URL.revokeObjectURL(url);
         Module.FS.unlink('/tmp/x');
-    } catch(e) { log('err', 'Export: ' + e.message); }
+    } catch(e) { showError('Export Failed', e.message); }
+    $('#status').textContent = 'Mounted \u00b7 ' + Module._fsType;
 }
+
+function previewFile(name, size) {
+    $('#previewName').textContent = name;
+    $('#previewSize').textContent = fmtSize(size);
+    $('#previewPanel').style.display = 'block';
+}
+function closePreview() { $('#previewPanel').style.display = 'none'; }
+$('#previewClose').onclick = closePreview;
 
 // ── Open disk ──────────────────────────────────────────────────
 async function openDisk() {
-    const file = $('#fileInput').files[0];
-    const pass = $('#passInput').value;
+    var file = $('#fileInput').files[0];
+    var pass = $('#passInput').value;
     if (!file || !pass) return;
 
     $('#openBtn').disabled = true;
     $('#loadingArea').style.display = 'flex';
+    $('#infoSection').style.display = 'none';
     $('#status').textContent = 'Reading disk...';
 
-    const buf = await file.arrayBuffer();
+    var buf = await file.arrayBuffer();
     Module.FS.writeFile('/disk.img', new Uint8Array(buf));
-    Module.FS.writeFile('/password', pass);
-    log('out', file.name + ' (' + fmtSize(buf.byteLength) + ')');
+    Module.FS.writeFile('/cmd_queue', new Uint8Array(0));
 
     $('#loadingArea').style.display = 'none';
     $('#status').textContent = 'Deriving key...';
 
-    // callMain with ASYNCIFY returns immediately
-    Module.callMain(['Open', '/disk.img', '--key-file', '/password']);
-
-    waitForShell();
+    try {
+        Module.callMain(['Open', '/disk.img', '--key', pass]);
+    } catch(e) { showError('Unlock Failed', e.message||String(e)); $('#openBtn').disabled = false; return; }
+    waitForShell(0);
 }
 
-function waitForShell() {
-    if (shellReady) {
-        $('#status').textContent = 'Mounted · ' + fsType;
-        ls();
+function waitForShell(attempts) {
+    if (Module._shellReady) {
+        $('#toolbar').style.display = 'flex';
+        _historyCwd = ['/']; _historyIdx = 0;
+        updateNavBtns();
+        if (Module._fsType) {
+            $('#fsInfo').textContent = Module._fsType;
+            $('#stateRow').style.display = 'flex';
+            $('#mainLayout').style.display = 'flex';
+        }
+        refresh();
         return;
     }
-    setTimeout(waitForShell, 100);
+    if (Module._lastError) { showError('Unlock Failed', Module._lastError); return; }
+    if (attempts > 300) { showError('Timeout', 'Unlock took too long.'); return; }
+    if (attempts % 10 === 0) $('#status').textContent = 'Waiting for shell... ' + (attempts/10).toFixed(0) + 's';
+    setTimeout(function() { waitForShell(attempts + 1); }, 100);
 }
 
 // ── Events ─────────────────────────────────────────────────────
 $('#fileInput').onchange = checkForm;
 $('#passInput').oninput   = checkForm;
+$('#passInput').onkeydown = function(e) { if (e.key === 'Enter') openDisk(); };
 $('#openBtn').onclick     = openDisk;
+$('#navBack').onclick     = navBack;
+$('#navFwd').onclick      = navFwd;
+$('#refreshBtn').onclick  = refresh;
+$('#closeBtn').onclick    = closeDisk;
 
 function checkForm() {
     $('#openBtn').disabled = !($('#fileInput').files.length && $('#passInput').value);
+}
+
+function closeDisk() {
+    Module._shellReady = false;
+    Module._cwd = '/';
+    Module._fsType = '';
+    _fileTree = { dirs: [], files: [] };
+    _historyCwd = ['/']; _historyIdx = 0;
+    $('#mainLayout').style.display = 'none';
+    $('#stateRow').style.display = 'none';
+    $('#previewPanel').style.display = 'none';
+    $('#toolbar').style.display = 'none';
+    $('#infoSection').style.display = '';
+    $('#fileTree').innerHTML = '';
+    $('#status').textContent = 'Ready';
+    checkForm();
+    location.reload();
 }

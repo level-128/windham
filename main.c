@@ -102,11 +102,12 @@ enum {
 	NMOBJ_aux_link_paths,
 
 	/* -- Misc ----------------------------------- */
-	NMOBJ_close_all,
-	NMOBJ_aux_rm,
+ 	NMOBJ_close_all,
+ 	NMOBJ_aux_rm,
+ 	NMOBJ_is_fold,
 
-	/* -- Driver selection ----------------------- */
-	NMOBJ_decrypt,
+ 	/* -- Driver selection ----------------------- */
+ 	NMOBJ_decrypt,
 	NMOBJ_print_encryption,
 
 	/* -- exFAT creation ------------------------- */
@@ -200,6 +201,7 @@ const struct option long_options[] = {
 	/* -- Bool flags: dm-crypt / device ----------- */
 	{"restore", no_argument, &options[NMOBJ_target_restore], 1},
 	{"decoy", no_argument, &options[NMOBJ_target_decoy], 1},
+	{"fold", no_argument, &options[NMOBJ_is_fold], 1},
 	{"readonly", no_argument, &options[NMOBJ_target_readonly], 1},
 	{"allow-discards", no_argument, &options[NMOBJ_target_allow_discards], 1},
 	{"no-read-workqueue", no_argument, &options[NMOBJ_target_no_read_workqueue], 1},
@@ -672,12 +674,15 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 
 			action_backup(STR_device->name,
 			              params[NMOBJ_to],
-			              options[NMOBJ_target_decoy], false);
+			              options[NMOBJ_target_decoy], false,
+			              options[NMOBJ_is_fold], key, master_key);
 			break;
 		case NMOBJ_action_restore:
 			init_device(device, false, true, options[NMOBJ_is_nofail], true, 0, 0);
 
-			action_restore(STR_device->name, params[NMOBJ_to], options[NMOBJ_target_decoy]);
+			action_restore(STR_device->name, params[NMOBJ_to],
+			               options[NMOBJ_target_decoy],
+			               options[NMOBJ_is_fold], key, master_key);
 			break;
 		case NMOBJ_action_suspend:
 			init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);

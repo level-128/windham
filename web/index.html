@@ -6,53 +6,86 @@
 <title>Windham Web</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; }
+body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 
-.header { background: #16213e; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+.header { background: #16213e; padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .header h1 { font-size: 18px; color: #4fc3f7; flex: 1; }
 .header .status { font-size: 13px; color: #888; }
+.header .toolbar { display: flex; gap: 6px; }
+.header .toolbar button { background: #222; color: #ccc; border: 1px solid #444; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.header .toolbar button:hover:not(:disabled) { background: #333; }
+.header .toolbar button:disabled { opacity: 0.4; cursor: default; }
+.header .toolbar button.close-btn { background: #5c1a1a; border-color: #833; color: #f88; }
+.header .toolbar button.close-btn:hover { background: #7c2a2a; }
 
-.panel { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+.panel { flex: 1; display: flex; flex-direction: column; padding: 12px 20px; overflow: hidden; }
 
-.form-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 16px; }
+.form-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 12px; flex-shrink: 0; }
 .form-row label { font-size: 13px; color: #aaa; display: block; margin-bottom: 4px; }
 .form-row input[type=file] { background: #222; border: 1px solid #444; color: #ccc; padding: 8px; border-radius: 4px; width: 280px; }
 .form-row input[type=password] { background: #222; border: 1px solid #444; color: #ccc; padding: 8px; border-radius: 4px; width: 200px; }
-.form-row button { background: #0d7377; color: #fff; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
-.form-row button:hover { background: #0e9594; }
-.form-row button:disabled { background: #444; cursor: not-allowed; }
+.form-row button.primary { background: #0d7377; color: #fff; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.form-row button.primary:hover { background: #0e9594; }
+.form-row button.primary:disabled { background: #444; cursor: not-allowed; }
 
-.state-row { display: flex; gap: 12px; font-size: 13px; color: #888; margin-bottom: 8px; }
-.state-row .fs-info { color: #4fc3f7; }
+.state-row { display: flex; gap: 12px; font-size: 13px; color: #888; margin-bottom: 8px; align-items: center; flex-shrink: 0; }
+.state-row .fs-info { color: #4fc3f7; font-weight: 600; }
 
-.main-layout { display: flex; gap: 16px; }
-.tree-panel { flex: 1; background: #12122a; border: 1px solid #333; border-radius: 6px; overflow: auto; max-height: 70vh; }
-.tree-panel .tree-header { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #222; }
-.tree-panel .tree-item { display: flex; align-items: center; padding: 4px 14px; cursor: pointer; font-size: 14px; }
+.main-layout { flex: 1; display: flex; gap: 12px; overflow: hidden; min-height: 0; }
+.tree-panel { flex: 1; background: #12122a; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
+.tree-panel .tree-header { padding: 8px 14px; font-size: 13px; color: #888; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.tree-panel .tree-header .info { margin-left: auto; color: #555; font-size: 12px; }
+.tree-panel .tree-body { flex: 1; overflow-y: auto; }
+.tree-panel .tree-item { display: flex; align-items: center; padding: 4px 14px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #111; }
 .tree-panel .tree-item:hover { background: #1e1e3a; }
-.tree-panel .tree-item .icon { width: 20px; color: #4fc3f7; }
+.tree-panel .tree-item .icon { width: 22px; text-align: center; flex-shrink: 0; }
 .tree-panel .tree-item.dir .icon { color: #ffb74d; }
-.tree-panel .tree-item .name { flex: 1; }
-.tree-panel .tree-item .size { color: #666; font-size: 12px; margin-right: 8px; }
-.tree-panel .tree-item .dl { color: #4fc3f7; font-size: 12px; cursor: pointer; display: none; }
-.tree-panel .tree-item:hover .dl { display: inline; }
+.tree-panel .tree-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 8px; }
+.tree-panel .tree-item .size { color: #555; font-size: 12px; margin-right: 4px; flex-shrink: 0; }
+.tree-panel .tree-item .dl { color: #4fc3f7; font-size: 14px; cursor: pointer; padding: 2px 6px; visibility: hidden; }
+.tree-panel .tree-item:hover .dl { visibility: visible; }
 .tree-panel .tree-item .dl:hover { color: #fff; }
 
-.log-panel { width: 380px; background: #0a0a14; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; max-height: 70vh; }
-.log-panel .log-header { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #222; }
-.log-panel .log-body { flex: 1; overflow-y: auto; padding: 8px 14px; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
-.log-panel .log-body .cmd { color: #4fc3f7; }
-.log-panel .log-body .out { color: #888; }
-.log-panel .log-body .err { color: #f44336; }
+.preview-panel { width: 320px; background: #0a0a14; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.preview-panel .preview-header { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #222; display: flex; align-items: center; flex-shrink: 0; }
+.preview-panel .preview-header .name { flex: 1; color: #ccc; }
+.preview-panel .preview-header .size { color: #555; margin-right: 8px; font-size: 12px; }
+.preview-panel .preview-header .close { cursor: pointer; color: #666; font-size: 16px; }
+.preview-panel .preview-header .close:hover { color: #f88; }
+.preview-panel .preview-body { flex: 1; padding: 12px; color: #888; font-size: 13px; }
 
-.loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: #666; }
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
+.modal.active { display: flex; }
+.modal .box { background: #1e1e3a; border: 1px solid #833; border-radius: 8px; padding: 24px; max-width: 520px; width: 90%; }
+.modal .box .title { font-size: 16px; color: #f44336; margin-bottom: 12px; font-weight: 600; }
+.modal .box .body { font-size: 14px; color: #ccc; white-space: pre-wrap; margin-bottom: 16px; font-family: monospace; }
+.modal .box button { background: #5c1a1a; color: #f88; border: 1px solid #833; padding: 8px 20px; border-radius: 4px; cursor: pointer; }
+.modal .box button:hover { background: #7c2a2a; }
+
+.loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: #666; flex-shrink: 0; }
 .spinner { width: 24px; height: 24px; border: 3px solid #333; border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.info-section { margin-top: 24px; padding: 16px 20px; background: #12122a; border: 1px solid #222; border-radius: 6px; font-size: 13px; color: #999; line-height: 1.7; }
+.info-section h2 { font-size: 15px; color: #4fc3f7; margin-bottom: 10px; }
+.info-section h3 { font-size: 13px; color: #ccc; margin: 12px 0 4px; }
+.info-section code { background: #1a1a2e; color: #4fc3f7; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.info-section a { color: #4fc3f7; text-decoration: none; }
+.info-section a:hover { text-decoration: underline; }
+.info-section pre { background: #0a0a14; padding: 8px 12px; border-radius: 4px; overflow-x: auto; margin: 4px 0 8px; }
+.info-section .star-line { margin-top: 14px; font-size: 13px; }
 </style>
 </head>
 <body>
+
 <div class="header">
   <h1>🔐 Windham Web</h1>
+  <div class="toolbar" id="toolbar" style="display:none">
+    <button id="navBack" title="Back">◀</button>
+    <button id="navFwd" title="Forward">▶</button>
+    <button id="refreshBtn" title="Refresh">↻</button>
+    <button id="closeBtn" class="close-btn" title="Close disk">✕ Close</button>
+  </div>
   <span class="status" id="status">Ready</span>
 </div>
 
@@ -66,33 +99,128 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
       <label>Passphrase</label>
       <input type="password" id="passInput" placeholder="Enter passphrase">
     </div>
-    <button id="openBtn" disabled>Open Disk</button>
+    <button id="openBtn" class="primary" disabled>Open Disk</button>
   </div>
 
   <div class="state-row" id="stateRow" style="display:none">
     <span class="fs-info" id="fsInfo"></span>
-    <span id="diskInfo"></span>
-    <span id="memInfo" style="margin-left:auto"></span>
   </div>
 
   <div class="main-layout" id="mainLayout" style="display:none">
     <div class="tree-panel">
       <div class="tree-header">
         <span id="breadcrumb">/</span>
+        <span class="info" id="fileCount"></span>
       </div>
-      <div id="fileTree"></div>
+      <div class="tree-body" id="fileTree"></div>
     </div>
-    <div class="log-panel">
-      <div class="log-header">Shell log</div>
-      <div class="log-body" id="logBody"></div>
+    <div class="preview-panel" id="previewPanel" style="display:none">
+      <div class="preview-header">
+        <span class="name" id="previewName"></span>
+        <span class="size" id="previewSize"></span>
+        <span class="close" id="previewClose">✕</span>
+      </div>
+      <div class="preview-body">
+        Select a file to preview. Click ⬇ to download.
+      </div>
     </div>
   </div>
 
   <div id="loadingArea" class="loading" style="display:none">
     <div class="spinner"></div> Deriving key...
   </div>
+
+  <div class="info-section" id="infoSection">
+    <h2>About Windham Web</h2>
+    <p>
+      Windham Web is an in-browser encrypted disk unlocker.
+      Upload a <strong>FAT32</strong> or <strong>exFAT</strong> disk image created by Windham,
+      enter your passphrase, and browse, navigate, and download files &mdash;
+      all decryption happens locally in WebAssembly.  No data leaves your machine.
+    </p>
+
+    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, BSD, Zephyr, HarmonyOS, QNX, Windows, WASI and Nuttx.
+    </h3>
+    <pre>windham New disk.img --diskfile="your size here" --create-exfat</pre>
+
+    <h3>Creating a FAT32 or ExFAT disk manually on GNU/Linux or Linux-kernel based OS with GNU compatible libc (musl …)</h3>
+    <pre>windham New disk.img --diskfile="your size here"
+sudo windham Open disk.img --to="Optional name"
+# FAT32
+sudo mkfs.vfat -F 32 -n "your volume name" /dev/mapper/your_name
+# exFAT
+sudo mkfs.exfat -n "your volume name" /dev/mapper/your_name
+sudo windham Close your_name
+    </pre>
+    <p>
+      Note: it is possible to pass /dev/sdx or /dev/nvme0nxpx as disk image. This is not recommended. No test has been
+      made to cover all browser combos for such use case.
+    </p>
+
+    <p class="star-line">
+      ⭐ Windham is open source &mdash;
+      <a href="https://github.com/level-128/windham" target="_blank" rel="noopener">
+        give it a star on GitHub
+      </a>
+    </p>
+  </div>
 </div>
 
+<div class="modal" id="errorModal">
+  <div class="box">
+    <div class="title" id="errTitle">Error</div>
+    <div class="body" id="errBody"></div>
+    <button id="errorClose">Dismiss</button>
+  </div>
+</div>
+
+<!-- Must precede windham.js so Emscripten's internal `out` variable
+     captures these functions at init time. -->
+<script>
+var Module = {
+    noInitialRun: true,
+    noExitRuntime: true,
+    onExit: function() {},
+    onRuntimeInitialized: function() { Windham.onReady(); },
+
+    // stdin state (shared with app.js via Module namespace)
+    _stdinChars: '',
+    _pendingCmd: null,
+    _stdoutAcc: '',
+    _lastError: '',
+
+    print: function(text) {
+        if (text == null) return;
+        // Emscripten __EMSCRIPTEN__ build: prompt "fat:/...\n" triggers here.
+        // Non-Emscripten build: fflush("") fallback also handled below.
+        if (text && text.indexOf('fat:') === 0) {
+            var ci = text.indexOf(':'), gi = text.indexOf('>');
+            if (ci > 0 && gi > ci) Module._cwd = text.substring(ci + 1, gi).trim();
+            Module._shellReady = true;
+            if (Module._pendingCmd) {
+                var r = Module._pendingCmd.resolve;
+                var out = Module._stdoutAcc;
+                Module._pendingCmd = null;
+                Module._stdoutAcc = '';
+                r(out);
+            }
+            return;
+        }
+        if (text.indexOf('Filesystem type:') === 0) {
+            Module._fsType = text.split(':')[1].trim();
+            return;
+        }
+        if (/^\s*ERROR/i.test(text)) Module._lastError = text;
+        Module._stdoutAcc += text + '\n';
+    },
+
+    printErr: function(text) {
+        Module._lastError = text;
+        console.error(text);
+    }
+
+};
+</script>
 <script src="windham.js"></script>
 <script src="app.js"></script>
 </body>

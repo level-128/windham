@@ -25,7 +25,7 @@ int system(const char *command) {
 
 void frontend_init(int argc, char *argv[]){
 
-    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
 
     init_val->is_secure_env = false;
     init_val->is_shebang = false;

@@ -99,10 +99,13 @@ opt_allow(NMOBJ_action_delkey,
 opt_allow(NMOBJ_action_backup,
   ALLOW_OPEN_COMMON,
   NMOBJ_to,
+  NMOBJ_is_fold,
   ALLOW_COMMON)
 
 opt_allow(NMOBJ_action_restore,
+  ALLOW_OPEN_COMMON,
   NMOBJ_to,
+  NMOBJ_is_fold,
   ALLOW_COMMON)
 
 opt_allow(NMOBJ_action_suspend,

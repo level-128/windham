@@ -269,16 +269,31 @@ void frontend_help(const char * the_3rd_argv) {
          _(
             "Backup <target>: Copy the Windham header to a backup file.\n"
             "\n"
-            "options:\n"
-            "\t--to <path>:  REQUIRED; destination file for the header backup.\n"));
+            "    --to <path>    REQUIRED; destination file for the header backup.\n"
+            "    --fold         Create a compact fold backup (960 B) of a single\n"
+            "                   keyslot instead of the full header.  Requires the\n"
+            "                   device passphrase or master key.\n"
+            "\n"
+            "The default \"all\" mode backs up the entire 20 KB header including\n"
+            "all registered passwords.  Fold mode exports only the keyslot that\n"
+            "was used to unlock, producing a minimal ~960-byte file suitable for\n"
+            "paper/QR-code recovery.\n"));
+      frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Restore", the_3rd_argv) == 0) {
       printf(
          _(
             "Restore <target>: Restore a Windham header from a backup file.\n"
             "\n"
-            "options:\n"
-            "\t--to <path>:  REQUIRED; source backup file.\n"));
+            "    --to <path>    REQUIRED; source backup file.\n"
+            "    --fold         Restore from a fold backup previously created\n"
+            "                   with --fold.  Requires the passphrase or master\n"
+            "                   key that was used to create the backup.\n"
+            "\n"
+            "IMPORTANT: Never clone a Windham device.  Restore always preserves\n"
+            "the original sector range from the backup — restoring to a device\n"
+            "of a different size will refuse to operate.  Two devices sharing the\n"
+            "same disk encryption key is a catastrophic security risk.\n"));
       frontend_print_common_args();
    } else if (strcmp("Suspend", the_3rd_argv) == 0) {
       printf(
