@@ -267,17 +267,22 @@ void frontend_help(const char * the_3rd_argv) {
    } else if (strcmp("Backup", the_3rd_argv) == 0) {
       printf(
          _(
-            "Backup <target>: Copy the Windham header to a backup file.\n"
-            "\n"
-            "    --to <path>    REQUIRED; destination file for the header backup.\n"
-            "    --fold         Create a compact fold backup (960 B) of a single\n"
-            "                   keyslot instead of the full header.  Requires the\n"
-            "                   device passphrase or master key.\n"
-            "\n"
-            "The default \"all\" mode backs up the entire 20 KB header including\n"
-            "all registered passwords.  Fold mode exports only the keyslot that\n"
-            "was used to unlock, producing a minimal ~960-byte file suitable for\n"
-            "paper/QR-code recovery.\n"));
+             "Backup <target>: Copy the Windham header to a backup file.\n"
+             "\n"
+             "    --to <path>    REQUIRED; destination file for the header backup.\n"
+             "    --fold         Create a compact fold backup (960 B) of a single\n"
+             "                   keyslot instead of the full header.  Requires the\n"
+             "                   device passphrase or master key.\n"
+             "    --qrcode[=<path>]  Encode the (fold) backup as a QR code.\n"
+             "                   Without =path: print to terminal (████ blocks).\n"
+             "                   With =path: save as 1-bit BMP image file.\n"
+             "                   When no <target> device is given, reads an\n"
+             "                   existing fold backup from --to instead.\n"
+             "\n"
+             "The default \"all\" mode backs up the entire 20 KB header including\n"
+             "all registered passwords.  Fold mode exports only the keyslot that\n"
+             "was used to unlock, producing a minimal ~960-byte file suitable for\n"
+             "paper/QR-code recovery.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Restore", the_3rd_argv) == 0) {

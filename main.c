@@ -105,6 +105,7 @@ enum {
  	NMOBJ_close_all,
  	NMOBJ_aux_rm,
  	NMOBJ_is_fold,
+ 	NMOBJ_qrcode,
 
  	/* -- Driver selection ----------------------- */
  	NMOBJ_decrypt,
@@ -245,6 +246,7 @@ const struct option long_options[] = {
 	/* -- Misc ------------------------------------- */
 	{"all", no_argument, &options[NMOBJ_close_all], 1},
 	{"aux-rm", required_argument, &options[NMOBJ_aux_rm], 1},
+	{"qrcode", optional_argument, &options[NMOBJ_qrcode], 1},
 
 	/* -- Driver selection ----------------------- */
 #ifdef CFG_DRIVER_DECRYPT
@@ -670,11 +672,14 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				false);
 			break;
 		case NMOBJ_action_backup:
-			init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
+			if (STR_device && STR_device->name)
+				init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
-			action_backup(STR_device->name,
+			action_backup((STR_device && STR_device->name) ? STR_device->name : NULL,
 			              params[NMOBJ_to],
-			              options[NMOBJ_target_decoy], false,
+			              options[NMOBJ_target_decoy],
+			              options[NMOBJ_qrcode],
+			              params[NMOBJ_qrcode],
 			              options[NMOBJ_is_fold], key, master_key);
 			break;
 		case NMOBJ_action_restore:

@@ -21,7 +21,7 @@ need_dev(NMOBJ_action_open)
 need_dev(NMOBJ_action_new)
 need_dev(NMOBJ_action_addkey)
 need_dev(NMOBJ_action_delkey)
-need_dev(NMOBJ_action_backup)
+need_dev_if(NMOBJ_action_backup, !is(NMOBJ_qrcode))
 need_dev(NMOBJ_action_restore)
 need_dev(NMOBJ_action_suspend)
 need_dev(NMOBJ_action_resume)
@@ -100,6 +100,7 @@ opt_allow(NMOBJ_action_backup,
   ALLOW_OPEN_COMMON,
   NMOBJ_to,
   NMOBJ_is_fold,
+  NMOBJ_qrcode,
   ALLOW_COMMON)
 
 opt_allow(NMOBJ_action_restore,

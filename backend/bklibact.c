@@ -9,8 +9,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "QRCode.h"
+
 #include "../libsrc/mapper.c"
 #include "../libsrc/srclib.c"
+#include "../libsrc/libbmp.c"
 #include "../libplat/get_entropy.c"
 #include "../libplat/loopctl.c"
 #include "bklibkey.c"
@@ -315,8 +318,99 @@ LOCK_AND_WRITE:;
 }
 
 
-void action_backup(const char * device, char * filename, const bool is_decoy, const bool is_qrcode, const bool is_fold, const Key key, const uint8_t master_key_input[HASHLEN]) {
-   (void)is_qrcode;
+void action_backup(const char * device, char * filename, const bool is_decoy, const bool is_qrcode, const char * qrcode_path, const bool is_fold, const Key key, const uint8_t master_key_input[HASHLEN]) {
+   if (is_qrcode) {
+      /* ======= QR CODE OUTPUT ======= */
+      uint8_t qrdata[sizeof(Key_slot) + (offsetof(Data, keypool) - offsetof(Data, uuid_and_salt))];
+      size_t  qrlen = sizeof(qrdata);
+
+      if (device != NULL) {
+         /* Do a fold backup from device to memory */
+         Data     data;
+         int64_t  offset;
+         load_header_by_device(device, &data, &offset, is_decoy, false);
+
+         uint8_t  master_key[HASHLEN];
+         unsigned ret_key_zone, ret_level;
+         uint16_t ret_key_location;
+         uint8_t  ret_inited_key[HASHLEN];
+         bool     is_mk = (key.key_type == NMOBJ_key_file_type_masterkey);
+
+         if (is_mk) {
+            memcpy(master_key, master_key_input, HASHLEN);
+            get_master_key(data, master_key, key, device,
+                           SIZE_MAX, DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
+                           KEY_SLOT_EXP_MAX, false,
+                           &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
+            fill_secure_random_bits(qrdata, sizeof(Key_slot));
+            /* Clear metadata */
+            memset(data.metadata.keyslot_key,      0, sizeof(data.metadata.keyslot_key));
+            memset(data.metadata.keyslot_level,    0, sizeof(data.metadata.keyslot_level));
+            memset(data.metadata.keyslot_location, 0, sizeof(data.metadata.keyslot_location));
+            data.metadata.keyslot_location_area = 0;
+         } else {
+            get_master_key(data, master_key, key, device,
+                           SIZE_MAX, DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
+                           KEY_SLOT_EXP_MAX, false,
+                           &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
+            /* Extract matched Key_slot */
+            memcpy(qrdata, get_slot_loc(data, ret_key_zone, ret_key_location), sizeof(Key_slot));
+
+            /* Trim metadata: keep matched slot, clear others */
+            uint16_t orig_loc[KEY_SLOT_COUNT];
+            uint8_t  orig_lvl[KEY_SLOT_COUNT];
+            uint64_t orig_area = data.metadata.keyslot_location_area;
+            memcpy(orig_loc, data.metadata.keyslot_location, sizeof(orig_loc));
+            memcpy(orig_lvl, data.metadata.keyslot_level,   sizeof(orig_lvl));
+            unsigned matched = 0;
+            for (unsigned i = 0; i < KEY_SLOT_COUNT; i++) {
+               if (orig_loc[i] == ret_key_location &&
+                   GET_BIT(orig_area, i) == ret_key_zone) { matched = i; break; }
+            }
+            uint8_t  saved_key[HASHLEN];
+            memcpy(saved_key, data.metadata.keyslot_key[matched], HASHLEN);
+            memset(data.metadata.keyslot_key,      0, sizeof(data.metadata.keyslot_key));
+            memset(data.metadata.keyslot_level,    0, sizeof(data.metadata.keyslot_level));
+            memset(data.metadata.keyslot_location, 0, sizeof(data.metadata.keyslot_location));
+            data.metadata.keyslot_location_area = (uint64_t)ret_key_zone << 0;
+            memcpy(data.metadata.keyslot_key[0], saved_key, HASHLEN);
+            data.metadata.keyslot_level[0]    = orig_lvl[matched];
+            data.metadata.keyslot_location[0] = orig_loc[matched];
+         }
+         memcpy(qrdata + sizeof(Key_slot), data.uuid_and_salt,
+                offsetof(Data, keypool) - offsetof(Data, uuid_and_salt));
+      } else {
+         /* Read existing fold backup file */
+         if (filename == NULL)
+            print_error(_("--qrcode without device requires --to <fold-backup-file>"));
+         FILE *in = fopen(filename, "rb");
+         if (!in) print_error(_("Cannot open fold backup %s: %s"), filename, strerror(errno));
+         if (fread(qrdata, 1, qrlen, in) != qrlen)
+            print_error(_("Fold backup file %s is too short"), filename);
+         fclose(in);
+      }
+
+      /* Encode to QR code */
+      uint8_t  version = 40;
+      uint16_t buf_sz  = qrcode_getBufferSize(version);
+      uint8_t *modules = malloc(buf_sz);
+      if (!modules) { perror("malloc"); exit(1); }
+
+      QRCode qr;
+      if (qrcode_initBytes(&qr, modules, version, ECC_MEDIUM, qrdata, (uint16_t)qrlen) != 0)
+         print_error(_("QR encoding failed — data too large"));
+
+      /* Output */
+      if (qrcode_path && qrcode_path[0] != '\0') {
+         bmp_write(qrcode_path, modules, qr.size);
+         printf(_("QR code saved to %s\n"), qrcode_path);
+      } else {
+         qr_print_terminal(modules, qr.size, init_val->is_color_print);
+      }
+      free(modules);
+      return;
+   }
+
    if (filename == NULL) {
       filename = "windham_backup";
    }
