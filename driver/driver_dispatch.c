@@ -56,7 +56,7 @@ void map_partition_table(const char *name, bool is_new_map);
 void convert_disk_key_to_hex_format(const uint8_t *key, size_t key_size,
                                     char *out_hex);
 
-void create_crypt_mapping_from_disk_key(
+int create_crypt_mapping_from_disk_key(
     const char *device, const char *target_name, const char *enc_type,
     const uint8_t *disk_key, size_t disk_key_size, uint8_t uuid[16],
     size_t start_sector, size_t end_sector, size_t block_size,
@@ -74,7 +74,7 @@ enum {
 void decrypt_set_output_file(const char *path);
 #endif
 
-// -- Driver registry (ordered by priority) -----------
+// -- Driver registry -----------------------------------
 
 #ifdef WINDHAM_PLAT_GNU_LINUX
 extern Driver driver_dm_mapper;
@@ -87,20 +87,6 @@ extern Driver driver_decrypt;
 #endif
 extern Driver driver_print;
 
-static Driver *drivers[] = {
-#ifdef WINDHAM_PLAT_GNU_LINUX
-    &driver_dm_mapper,
-#endif
-#ifdef CFG_DRIVER_FF
-    &driver_ff,
-#endif
-#ifdef CFG_DRIVER_DECRYPT
-    &driver_decrypt,
-#endif
-    &driver_print,
-    NULL
-};
-
 Driver *current_driver = NULL;
 bool    is_device_mapper_available = false;
 
@@ -108,19 +94,35 @@ bool    is_device_mapper_available = false;
 
 void driver_init_all(const char *act_driver_name) {
     if (!act_driver_name || !act_driver_name[0])
-        return;  // no driver needed for this action (e.g. Close, Probe, etc.)
+        return;
 
-    for (int i = 0; drivers[i]; i++) {
-        if (strcmp(drivers[i]->name, act_driver_name) == 0) {
-            drivers[i]->init(act_driver_name);
-            if (is_device_mapper_available) {
-                current_driver = drivers[i];
-                return;
-            }
-            print_error(_("driver '%s' initialisation failed."), act_driver_name);
-        }
+    Driver *drv = NULL;
+
+    if (0) {}
+#ifdef WINDHAM_PLAT_GNU_LINUX
+    else if (strcmp(act_driver_name, driver_dm_mapper.name) == 0)
+        drv = &driver_dm_mapper;
+#endif
+#ifdef CFG_DRIVER_FF
+    else if (strcmp(act_driver_name, driver_ff.name) == 0)
+        drv = &driver_ff;
+#endif
+#ifdef CFG_DRIVER_DECRYPT
+    else if (strcmp(act_driver_name, driver_decrypt.name) == 0)
+        drv = &driver_decrypt;
+#endif
+    else if (strcmp(act_driver_name, driver_print.name) == 0)
+        drv = &driver_print;
+
+    if (!drv)
+        print_error(_("unknown driver '%s'."), act_driver_name);
+
+    drv->init(act_driver_name);
+    if (is_device_mapper_available) {
+        current_driver = drv;
+        return;
     }
-    print_error(_("unknown driver '%s'."), act_driver_name);
+    print_error(_("driver '%s' initialisation failed."), act_driver_name);
 }
 
 // -- dispatch wrappers -------------------------------
@@ -159,7 +161,7 @@ void convert_disk_key_to_hex_format(const uint8_t *key, size_t key_size, char *o
 
 // -- create_crypt_mapping_from_disk_key (library fn) --
 
-void create_crypt_mapping_from_disk_key(
+int create_crypt_mapping_from_disk_key(
     const char *device, const char *target_name, const char *enc_type,
     const uint8_t *disk_key, size_t disk_key_size, uint8_t uuid[16],
     size_t start_sector, size_t end_sector, size_t block_size,
@@ -174,14 +176,19 @@ void create_crypt_mapping_from_disk_key(
     char uuid_str[37];
     generate_UUID_from_bytes(uuid, uuid_str);
 
-    create_crypt_mapping(device, target_name, enc_type, password, uuid_str,
-                         start_sector, end_sector, block_size,
-                         read_only, is_allow_discards,
-                         is_no_read_workqueue, is_no_write_workqueue);
+    int ret = create_crypt_mapping(device, target_name, enc_type, password, uuid_str,
+                          start_sector, end_sector, block_size,
+                          read_only, is_allow_discards,
+                          is_no_read_workqueue, is_no_write_workqueue);
     free(password);
+
+    if (ret != 0)
+        print_error(_("Failed to create crypt mapping for %s"), target_name);
 
     if (!is_no_map_partition)
         map_partition_table(target_name, true);
+
+    return ret;
 }
 
 // -- Driver implementations --------------------------

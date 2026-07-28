@@ -264,25 +264,53 @@ void frontend_help(const char * the_3rd_argv) {
             "\t--no-fill-pattern:      skip filling random pattern after deletion.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
-   } else if (strcmp("Backup", the_3rd_argv) == 0) {
+    } else if (strcmp("Backup", the_3rd_argv) == 0) {
       printf(
          _(
-             "Backup <target>: Copy the Windham header to a backup file.\n"
-             "\n"
-             "    --to <path>    REQUIRED; destination file for the header backup.\n"
-             "    --fold         Create a compact fold backup (960 B) of a single\n"
-             "                   keyslot instead of the full header.  Requires the\n"
-             "                   device passphrase or master key.\n"
-             "    --qrcode[=<path>]  Encode the (fold) backup as a QR code.\n"
-             "                   Without =path: print to terminal (████ blocks).\n"
-             "                   With =path: save as 1-bit BMP image file.\n"
-             "                   When no <target> device is given, reads an\n"
-             "                   existing fold backup from --to instead.\n"
-             "\n"
-             "The default \"all\" mode backs up the entire 20 KB header including\n"
-             "all registered passwords.  Fold mode exports only the keyslot that\n"
-             "was used to unlock, producing a minimal ~960-byte file suitable for\n"
-             "paper/QR-code recovery.\n"));
+              "Backup <target>: Copy the Windham header to a backup file.\n"
+              "\n"
+              "Three modes (mutually exclusive):\n"
+              "\n"
+              "  ── DEFAULT (all) ──\n"
+              "  Backup [--to <file>] <device>\n"
+              "  Dumps the full ~20 KB header including all registered passwords.\n"
+              "  Requires: device + key.\n"
+              "\n"
+              "  ── FOLD ──\n"
+              "  Backup --fold --to <file> <device>\n"
+              "  Exports only the keyslot unlocked by the provided key/password.\n"
+              "  Produces an ~960‑byte file containing one Key_slot (144 B) + uuid,\n"
+              "  salt, and metadata.  Use for paper recovery or QR encoding.\n"
+              "  Requires: device + key + --to.\n"
+              "\n"
+              "  ── QR CODE ──\n"
+              "  Two sub‑paths:\n"
+              "\n"
+              "  1) From device (live):   Backup --qrcode [<device>]\n"
+              "     Unlocks the device, builds fold data in memory, encodes to\n"
+              "     QR, and prints to terminal.  Also needs a key.\n"
+              "     --qrcode=<bmp> saves a 1‑bit BMP file instead of terminal\n"
+              "     output (██ blocks).\n"
+              "\n"
+              "  2) From existing fold file (offline):\n"
+              "     Backup --qrcode --to <fold-file>\n"
+              "     Reads a previously‑created fold backup (no device needed),\n"
+              "     encodes its content to QR, and prints or saves as BMP.\n"
+              "     --qrcode without --to and without device has no data source\n"
+              "     and will error.  No key is required for offline encoding.\n"
+              "\n"
+              "  Typical paper‑recovery workflow:\n"
+              "    1. Create fold:   Backup --fold --to recovery.bu <device>\n"
+              "    2. Encode QR:     Backup --qrcode --to recovery.bu\n"
+              "    3. Print terminal output or:  Backup --qrcode=qr.bmp --to recovery.bu\n"
+              "\n"
+              "Options:\n"
+              "  --to <path>     Output file for fold/all modes.\n"
+              "                  Input file for offline QR mode.\n"
+              "  --fold          Create a compact single‑keyslot backup (960 B).\n"
+              "  --qrcode[=<bmp>]  Encode as QR code.  Optional =path writes a BMP.\n"));
+      frontend_print_unlock_args();
+      frontend_print_common_args();
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Restore", the_3rd_argv) == 0) {

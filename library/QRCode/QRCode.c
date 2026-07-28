@@ -781,6 +781,18 @@ uint16_t qrcode_getBufferSize(uint8_t version) {
     return bb_getGridSizeBytes(4 * version + 17);
 }
 
+#if LOCK_VERSION == 0
+uint8_t qrcode_getMinimumVersion(uint16_t length, uint8_t ecc) {
+    uint8_t eccIdx = (ECC_FORMAT_BITS >> (2 * ecc)) & 0x03;
+    for (uint8_t v = 1; v <= 40; v++) {
+        uint16_t cap = NUM_RAW_DATA_MODULES[v - 1] / 8
+                     - NUM_ERROR_CORRECTION_CODEWORDS[eccIdx][v - 1];
+        if (cap >= length) return v;
+    }
+    return 0;
+}
+#endif
+
 // @TODO: Return error if data is too big.
 int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8_t ecc, uint8_t *data, uint16_t length) {
     uint8_t size = version * 4 + 17;

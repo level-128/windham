@@ -377,6 +377,8 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
             data.metadata.keyslot_level[0]    = orig_lvl[matched];
             data.metadata.keyslot_location[0] = orig_loc[matched];
          }
+         /* Re-encrypt metadata — QR must contain ciphertext */
+         lock_metadata_using_master_key(&data, master_key);
          memcpy(qrdata + sizeof(Key_slot), data.uuid_and_salt,
                 offsetof(Data, keypool) - offsetof(Data, uuid_and_salt));
       } else {
@@ -390,8 +392,9 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
          fclose(in);
       }
 
-      /* Encode to QR code */
-      uint8_t  version = 40;
+      /* Encode to QR code — auto-select minimum version */
+      uint8_t  version = qrcode_getMinimumVersion((uint16_t)qrlen, ECC_MEDIUM);
+      if (!version) print_error(_("QR encoding failed — data too large"));
       uint16_t buf_sz  = qrcode_getBufferSize(version);
       uint8_t *modules = malloc(buf_sz);
       if (!modules) { perror("malloc"); exit(1); }
@@ -402,11 +405,11 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
 
       /* Output */
       if (qrcode_path && qrcode_path[0] != '\0') {
-         if (bmp_write(qrcode_path, modules, qr.size) != 0)
+         if (bmp_write(qrcode_path, &qr) != 0)
             print_error(_("QR code export to %s failed"), qrcode_path);
          printf(_("QR code saved to %s\n"), qrcode_path);
       } else {
-         qr_print_terminal(modules, qr.size, init_val->is_color_print);
+         qr_print_terminal(&qr, init_val->is_color_print);
       }
       free(modules);
       return;
@@ -505,6 +508,9 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
       meta->keyslot_level[0]    = saved_level;
       meta->keyslot_location[0] = saved_location;
       meta->keyslot_location_area = (uint64_t)(ret_key_zone) << 0;
+
+      /* Re-encrypt metadata before writing — backup must be ciphertext */
+      lock_metadata_using_master_key(&data, master_key);
 
       /* Write fold backup: Key_slot + uuid_and_salt..metadata */
       FILE *out = fopen(filename, "wb");

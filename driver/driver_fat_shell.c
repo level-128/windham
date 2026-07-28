@@ -590,6 +590,23 @@ static int cmd_rm(int argc, char **argv)
 }
 
 /*-----------------------------------------------------------------------*/
+/* mkdir <path>                                                          */
+/*-----------------------------------------------------------------------*/
+
+static int cmd_mkdir(int argc, char **argv)
+{
+	if (argc < 2) {
+		fprintf(stderr, "mkdir: missing operand\nUsage: mkdir <path>\n");
+		return 1;
+	}
+
+	user_path_to_tchar(TPathBuf, MAX_PATH, argv[1]);
+	FRESULT fr = f_mkdir(TPathBuf);
+	if (fr != FR_OK) { print_fresult(fr, "mkdir"); return 1; }
+	return 0;
+}
+
+/*-----------------------------------------------------------------------*/
 /* find -name <pattern> [path]                                           */
 /*-----------------------------------------------------------------------*/
 
@@ -1110,6 +1127,7 @@ static int cmd_help(void)
 		"  import <host> <fat>        Copy host file into image\n"
 		"  export <fat> <host>        Copy image file to host\n"
 		"  rm [-r] <path>             Delete file(s)\n"
+		"  mkdir <path>               Create directory\n"
 		"  df                         Show disk usage\n"
 		"  help                       Show this help\n"
 		"  exit / quit                Exit shell\n"
@@ -1129,6 +1147,7 @@ static int exec_command(int argc, char **argv)
 	if (strcmp(argv[0], "cp") == 0)           return cmd_cp(argc, argv);
 	if (strcmp(argv[0], "mv") == 0)           return cmd_mv(argc, argv);
 	if (strcmp(argv[0], "rm") == 0)           return cmd_rm(argc, argv);
+	if (strcmp(argv[0], "mkdir") == 0)        return cmd_mkdir(argc, argv);
 	if (strcmp(argv[0], "find") == 0)         return cmd_find(argc, argv);
 	if (strcmp(argv[0], "import") == 0)       return cmd_import(argc, argv);
 	if (strcmp(argv[0], "export") == 0)       return cmd_export(argc, argv);

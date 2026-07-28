@@ -30,6 +30,7 @@ self.addEventListener('message', function(e) {
         Module.FS.writeFile('/disk_size', String(d.diskSize));
         Module.FS.writeFile('/disk.img', d.diskData);
         Module.FS.writeFile('/cmd_queue', new Uint8Array(0));
+        try { Module.FS.mkdir('/tmp'); } catch(e) {}
         self.postMessage({ type: 'ready' });
         break;
     case 'callMain':
@@ -44,6 +45,10 @@ self.addEventListener('message', function(e) {
         }
         dv.setUint32(argv + argc*4, 0, true);
         Module._main(argc, argv);
+        break;
+    case 'write-tmp':
+        Module.FS.writeFile('/tmp/' + d.name, d.data);
+        self.postMessage({ type: 'tmp-ready', name: d.name });
         break;
     case 'cmd-queue':
         Module.FS.writeFile('/cmd_queue', d.text);

@@ -67,6 +67,7 @@ HeaderCache * cache_init(){
    for (int i = 0; i < CACHE_LINE_CNT && cache; i++){
       cache->cache_start[i] -= 1; // no disk will seek this poz.
    }
+   return cache;
 }
 #endif
 

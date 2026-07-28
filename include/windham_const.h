@@ -71,6 +71,9 @@
  * ---------- Define consts ----------
  */
 // Some consts are defined in CMake, these are:
+#ifndef CFG_DEFAULT_DRIVER
+#define CFG_DEFAULT_DRIVER "ff"
+#endif
 #ifndef DEFAULT_TARGET_TIME
 #define DEFAULT_TARGET_TIME 1.5
 #endif

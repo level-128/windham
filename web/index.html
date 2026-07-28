@@ -74,6 +74,10 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
 .info-section a:hover { text-decoration: underline; }
 .info-section pre { background: #0a0a14; padding: 8px 12px; border-radius: 4px; overflow-x: auto; margin: 4px 0 8px; }
 .info-section .star-line { margin-top: 14px; font-size: 13px; }
+
+.drop-overlay { display: none; position: fixed; inset: 0; background: rgba(15,115,119,0.25); z-index: 200; align-items: center; justify-content: center; pointer-events: none; }
+.drop-overlay.active { display: flex; }
+.drop-overlay .box { background: #16213e; border: 2px dashed #4fc3f7; border-radius: 12px; padding: 40px 60px; text-align: center; color: #4fc3f7; font-size: 20px; }
 </style>
 </head>
 <body>
@@ -181,6 +185,12 @@ sudo windham Close your_name
     <button id="errorClose">Dismiss</button>
   </div>
 </div>
+
+<div class="drop-overlay" id="dropOverlay">
+  <div class="box">⬇ Drop disk image to open</div>
+</div>
+
+<input type="file" id="fileInput" accept=".img,.bin,.raw" style="display:none">
 
 <!-- Must precede windham.js so Emscripten's internal `out` variable
      captures these functions at init time. -->

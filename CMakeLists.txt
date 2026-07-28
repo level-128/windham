@@ -137,6 +137,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(CFG_DRIVER_DECRYPT ON CACHE BOOL "" FORCE)
 else()
     add_compile_definitions(WINDHAM_PLAT_GNU_LINUX)
+    add_compile_definitions(CFG_DEFAULT_DRIVER=\"dm-mapper\")
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")

@@ -493,17 +493,9 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 #endif
    	    if (options[NMOBJ_print_encryption]) {
    	        driver_name = "print";
-   	    } else {
-  #ifdef WINDHAM_PLAT_GNU_LINUX
-   	        driver_name = "dm-mapper";
-  #else
-  #ifdef CFG_DRIVER_FF
-   			driver_name = "ff";
-  #else
-   			driver_name = "print";
-  #endif
-  #endif
-   	    }
+	    } else {
+ 	        driver_name = CFG_DEFAULT_DRIVER;
+	    }
    	}
  	init(is_root, driver_name);
 #else
@@ -672,10 +664,10 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				false);
 			break;
 		case NMOBJ_action_backup:
-			if (STR_device && STR_device->name[0])
+			if (device)
 				init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
-			action_backup((STR_device && STR_device->name[0]) ? STR_device->name : NULL,
+			action_backup(device ? STR_device->name : NULL,
 			              params[NMOBJ_to],
 			              options[NMOBJ_target_decoy],
 			              options[NMOBJ_qrcode],
@@ -843,9 +835,11 @@ int main_(int argc, char *argv[]) {
 	*environ = NULL;
 
 	// initialize STR_device
+	STR_device->name[0] = '\0';
 	STR_device->block_count = -1;
 	STR_device->block_size = -1;
 	STR_device->is_loop = false;
+	STR_device->is_block = false;
 
 
 	if (argc == 1) {
