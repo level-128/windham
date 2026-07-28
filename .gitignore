@@ -8,3 +8,8 @@ web/windham.wasm
 debian
 CMakePresets.json
 out
+CMakeCache.txt
+windham
+CMakeFiles/
+a.out
+tmp.bmp

@@ -43,7 +43,11 @@ extern "C" {
 
 /* Integer types used for FatFs API */
 #include <stdint.h>
+#ifdef CFG_ASCII
+#include "../libsrc/ucar.c"
+#else
 #include <uchar.h>
+#endif
 typedef uint32_t	    UINT;	/* int must be 16-bit or 32-bit */
 typedef uint8_t			BYTE;	/* char must be 8-bit */
 typedef uint16_t		WORD;	/* 16-bit unsigned */

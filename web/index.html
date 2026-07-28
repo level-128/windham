@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
 <title>Windham Web</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,8 +23,7 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
 
 .form-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 12px; flex-shrink: 0; }
 .form-row label { font-size: 13px; color: #aaa; display: block; margin-bottom: 4px; }
-.form-row input[type=file] { background: #222; border: 1px solid #444; color: #ccc; padding: 8px; border-radius: 4px; width: 280px; }
-.form-row input[type=password] { background: #222; border: 1px solid #444; color: #ccc; padding: 8px; border-radius: 4px; width: 200px; }
+.form-row input[type=password] { background: #222; border: 1px solid #444; color: #ccc; padding: 8px; border-radius: 4px; width: 220px; }
 .form-row button.primary { background: #0d7377; color: #fff; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
 .form-row button.primary:hover { background: #0e9594; }
 .form-row button.primary:disabled { background: #444; cursor: not-allowed; }
@@ -92,14 +92,10 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
 <div class="panel">
   <div class="form-row">
     <div>
-      <label>Encrypted disk image</label>
-      <input type="file" id="fileInput">
-    </div>
-    <div>
       <label>Passphrase</label>
       <input type="password" id="passInput" placeholder="Enter passphrase">
     </div>
-    <button id="openBtn" class="primary" disabled>Open Disk</button>
+    <button id="openBtn" class="primary" disabled>Choose &amp; Open Disk</button>
   </div>
 
   <div class="state-row" id="stateRow" style="display:none">
@@ -133,15 +129,19 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
   <div class="info-section" id="infoSection">
     <h2>About Windham Web</h2>
     <p>
-      Windham Web is an in-browser encrypted disk unlocker.
+      Windham Web (Windham Emscripten Port) is an in-browser encrypted disk unlocker.
       Upload a <strong>FAT32</strong> or <strong>exFAT</strong> disk image created by Windham,
       enter your passphrase, and browse, navigate, and download files &mdash;
       all decryption happens locally in WebAssembly.  No data leaves your machine.
     </p>
 
-    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, BSD, Zephyr, HarmonyOS, QNX, Windows, WASI and Nuttx.
+    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, BSD, Zephyr, HarmonyOS, QNX, Windows, WASI, Redox OS and Nuttx.
     </h3>
     <pre>windham New disk.img --diskfile="your size here" --create-exfat</pre>
+
+    <p>
+      Not all supported platform has <code>Windham New</code> enabled. Windham running under FreeRTOS (including ESP-IDF), UEFI EDK II, non-frontend mode or basically all bare-metal systems without an OS has <code>New</code> support absent.
+    </p>
 
     <h3>Creating a FAT32 or ExFAT disk manually on GNU/Linux or Linux-kernel based OS with GNU compatible libc (musl …)</h3>
     <pre>windham New disk.img --diskfile="your size here"
@@ -153,8 +153,16 @@ sudo mkfs.exfat -n "your volume name" /dev/mapper/your_name
 sudo windham Close your_name
     </pre>
     <p>
-      Note: it is possible to pass /dev/sdx or /dev/nvme0nxpx as disk image. This is not recommended. No test has been
+      <b>Note:</b>
+      <br>
+      1. it is possible to pass block devices (e.g. /dev/sdx or /dev/nvme0nxpx) as disk image under UNIX. This is not recommended. No test has been
       made to cover all browser combos for such use case.
+      <br>
+      2. UEFI GPT partition scheme inside windham image is not supported. However, it is possible to create a protective MBR which contains FAT/exFAT partition range.
+      <br>
+      3. Windham Web only supports 128/256 bit AES-XTS encryption with block size 512, 1024, 2048 and 4096; dm-crypt compatible XTS scheme, little-endian XTS counter. This is the only supported encryption scheme under ISO C, and it is default under GNU/Linux regardless of the host endianness. 
+      <br>
+      4. UEFI TCG OPAL is <b>NOT</b> compatible with Windham Web and windham ISO C. Use Windham EDK II to issue TCG OPAL for your SSD.
     </p>
 
     <p class="star-line">
@@ -176,52 +184,6 @@ sudo windham Close your_name
 
 <!-- Must precede windham.js so Emscripten's internal `out` variable
      captures these functions at init time. -->
-<script>
-var Module = {
-    noInitialRun: true,
-    noExitRuntime: true,
-    onExit: function() {},
-    onRuntimeInitialized: function() { Windham.onReady(); },
-
-    // stdin state (shared with app.js via Module namespace)
-    _stdinChars: '',
-    _pendingCmd: null,
-    _stdoutAcc: '',
-    _lastError: '',
-
-    print: function(text) {
-        if (text == null) return;
-        // Emscripten __EMSCRIPTEN__ build: prompt "fat:/...\n" triggers here.
-        // Non-Emscripten build: fflush("") fallback also handled below.
-        if (text && text.indexOf('fat:') === 0) {
-            var ci = text.indexOf(':'), gi = text.indexOf('>');
-            if (ci > 0 && gi > ci) Module._cwd = text.substring(ci + 1, gi).trim();
-            Module._shellReady = true;
-            if (Module._pendingCmd) {
-                var r = Module._pendingCmd.resolve;
-                var out = Module._stdoutAcc;
-                Module._pendingCmd = null;
-                Module._stdoutAcc = '';
-                r(out);
-            }
-            return;
-        }
-        if (text.indexOf('Filesystem type:') === 0) {
-            Module._fsType = text.split(':')[1].trim();
-            return;
-        }
-        if (/^\s*ERROR/i.test(text)) Module._lastError = text;
-        Module._stdoutAcc += text + '\n';
-    },
-
-    printErr: function(text) {
-        Module._lastError = text;
-        console.error(text);
-    }
-
-};
-</script>
-<script src="windham.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

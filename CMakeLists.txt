@@ -114,9 +114,19 @@ add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
 
 # Platform selection — ISOC is the baseline (no macro needed).
 # WASI/Emscripten and GNU/Linux opt in for extra features.
-if(CMAKE_SYSTEM_NAME STREQUAL "WASI" OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
     add_compile_definitions(WINDHAM_PLAT_WASI)
     # Force-disable all Linux-specific features early (before try_run blocks)
+    set(CFG_NO_MODULE_KEYRING ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_SECCOMP ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_DISABLE_ATTACH ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_ENFORCE_SPEC_MITIGATION ON CACHE BOOL "" FORCE)
+    set(WINDHAM_NO_SHEBANG_ENTRY ON CACHE BOOL "" FORCE)
+    set(CFG_DRIVER_FF ON CACHE BOOL "" FORCE)
+    set(CFG_FF_CREATE ON CACHE BOOL "" FORCE)
+    set(CFG_DRIVER_DECRYPT ON CACHE BOOL "" FORCE)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Emscripten shares WASI feature flags but uses its own platform code
     set(CFG_NO_MODULE_KEYRING ON CACHE BOOL "" FORCE)
     set(WINDHAM_NO_SECCOMP ON CACHE BOOL "" FORCE)
     set(WINDHAM_NO_DISABLE_ATTACH ON CACHE BOOL "" FORCE)

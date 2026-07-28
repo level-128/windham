@@ -22,7 +22,11 @@
 
 
 #include "ff.h"
+#ifdef CFG_ASCII
+#include "../../libsrc/ucar.c"
+#else
 #include <uchar.h>
+#endif
 #include <wchar.h>
 #include <wctype.h>
 

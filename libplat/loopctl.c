@@ -14,12 +14,10 @@ void create_file(const char *path, size_t size);
 
 void fin_device(void);
 
-#ifdef WINDHAM_PLAT_WASI
-#include "WASI/loopctl.c"
-#elif defined(WINDHAM_PLAT_GNU_LINUX)
+#if defined(WINDHAM_PLAT_GNU_LINUX)
 #include "GNU_Linux/loopctl.c"
 #else
-#include "ISOC/loopctl.c"
+#include "ISOC/loopctl.c" /* WASI + Emscripten + fallback */
 #endif
 
 #endif

@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "QRCode.h"
+#include "../include/QRCode.h"
 
 #include "../libsrc/mapper.c"
 #include "../libsrc/srclib.c"
@@ -402,7 +402,8 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
 
       /* Output */
       if (qrcode_path && qrcode_path[0] != '\0') {
-         bmp_write(qrcode_path, modules, qr.size);
+         if (bmp_write(qrcode_path, modules, qr.size) != 0)
+            print_error(_("QR code export to %s failed"), qrcode_path);
          printf(_("QR code saved to %s\n"), qrcode_path);
       } else {
          qr_print_terminal(modules, qr.size, init_val->is_color_print);

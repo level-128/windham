@@ -190,7 +190,7 @@ void create_crypt_mapping_from_disk_key(
 #include "driver_dm_mapper.c"
 #endif
 #ifdef CFG_DRIVER_FF
-#include "ff/driver_fat_shell.c"
+#include "driver_fat_shell.c"
 #endif
 #ifdef CFG_DRIVER_DECRYPT
 #include "driver_decrypt.c"

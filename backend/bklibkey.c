@@ -8,7 +8,11 @@
 #include <errno.h>
 #include <float.h>
 #include <wchar.h>
+#ifdef CFG_ASCII
+#include "../libsrc/ucar.c"
+#else
 #include <uchar.h>
+#endif
 
 #include "bksrclib.c"
 #include "../libsrc/auxlib.c"

@@ -672,10 +672,10 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				false);
 			break;
 		case NMOBJ_action_backup:
-			if (STR_device && STR_device->name)
+			if (STR_device && STR_device->name[0])
 				init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
-			action_backup((STR_device && STR_device->name) ? STR_device->name : NULL,
+			action_backup((STR_device && STR_device->name[0]) ? STR_device->name : NULL,
 			              params[NMOBJ_to],
 			              options[NMOBJ_target_decoy],
 			              options[NMOBJ_qrcode],

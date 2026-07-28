@@ -2,7 +2,11 @@
 #define INCL_PASSWORD_INPUT
 
 #include <stdint.h>
+#ifdef CFG_ASCII
+#include "../libsrc/ucar.c"
+#else
 #include <uchar.h>
+#endif
 
 #define MAX_PASSWORD_INPUT_LEN 256
 
@@ -30,12 +34,10 @@ char32_t *convert_key_to_unicode(const char *input, unsigned *out_len);
  *   unsigned get_key_input_from_the_console_systemd(...)
  */
 
-#ifdef WINDHAM_PLAT_WASI
-#include "WASI/password_input.c"
-#elif defined(WINDHAM_PLAT_GNU_LINUX)
+#if defined(WINDHAM_PLAT_GNU_LINUX)
 #include "GNU_Linux/password_input.c"
 #else
-#include "ISOC/password_input.c"
+#include "ISOC/password_input.c" /* WASI + Emscripten + fallback */
 #endif
 
 /* ── Shared implementation (uses the primitives above) ──────── */

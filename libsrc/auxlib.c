@@ -4,7 +4,11 @@
 #include "../include/windham_const.h"
 #include <string.h>
 #include <stdlib.h>
+#ifdef CFG_ASCII
+#include "ucar.c"
+#else
 #include <uchar.h>
+#endif
 #include <float.h>
 #include <locale.h>
 

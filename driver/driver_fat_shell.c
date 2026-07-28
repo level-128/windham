@@ -11,11 +11,46 @@
 #include <string.h>
 #include <limits.h>
 #include <sys/types.h>
+#include <time.h>
 
-#include "../../include/windham_const.h"
-#include "../../libsrc/srclib.c"
-#include "../../library/FatFs/ff.h"
-#include "../../library/FatFs/diskio.h"
+#if defined(CFG_FF_SHELL_NOINTERACTIVE)
+#ifndef __EMSCRIPTEN__
+#if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_THREADS__)
+#include <threads.h>
+#define SHELL_HAS_THREADS 1
+#elif defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>
+#define SHELL_HAS_POSIX_SLEEP 1
+#endif
+#endif
+
+static void shell_yield_ms(unsigned int ms) {
+#ifdef __EMSCRIPTEN__
+	extern void emscripten_sleep(unsigned int ms);
+	emscripten_sleep(ms);
+#elif defined(SHELL_HAS_THREADS)
+	struct timespec ts;
+	ts.tv_sec = ms / 1000;
+	ts.tv_nsec = (long)(ms % 1000) * 1000000L;
+	thrd_sleep(&ts, NULL);
+#elif defined(SHELL_HAS_POSIX_SLEEP)
+	sleep(ms / 1000 + (ms % 1000 ? 1 : 0));
+#else
+#if __STDC_VERSION__ >= 202311L
+#warning "CFG_FF_SHELL_NOINTERACTIVE: no thrd_sleep or POSIX sleep available; CPU-busy wait"
+#else
+#pragma message("CFG_FF_SHELL_NOINTERACTIVE: no thrd_sleep or POSIX sleep available; CPU-busy wait")
+#endif
+	clock_t start = clock();
+	while ((clock() - start) * 1000 / CLOCKS_PER_SEC < ms) {}
+#endif
+}
+#endif
+
+#include "../include/windham_const.h"
+#include "../libsrc/srclib.c"
+#include "../library/FatFs/ff.h"
+#include "../library/FatFs/diskio.h"
 
 /* ====================================================================== */
 /*  Shell                                                                  */
@@ -1161,17 +1196,18 @@ static int ff_shell_run(void)
 	char line[4096];
 	char *line_argv[64];
 
-#ifdef __EMSCRIPTEN__
-// Avoid including <emscripten.h> which can conflict with <stdio.h> FILE type.
-extern void emscripten_sleep(unsigned int ms);
-	// Emscripten ASYNCIFY cannot safely unwind through Module.stdin.
-	// Instead, poll a virtual file for commands (written by JS).
+#if defined(CFG_FF_SHELL_NOINTERACTIVE)
+	{
+	bool prompt_done = false;
 	for (;;) {
-		get_cwd_display();
-		printf("fat:%s>\n", CwdBuf); // \n flushes line-buffered stdout
-		fflush(stdout);
+		if (!prompt_done) {
+			get_cwd_display();
+			printf("fat:%s>\n", CwdBuf);
+			fflush(stdout);
+			prompt_done = true;
+		}
 
-		emscripten_sleep(100);
+		shell_yield_ms(100);
 
 		FILE *qf = fopen("/cmd_queue", "r");
 		if (!qf) continue;
@@ -1185,7 +1221,6 @@ extern void emscripten_sleep(unsigned int ms);
 		if (!fgets(line, sizeof(line), qf)) { fclose(qf); continue; }
 		fclose(qf);
 
-		// Clear the queue file for next command
 		qf = fopen("/cmd_queue", "w");
 		if (qf) fclose(qf);
 
@@ -1196,6 +1231,8 @@ extern void emscripten_sleep(unsigned int ms);
 			break;
 
 		exec_command(nargs, line_argv);
+		prompt_done = false;
+	}
 	}
 #else
 	for (;;) {

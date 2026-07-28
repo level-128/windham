@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "../../include/windham_const.h"
 #include "../../include/cJSON.h"
@@ -69,6 +70,13 @@ void create_file(const char *path, size_t size) {
 }
 
 uint64_t isoc_get_file_size(FILE *stream){
+   (void)stream;
+#ifdef CFG_VFS_DISK_METADATA
+   FILE *f = fopen("/disk_size", "r");
+   uint64_t sz = 0;
+   if (f) { fscanf(f, "%" SCNu64, &sz); fclose(f); }
+   return sz;
+#else
    fpos_t stored_pos;
    if (fgetpos(stream, &stored_pos)){
       perror("fgetpos");
@@ -98,6 +106,7 @@ uint64_t isoc_get_file_size(FILE *stream){
       exit(1);
    }
    return sum_res;
+#endif
 }
 
 void init_device(
