@@ -1,7 +1,11 @@
-// Windham Web Worker — Emscripten WASM + ASYNCIFY
+// Windham Web Worker — Emscripten WASM + ASYNCIFY, streaming I/O
+
 var stdinWake = new Int32Array(new SharedArrayBuffer(4));
 var stdinChars = '';
 Atomics.store(stdinWake, 0, 0);
+
+var _diskFile = null;
+var _diskSize = 0;
 
 var Module = {
     noInitialRun: true,
@@ -27,13 +31,20 @@ self.addEventListener('message', function(e) {
     var d = e.data;
     switch (d.type) {
     case 'setup-fs':
+        _diskFile = d.file;
+        _diskSize = d.diskSize;
         Module.FS.writeFile('/disk_size', String(d.diskSize));
-        Module.FS.writeFile('/disk.img', d.diskData);
+
+        var reader = new FileReaderSync();
+        var ab = reader.readAsArrayBuffer(_diskFile);
+        Module.FS.writeFile('/disk.img', new Uint8Array(ab));
+
         Module.FS.writeFile('/cmd_queue', new Uint8Array(0));
-        try { Module.FS.mkdir('/tmp'); } catch(e) {}
+        try { Module.FS.mkdir('/tmp'); } catch(ex) {}
         self.postMessage({ type: 'ready' });
         break;
     case 'callMain':
+        Module['calledRun'] = false;
         var args = ['windham'].concat(d.args);
         var argc = args.length, argv = Module._malloc((argc+1)*4);
         var dv = new DataView(Module.HEAPU8.buffer);
@@ -44,11 +55,20 @@ self.addEventListener('message', function(e) {
             dv.setUint32(argv + i*4, p, true);
         }
         dv.setUint32(argv + argc*4, 0, true);
-        Module._main(argc, argv);
+        try {
+            Module._main(argc, argv);
+        } catch(e) {
+            if (e && e.name === 'ExitStatus') { /* normal exit */ }
+            else { self.postMessage({ type: 'error', msg: 'main: ' + e }); }
+        }
         break;
-    case 'write-tmp':
-        Module.FS.writeFile('/tmp/' + d.name, d.data);
-        self.postMessage({ type: 'tmp-ready', name: d.name });
+    case 'read-file':
+        try {
+            var data = Module.FS.readFile(d.path, { encoding: 'binary' });
+            self.postMessage({ type: 'file-data', path: d.path, data: data }, [data.buffer]);
+        } catch(e) {
+            self.postMessage({ type: 'file-error', path: d.path, msg: String(e) });
+        }
         break;
     case 'cmd-queue':
         Module.FS.writeFile('/cmd_queue', d.text);

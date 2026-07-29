@@ -113,11 +113,14 @@ static int find_uuid_in_map(const uint8_t uuid[16]) {
 static DynBuf seen_uuids;
 
 static bool uuid_is_seen(const uint8_t uuid[16]) {
-    if (seen_uuids.elem_size == 0) db_init(&seen_uuids, 16);
+#ifdef __EMSCRIPTEN__
+    (void)uuid; return false; /* single-user web: allow re-open */
+#else
     for (size_t i = 0; i < db_count(&seen_uuids); i++) {
         if (memcmp((uint8_t *)db_get(&seen_uuids, i), uuid, 16) == 0) return true;
     }
     return false;
+#endif
 }
 
 static void uuid_mark_seen(const uint8_t uuid[16]) {
@@ -181,6 +184,7 @@ typedef struct {
     bool is_readonly, is_allow_discards, is_no_read_wq, is_no_write_wq, is_no_map_partition;
     bool is_nokeyring, is_no_aux;
     bool is_dry_run;
+    bool is_show_master_key;
     unsigned timeout;
 } FifoEntry;
 
@@ -535,6 +539,17 @@ static bool action_open_single(
 
          memcpy(master_key, entry->master_key, HASHLEN);
 
+         /* --show-master-key: print hex key and exit.
+            Link-open cascade is impossible here — the flag
+            causes action_open_single to return before the
+            aux-zone probe that populates link entries.      */
+         if (entry->is_show_master_key) {
+            printf("MK ");
+            print_hex_array(HASHLEN, master_key);
+            fflush(stdout);
+            return true;
+         }
+
          if (!unlock_metadata_using_master_key(&data, master_key)) {
             print_error(_("The header is likely damaged, which means you can't unlock your device even using your masterkey. Sorry, there is nothing that I could do..."));
          }
@@ -644,10 +659,10 @@ static bool action_open_single(
          printf(_("dry run complete, opened with master key:\n"));
          print_hex_array(HASHLEN, master_key);
 
-         printf(
-            _("\nAdditional device parameters: \n"
-               "UUID: %s\nSize (MiB): %"PRIu64"\nCrypto algorithm: %s\nKey Length: %zu"
-               "Start sector %"PRIu64"\nEnd sector %"PRIu64"\nBlock size %hu\n"),
+      printf(
+         _("\nAdditional device parameters:\n"
+            "\tUUID: %s\n\tSize (MiB): %"PRIu64"\n\tCrypto algorithm: %s\n\tKey Length: %zu\n"
+            "\tStart sector: %"PRIu64"\n\tEnd sector: %"PRIu64"\n\tBlock size: %hu\n"),
             uuid_str,
             (data.metadata.end_sector - data.metadata.start_sector) / 2 / 1024,
             data.metadata.enc_type,
@@ -661,10 +676,13 @@ static bool action_open_single(
          for (int i = 0; i < KEY_SLOT_COUNT; i++) {
             if (data.metadata.keyslot_level[i] != 0) {
                is_no_key = false;
+               printf(_("\tSlot %i\n"), i);
+               printf(_("\t  Level: %u\n"), (unsigned)data.metadata.keyslot_level[i]);
+               printf(_("\t  Zone: %u\n"), (unsigned)data.metadata.keyslot_location[i]);
                if (memcmp(data.metadata.keyslot_key[i], (uint8_t[HASHLEN]){0}, HASHLEN) == 0) {
-                  printf(_("Slot %i used by anonymous key.\n"), i);
+                  printf(_("\t  Anonymous: yes\n"));
                } else {
-                  printf(_("Slot %i used; identifier: "), i);
+                  printf(_("\t  Identifier: "));
                   print_hex_array(HASHLEN / 4, data.metadata.keyslot_key[i]);
                }
             }
@@ -672,7 +690,8 @@ static bool action_open_single(
          if (is_no_key){
             printf(_("All slots are EMPTY! this device is accessible only by master key.\n"));
          }
-         
+         printf("DRYRUN_OK\n");
+         fflush(stdout);
       }
       mapper_names_add(effective_target_name);
       free(disk_key);
@@ -694,6 +713,7 @@ void action_open(
    unsigned     timeout,
    PARAMS_FOR_KEY,
    bool is_dry_run,
+   bool is_show_master_key,
    bool is_target_readonly,
    bool is_allow_discards,
    bool is_no_read_workqueue,
@@ -776,8 +796,9 @@ void action_open(
    init_entry.is_no_map_partition = is_no_map_partition;
    init_entry.is_nokeyring       = is_nokeyring;
    init_entry.is_no_aux          = is_no_aux;
-   init_entry.is_dry_run         = is_dry_run;
-   init_entry.timeout            = timeout;
+    init_entry.is_dry_run         = is_dry_run;
+    init_entry.is_show_master_key = is_show_master_key;
+    init_entry.timeout            = timeout;
    fifo_push_front(init_entry);
 
    // Main cascade loop
@@ -788,10 +809,13 @@ void action_open(
       uint8_t      device_uuid[16];
       bool success = action_open_single(&entry, &links, device_uuid);
 
-      if (success) {
-         uuid_map_mark_opened(device_uuid);
-      } else {
-         uuid_map_mark_failed(device_uuid);
+      /* --show-master-key must not mark the UUID — the caller
+         will re-open the same device immediately afterwards. */
+      if (!entry.is_show_master_key) {
+         if (success)
+            uuid_map_mark_opened(device_uuid);
+         else
+            uuid_map_mark_failed(device_uuid);
       }
 
       // STOP_EXEC: on success, discard remaining siblings at this index
@@ -841,8 +865,9 @@ void action_open(
          child.is_no_map_partition = entry.is_no_map_partition;
          child.is_nokeyring       = true; 
          child.is_no_aux          = entry.is_no_aux;
-         child.is_dry_run         = entry.is_dry_run;
-         child.timeout            = entry.timeout;
+          child.is_dry_run         = entry.is_dry_run;
+          child.is_show_master_key = entry.is_show_master_key;
+          child.timeout            = entry.timeout;
 
          // init_device for the linked device
          init_device(link_path, entry.is_dry_run == false, entry.is_readonly, false, false, 0, 0);
@@ -889,6 +914,7 @@ void action_open_(
    int          selected_windham_pass,
    PARAMS_FOR_KEY,
    bool is_dry_run,
+   bool is_show_master_key,
    bool is_target_readonly,
    bool is_allow_discards,
    bool is_no_read_workqueue,
@@ -980,7 +1006,7 @@ void action_open_(
             HAS_FLGI(NMOBJ_windhamtab_max_unlock_mem) ? entities[i].max_unlock_mem : max_unlock_mem,
             HAS_FLGI(NMOBJ_windhamtab_max_unlock_time) ? entities[i].max_unlock_time : max_unlock_time,
             0, false, false,
-            is_dry_run,
+            is_dry_run, is_show_master_key,
             HAS_FLGI(NMOBJ_windhamtab_ro) || is_target_readonly,
             HAS_FLGI(NMOBJ_windhamtab_target_allow_discards) || is_allow_discards,
             HAS_FLGI(NMOBJ_windhamtab_no_read_wq) || is_no_read_workqueue,
@@ -999,7 +1025,7 @@ void action_open_(
          key, master_key,
          max_unlock_mem, max_unlock_time, max_unlock_level,
          is_allow_nolock, is_decoy,
-         is_dry_run, is_target_readonly, is_allow_discards,
+         is_dry_run, is_show_master_key, is_target_readonly, is_allow_discards,
          is_no_read_workqueue, is_no_write_workqueue,
          is_no_map_partition, is_nokeyring, is_no_aux);
    }

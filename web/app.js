@@ -1,5 +1,4 @@
-// Windham Web — Worker-based streaming disk browser
-
+// Windham Web — sidebar-driven disk browser
 // ── Browser capability check ────────────────────────────────
 function browserSupported() {
     var missing = [];
@@ -7,8 +6,6 @@ function browserSupported() {
         missing.push('SharedArrayBuffer (needs COOP/COEP headers)');
     if (typeof Atomics === 'undefined')
         missing.push('Atomics');
-    if (typeof window.showOpenFilePicker !== 'function')
-        missing.push('File System Access API');
     if (typeof Worker === 'undefined')
         missing.push('Web Workers');
     return missing;
@@ -29,6 +26,13 @@ var _lastError = '';
 var _stdoutAcc = '';
 var _pendingCmd = null;
 var _inError = false;
+var _cachedPass = '';
+var _cachedMasterKey = '';
+var _shellExited = false;
+var _pendingShellExit = null;
+var _pendingMasterKey = null;
+var _pendingBackupDone = null;
+var _pendingAuxDone = null;
 
 // ── Error modal ───────────────────────────────────────────────
 function showError(title, msg) {
@@ -50,13 +54,8 @@ function fmtSize(n) {
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── Worker init ───────────────────────────────────────────────
-var _stdinWake = null;
-var _stdinWake = null;
-
-// ── Worker init (runs on page load) ─────────────────────────
 (function() {
     if (_browserIssues.length > 0) {
-        $('#status').textContent = 'Browser not supported';
         $('#openBtn').disabled = true;
         showError('Browser not supported',
             'Your browser is missing required APIs:\n\u2022 ' +
@@ -64,27 +63,18 @@ var _stdinWake = null;
             '\n\nUse Chrome 86+ or Edge 86+ for full support.');
         return;
     }
-    console.log('[app] starting, creating Worker');
-    $('#status').textContent = 'Loading Worker...';
-    _worker = new Worker('worker.js?v=2');
+    _worker = new Worker('worker.js?v=3');
     _worker.onerror = function(e) {
-        console.error('[app] Worker error:', e);
         showError('Worker Crashed', e.message || 'Unknown error');
     };
     _worker.onmessage = function(e) {
-        console.log('[app] worker message:', e.data.type);
         var d = e.data;
         switch (d.type) {
         case 'loaded':
-            console.log('[app] Worker loaded');
             _workerReady = true;
-            $('#status').textContent = 'Ready';
-            break;
-        case 'sabs':
-            _stdinWake = new Int32Array(d.stdinSab);
             break;
         case 'ready':
-            $('#status').textContent = 'Disk mounted';
+            _shellReady = false;
             break;
         case 'error':
             showError('Worker Error', d.msg);
@@ -103,17 +93,13 @@ var _stdinWake = null;
 // ── stdout handler ────────────────────────────────────────────
 function handleStdout(text) {
     if (text == null) return;
-    console.log('[stdout]', text);
     if (text.indexOf('fat:') === 0) {
         var ci = text.indexOf(':'), gi = text.indexOf('>');
         if (ci > 0 && gi > ci) _cwd = text.substring(ci + 1, gi).trim();
         _shellReady = true;
-        console.log('[app] shellReady set to true, pendingCmd=', !!_pendingCmd);
         if (_pendingCmd) {
-            var r = _pendingCmd.resolve;
-            var out = _stdoutAcc;
-            _pendingCmd = null;
-            _stdoutAcc = '';
+            var r = _pendingCmd.resolve, out = _stdoutAcc;
+            _pendingCmd = null; _stdoutAcc = '';
             r(out);
         }
         return;
@@ -121,35 +107,50 @@ function handleStdout(text) {
     if (text.indexOf('Filesystem type:') === 0) {
         _fsType = text.split(':')[1].trim();
         $('#fsInfo').textContent = _fsType;
-        $('#stateRow').style.display = 'flex';
-        $('#mainLayout').style.display = 'flex';
         return;
     }
     if (/^\s*ERROR/i.test(text)) { _lastError = text; _inError = true; }
-    else if (_inError && /^\s*(fat:)/.test(text)) { _inError = false; }
+    else if (_inError && /^\s*fat:/.test(text)) { _inError = false; }
     else if (_inError) { _lastError += '\n' + text; return; }
+    if (text.indexOf('MK ') === 0) {
+        _cachedMasterKey = text.substring(3).replace(/\s/g, '');
+        if (_pendingMasterKey) { _pendingMasterKey(); _pendingMasterKey = null; }
+        return;
+    }
+    if (text.indexOf('SHELL_EXITED') === 0) {
+        _shellExited = true; _shellReady = false;
+        if (_pendingShellExit) { _pendingShellExit(); _pendingShellExit = null; }
+        if (_pendingCmd) { _pendingCmd.resolve(''); _pendingCmd = null; }
+        return;
+    }
+    if (text.indexOf('BACKUP_DONE') === 0) {
+        if (_pendingBackupDone) { _pendingBackupDone(); _pendingBackupDone = null; }
+        return;
+    }
+    if (text.indexOf('DRYRUN_OK') === 0) {
+        if (_pendingBackupDone) { _pendingBackupDone(); _pendingBackupDone = null; }
+        return;
+    }
+    if (text.indexOf('AUXPROBE_OK') === 0) {
+        if (_pendingAuxDone) { _pendingAuxDone(); _pendingAuxDone = null; }
+        return;
+    }
     _stdoutAcc += text + '\n';
     if (_stdoutAcc.length > 131072) _stdoutAcc = _stdoutAcc.slice(-65536);
 }
 
 // ── Shell commands ────────────────────────────────────────────
 function shellCmd(cmd) {
-    console.log('[app] shellCmd:', cmd, 'worker:', !!_worker);
     return new Promise(function(resolve, reject) {
-        _lastError = '';
-        _stdoutAcc = '';
-        _inError = false;
+        _lastError = ''; _stdoutAcc = ''; _inError = false;
         _pendingCmd = { resolve: resolve, reject: reject };
         try {
             _worker.postMessage({ type: 'cmd-queue', text: cmd + '\n' });
-            console.log('[app] shellCmd: posted cmd-queue to worker');
-        } catch(e) {
-            console.error('[app] shellCmd: postMessage failed', e);
-            reject(e);
-        }
+        } catch(e) { reject(e); }
     });
 }
 
+// ── Files tab ────────────────────────────────────────────────
 function parseLs(output) {
     var r = { dirs: [], files: [] };
     var lines = output.split('\n');
@@ -169,9 +170,11 @@ function parseLs(output) {
 function renderTree() {
     var el = $('#fileTree');
     el.innerHTML = '';
-    if (_cwd !== '/') el.appendChild(makeItem('..', '..', 0, 'dir', function() { cd('..'); }));
-    for (var i = 0; i < _fileTree.dirs.length; i++) (function(n){ el.appendChild(makeItem('D', n, 0, 'dir', function(){ cd(n); })); })(_fileTree.dirs[i].name);
-    for (var i = 0; i < _fileTree.files.length; i++) (function(n,s){ el.appendChild(makeItem('F', n, s, '', function(){ previewFile(n, s); })); })(_fileTree.files[i].name, _fileTree.files[i].size);
+    if (_cwd !== '/') el.appendChild(makeItem('📂', '..', 0, 'dir', function() { cd('..'); }));
+    for (var i = 0; i < _fileTree.dirs.length; i++)
+        (function(n){ el.appendChild(makeItem('📁', n, 0, 'dir', function(){ cd(n); })); })(_fileTree.dirs[i].name);
+    for (var i = 0; i < _fileTree.files.length; i++)
+        (function(n,s){ el.appendChild(makeItem('📄', n, s, '', function(){ previewFile(n, s); })); })(_fileTree.files[i].name, _fileTree.files[i].size);
     $('#breadcrumb').textContent = _cwd;
     $('#fileCount').textContent = _fileTree.dirs.length + ' dirs, ' + _fileTree.files.length + ' files';
 }
@@ -179,7 +182,7 @@ function renderTree() {
 function makeItem(icon, name, size, cls, onclick) {
     var d = document.createElement('div');
     d.className = 'tree-item ' + cls;
-    d.innerHTML = '<span class="icon">' + icon + '</span><span class="name">' + esc(name) + '</span><span class="size">' + (size > 0 ? fmtSize(size) : '') + '</span><span class="dl" title="Download">DL</span>';
+    d.innerHTML = '<span class="icon">' + icon + '</span><span class="name">' + esc(name) + '</span><span class="size">' + (size > 0 ? fmtSize(size) : '') + '</span><span class="dl" title="Download">⬇</span>';
     d.onclick = onclick;
     var dl = d.querySelector('.dl');
     if (dl && cls !== 'dir') dl.onclick = function(e) { e.stopPropagation(); exportFile(name); };
@@ -204,14 +207,11 @@ async function refresh() {
     if (_lastError) { showError('ls Failed', _lastError); return; }
     _fileTree = parseLs(output);
     renderTree();
-    $('#status').textContent = 'Mounted ' + _fsType;
 }
 
 async function exportFile(name) {
     var fpath = _cwd + '/' + name;
     await shellCmd('export ' + fpath + ' /tmp/x');
-    // export uses virtual FS — since we don't use it for disk I/O,
-    // this path won't work with streaming. For now, notify the user.
     showError('Export', 'Export not yet supported with streaming I/O.');
 }
 
@@ -223,55 +223,350 @@ function previewFile(name, size) {
 function closePreview() { $('#previewPanel').style.display = 'none'; }
 $('#previewClose').onclick = closePreview;
 
-// ── Open disk ──────────────────────────────────────────────────
+// ── Backup tab ──────────────────────────────────────────────
+async function backupFold() {
+    var statusEl = $('#buStatus');
+    if (!_cachedPass) { statusEl.textContent = 'No passphrase available. Re-open the disk first.'; return; }
+    try {
+        statusEl.textContent = 'Exiting shell...';
+        _shellExited = false;
+        var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
+        await shellCmd('exit');
+        await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
+        if (!_shellExited) throw new Error('Shell did not exit');
 
+        statusEl.textContent = 'Creating fold backup...';
+        var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
+        _worker.postMessage({ type: 'callMain', args: ['Backup', '--fold', '--to', '/tmp/fold.bu', '--key', _cachedPass, '/disk.img'] });
+        await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('backup timeout')); }, 30000); })]);
+
+        statusEl.textContent = 'Reading backup...';
+        var fileData = await new Promise(function(resolve, reject) {
+            var orig = _worker.onmessage;
+            _worker.onmessage = function(e) {
+                if (e.data.type === 'file-data' && e.data.path === '/tmp/fold.bu') {
+                    _worker.onmessage = orig; resolve(e.data.data);
+                } else if (e.data.type === 'file-error' && e.data.path === '/tmp/fold.bu') {
+                    _worker.onmessage = orig; reject(new Error(e.data.msg));
+                } else if (orig) orig(e);
+            };
+            _worker.postMessage({ type: 'read-file', path: '/tmp/fold.bu' });
+        });
+
+        var blob = new Blob([fileData], { type: 'application/octet-stream' });
+        var link = document.createElement('a');
+        link.download = 'windham-fold.bu';
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        URL.revokeObjectURL(link.href);
+        statusEl.textContent = 'Backup downloaded. Remounting...';
+
+        _shellExited = false;
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+        statusEl.textContent = 'Backup complete.';
+    } catch(e) {
+        statusEl.textContent = 'Backup failed: ' + e;
+        showError('Backup Failed', String(e));
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+    }
+}
+
+$('#buDownloadBtn').onclick = backupFold;
+
+async function showQr() {
+    var statusEl = $('#buStatus');
+    var canvasEl = $('#qrCanvas');
+    if (!_cachedPass) { statusEl.textContent = 'No passphrase available.'; return; }
+    try {
+        statusEl.textContent = 'Exiting shell...';
+        _shellExited = false;
+        var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
+        await shellCmd('exit');
+        await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
+        if (!_shellExited) throw new Error('Shell did not exit');
+
+        statusEl.textContent = 'Generating QR code...';
+        _stdoutAcc = '';
+        var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
+        _worker.postMessage({ type: 'callMain', args: ['Backup', '--qrcode=/tmp/qr.bmp', '--to', '/tmp/fold.bu', '--key', _cachedPass, '/disk.img'] });
+        await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 30000); })]);
+
+        statusEl.textContent = 'Reading QR image...';
+        var bmpData = await new Promise(function(resolve, reject) {
+            var orig = _worker.onmessage;
+            _worker.onmessage = function(e) {
+                if (e.data.type === 'file-data' && e.data.path === '/tmp/qr.bmp') {
+                    _worker.onmessage = orig; resolve(e.data.data);
+                } else if (e.data.type === 'file-error' && e.data.path === '/tmp/qr.bmp') {
+                    _worker.onmessage = orig; reject(new Error(e.data.msg));
+                } else if (orig) orig(e);
+            };
+            _worker.postMessage({ type: 'read-file', path: '/tmp/qr.bmp' });
+        });
+
+        var blob = new Blob([bmpData], { type: 'image/bmp' });
+        var img = await createImageBitmap(blob);
+        canvasEl.width = img.width; canvasEl.height = img.height;
+        canvasEl.style.display = 'block';
+        var ctx = canvasEl.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        img.close();
+        statusEl.textContent = 'QR code generated.';
+
+        _shellExited = false;
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+    } catch(e) {
+        statusEl.textContent = 'QR failed: ' + e;
+        showError('QR Failed', String(e));
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+    }
+}
+$('#buQrBtn').onclick = showQr;
+
+// ── Aux tab ──────────────────────────────────────────────────
+async function loadAux() {
+    var statusEl = $('#auxStatus');
+    var outputEl = $('#auxOutput');
+    outputEl.textContent = 'Loading...';
+    if (!_cachedPass) { outputEl.textContent = 'No passphrase available.'; return; }
+    try {
+        _shellExited = false;
+        var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
+        await shellCmd('exit');
+        await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
+        if (!_shellExited) throw new Error('Shell did not exit');
+        _shellReady = false;
+
+        _stdoutAcc = '';
+        var auxDone = new Promise(function(r) { _pendingAuxDone = r; });
+        _worker.postMessage({ type: 'callMain', args: ['Aux', '--aux-probe', '--key', _cachedPass, '/disk.img'] });
+        await Promise.race([auxDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('aux timeout')); }, 30000); })]);
+
+        var lines = _stdoutAcc.split('\n');
+        var filtered = [];
+        for (var i = 0; i < lines.length; i++) {
+            var l = lines[i];
+            if (l.indexOf('AUXPROBE_OK') >= 0 || l.indexOf('MK ') === 0) continue;
+            filtered.push(l);
+        }
+        outputEl.textContent = filtered.join('\n').trim() || 'No aux entries found.';
+
+        _shellExited = false;
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+        statusEl.textContent = '';
+    } catch(e) {
+        outputEl.textContent = 'Failed: ' + e;
+        showError('Aux Failed', String(e));
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+    }
+}
+
+// ── Metadata tab ────────────────────────────────────────────
+async function loadMeta() {
+    var statusEl = $('#metaStatus');
+    if (!_cachedMasterKey) { statusEl.textContent = 'No master key available.'; return; }
+    try {
+        _shellExited = false;
+        _pendingMasterKey = null;
+        var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
+        await shellCmd('exit');
+        await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
+        if (!_shellExited) throw new Error('Shell did not exit');
+        _shellReady = false;
+
+        _stdoutAcc = '';
+        var metaDone = new Promise(function(r) { _pendingBackupDone = r; });
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--dry-run', '--master-key', _cachedMasterKey, '/disk.img'] });
+        await Promise.race([metaDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 30000); })]);
+
+        var lines = _stdoutAcc.split('\n');
+        var metaKV = [], slotBlocks = [], curSlot = null;
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].indexOf('\t') !== 0) continue;
+            var raw = lines[i].replace(/\t/g, '').trim();
+            if (/^Slot \d+$/.test(raw)) {
+                curSlot = { num: parseInt(raw.split(' ')[1]), fields: [] };
+                slotBlocks.push(curSlot);
+            } else if (curSlot) {
+                var ci = raw.indexOf(': ');
+                if (ci > 0) curSlot.fields.push({ key: raw.substring(0, ci).trim(), val: raw.substring(ci + 1).trim() });
+                else curSlot.fields.push({ key: '', val: raw });
+            } else {
+                var ci2 = raw.indexOf(': ');
+                if (ci2 > 0) metaKV.push({ key: raw.substring(0, ci2).trim(), val: raw.substring(ci2 + 1).trim() });
+                else metaKV.push({ key: raw, val: '' });
+            }
+        }
+
+        var tbody = $('#metaTable');
+        while (tbody.rows.length > 1) tbody.deleteRow(1);
+        for (var mi = 0; mi < metaKV.length; mi++) {
+            var tr = tbody.insertRow(); tr.style.borderBottom = 'none';
+            var td = tr.insertCell(0); td.textContent = metaKV[mi].key; td.style.color = '#888';
+            var td1 = tr.insertCell(1); td1.textContent = metaKV[mi].val;
+        }
+        var slotTbody = $('#slotTable');
+        while (slotTbody.rows.length > 0) slotTbody.deleteRow(0);
+        if (slotBlocks.length > 0) {
+            var kdfMemKiB = [350, 1480, 6100, 22469, 61079, 166024, 451332,
+                902702, 1805405, 3610810, 7221620, 14443240, 28886480,
+                57772960, 115545920, 231091841, 462183682, 924367364,
+                1848734729, 3697469458, 7394938916, 14789877832, 29579755664,
+                59159511328, 118319022656, 236638045313];
+            function kdfMemStr(level) {
+                if (level < 0 || level >= kdfMemKiB.length) return '—';
+                var b = kdfMemKiB[level] * 1024;
+                if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+                if (b < 1073741824) return (b/1048576).toFixed(0) + ' MB';
+                return (b/1073741824).toFixed(1) + ' GB';
+            }
+            var sep = slotTbody.insertRow();
+            var sepTd = sep.insertCell(0); sepTd.colSpan = 5;
+            sepTd.innerHTML = '<b style="color:#4fc3f7">Key Slots</b>';
+            sepTd.style.paddingTop = '14px';
+            var hdr = slotTbody.insertRow();
+            hdr.className = 'slot-hdr';
+            ['Slot', 'Level', 'Memory', 'Zone', 'Identifier'].forEach(function(h) {
+                var th = hdr.insertCell(); th.textContent = h;
+                th.style.cssText = 'color:#aaa;font-size:12px;border-bottom:1px solid #4fc3f7';
+                if (h === 'Identifier') th.style.width = 'auto';
+                else th.style.width = '1px';
+            });
+            for (var si = 0; si < slotBlocks.length; si++) {
+                var sl = slotBlocks[si];
+                var lvl = parseInt((sl.fields.find(function(f) { return f.key === 'Level'; }) || { val: '0' }).val);
+                var cells = {
+                    'Slot':   { val: String(sl.num) },
+                    'Level':  { val: String(isNaN(lvl) ? '-' : lvl) },
+                    'Memory': { val: isNaN(lvl) ? '-' : kdfMemStr(lvl) },
+                    'Zone':   sl.fields.find(function(f) { return f.key === 'Zone'; }) || { val: '-' },
+                    'Identifier': sl.fields.find(function(f) { return f.key === 'Identifier' || f.key === 'Anonymous'; }) || { val: '\u2014' }
+                };
+                var srow = slotTbody.insertRow();
+                ['Slot', 'Level', 'Memory', 'Zone', 'Identifier'].forEach(function(k) {
+                    var sc = srow.insertCell(); sc.textContent = cells[k].val;
+                    sc.style.borderBottom = '1px solid #1a1a2e';
+                });
+            }
+        }
+
+        statusEl.textContent = 'Remounting...';
+        _shellExited = false;
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+        statusEl.textContent = '';
+    } catch(e) {
+        statusEl.textContent = 'Failed: ' + e;
+        showError('Metadata Failed', String(e));
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+    }
+}
+
+// ── Tab switching ──────────────────────────────────────────
+var _currentTab = '';
+function switchTab(name) {
+    if (name === _currentTab && document.querySelector('.tab-content[data-tab="' + name + '"]').classList.contains('active')) return;
+    _currentTab = name;
+    document.querySelectorAll('.sidebar .tab').forEach(function(t) {
+        t.classList.toggle('active', t.dataset.tab === name);
+    });
+    document.querySelectorAll('.content-area .tab-content').forEach(function(c) {
+        c.classList.toggle('active', c.dataset.tab === name);
+    });
+    if (name === 'files') {
+        refresh();
+    } else if (name === 'aux') {
+        loadAux();
+    } else if (name === 'meta') {
+        loadMeta();
+    }
+}
+
+document.querySelectorAll('.sidebar .tab').forEach(function(t) {
+    t.onclick = function() { switchTab(t.dataset.tab); };
+});
+
+// ── Open disk ────────────────────────────────────────────────
 async function closeDisk() {
-    _shellReady = false; _cwd = '/'; _fsType = '';
+    _shellReady = false; _cwd = '/'; _fsType = ''; _cachedPass = '';
     _fileTree = { dirs: [], files: [] };
     _historyCwd = ['/']; _historyIdx = 0;
-    $('#mainLayout').style.display = 'none'; $('#stateRow').style.display = 'none';
-    $('#previewPanel').style.display = 'none'; $('#toolbar').style.display = 'none';
-    $('#fileTree').innerHTML = ''; $('#status').textContent = 'Ready';
+    $('#mainApp').style.display = 'none';
+    $('#unlockScreen').style.display = 'flex';
+    $('#closeBtn').style.display = 'none';
+    $('#fileTree').innerHTML = '';
     $('#openBtn').disabled = false;
     if (_worker) { _worker.terminate(); _worker = null; _workerReady = false; }
     location.reload();
 }
 
 async function openFile(file) {
-    console.log('[app] openFile:', file.name, file.size, 'bytes');
-    if (!_workerReady) { showError('Worker not ready', 'The WebAssembly Worker has not loaded yet.'); return; }
-
+    if (!_workerReady) { showError('Worker not ready', 'Worker has not loaded yet.'); return; }
+    $('#unlockLoading').style.display = 'flex';
     $('#openBtn').disabled = true;
-    $('#loadingArea').style.display = 'flex';
-    $('#infoSection').style.display = 'none';
-    $('#toolbar').style.display = 'none';
-    $('#status').textContent = 'Loading disk (' + fmtSize(file.size) + ')...';
 
-    var buf = await file.arrayBuffer();
+    _worker.postMessage({ type: 'setup-fs', diskSize: file.size, file: file });
+    _cachedPass = $('#passInput').value;
 
-    _worker.postMessage({ type: 'setup-fs', diskSize: file.size, diskData: new Uint8Array(buf) }, [buf]);
-    await new Promise(function(r) {
-        var orig = _worker.onmessage;
-        _worker.onmessage = function(e) {
-            if (e.data.type === 'ready') { _worker.onmessage = orig; r(); }
-            else if (orig) orig(e);
-        };
-    });
+    $('#unlockLoading').textContent = 'Deriving key...';
+    _cachedMasterKey = '';
+    _worker.postMessage({ type: 'callMain', args: ['Open', '--show-master-key', '--key', _cachedPass, '/disk.img'] });
+    _pendingMasterKey = function() {
+        _pendingMasterKey = null;
+        if (!_cachedMasterKey) {
+            showError('Unlock Failed', 'Could not obtain master key.');
+            $('#openBtn').disabled = false;
+            return;
+        }
+        $('#unlockLoading').textContent = 'Mounting filesystem...';
+        _shellExited = false;
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        waitForShell(0);
+    };
+    setTimeout(function() {
+        if (_pendingMasterKey) { _pendingMasterKey = null; showError('Timeout', 'Master key derivation timed out.'); }
+    }, 60000);
+}
 
-    $('#loadingArea').style.display = 'none';
-    $('#status').textContent = 'Unlocking...';
-
-    var pass = $('#passInput').value;
-    if (!pass) { showError('Passphrase required', 'Enter a passphrase before opening a disk.'); return; }
-    _worker.postMessage({ type: 'callMain', args: ['Open', '/disk.img', '--key', pass] });
-    waitForShell(0);
+function waitForShell(attempts) {
+    if (_shellReady) {
+        $('#unlockScreen').style.display = 'none';
+        $('#mainApp').style.display = 'flex';
+        $('#closeBtn').style.display = 'block';
+        $('#roNotice').style.display = 'block';
+        _historyCwd = ['/']; _historyIdx = 0;
+        updateNavBtns();
+        if (!_currentTab) { _currentTab = 'files'; }
+        switchTab(_currentTab);
+        if (_fsType) $('#fsInfo').textContent = _fsType;
+        return;
+    }
+    if (_lastError && attempts > 10) {
+        $('#unlockLoading').textContent = 'Failed.';
+        $('#openBtn').disabled = false;
+        showError('Unlock Failed', _lastError);
+        return;
+    }
+    if (attempts > 300) {
+        $('#unlockLoading').textContent = 'Timeout.';
+        $('#openBtn').disabled = false;
+        showError('Timeout', 'Unlock took too long.');
+        return;
+    }
+    setTimeout(function() { waitForShell(attempts + 1); }, 100);
 }
 
 async function openDisk() {
-    console.log('[app] openDisk called, workerReady=', _workerReady);
+    if (!_workerReady) { showError('Worker not ready', 'Worker has not loaded yet.'); return; }
     var pass = $('#passInput').value;
     if (!pass) return;
-    if (!_workerReady) { showError('Worker not ready', 'The WebAssembly Worker has not loaded yet.'); return; }
 
     if (typeof window.showOpenFilePicker === 'function') {
         var handle;
@@ -280,33 +575,27 @@ async function openDisk() {
                 types: [{description: 'Disk images', accept: {'application/octet-stream': ['.img','.bin','.raw']}}]
             });
         } catch(e) {
-            $('#status').textContent = 'Ready';
-            showError('No file selected', 'Use the file picker to select a disk image.');
             return;
         }
-        var file = await handle.getFile();
-        openFile(file);
+        openFile(await handle.getFile());
     } else {
-        // Fallback: use hidden <input type=file>
         $('#fileInput').click();
     }
 }
 
-// ── File & folder upload ────────────────────────────────────
+// ── File input / drop-to-open ────────────────────────────────
 (function() {
     var fileInput = $('#fileInput');
     fileInput.onchange = function() {
         if (this.files && this.files[0]) openFile(this.files[0]);
         this.value = '';
     };
-
     var overlay = $('#dropOverlay');
     var dragCounter = 0;
-
     document.addEventListener('dragenter', function(e) {
         e.preventDefault();
         dragCounter++;
-        overlay.classList.add('active');
+        if (!_shellReady) overlay.classList.add('active');
     });
     document.addEventListener('dragleave', function(e) {
         e.preventDefault();
@@ -318,159 +607,10 @@ async function openDisk() {
         e.preventDefault();
         dragCounter = 0;
         overlay.classList.remove('active');
-        if (!_shellReady) { showError('No disk open', 'Open a disk before uploading files.'); return; }
-
-        var items = e.dataTransfer.items;
-        if (items && items.length) {
-            handleDropItems(items, _cwd);
-        } else if (e.dataTransfer.files && e.dataTransfer.files.length) {
-            handleDropFiles(e.dataTransfer.files, _cwd);
-        }
+        if (!_shellReady && e.dataTransfer.files && e.dataTransfer.files[0])
+            openFile(e.dataTransfer.files[0]);
     });
-
-    function handleDropItems(items, basePath) {
-        var entries = [];
-        for (var i = 0; i < items.length; i++) {
-            var entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
-            if (entry) entries.push({ entry: entry, base: basePath });
-        }
-        if (entries.length === 0) return;
-        uploadEntries(entries, 0);
-    }
-
-    function handleDropFiles(files, basePath) {
-        // Flat file list (no webkitGetAsEntry) — upload each file
-        var arr = [];
-        for (var i = 0; i < files.length; i++) {
-            arr.push({ file: files[i], fatPath: basePath + '/' + files[i].name });
-        }
-        uploadFiles(arr);
-    }
-
-    // ── Recursive tree walk ────────────────────────────────
-    function walkEntries(entry, base, list) {
-        if (entry.isFile) {
-            list.push({ entry: entry, fatDir: base, fatPath: base + '/' + entry.name });
-        } else if (entry.isDirectory) {
-            var sub = base + '/' + entry.name;
-            list.push({ entry: entry, fatDir: sub });
-            var reader = entry.createReader();
-            return new Promise(function(resolve) {
-                (function readBatch() {
-                    reader.readEntries(function(batch) {
-                        if (!batch.length) return resolve();
-                        Promise.all(batch.map(function(e) { return walkEntries(e, sub, list); }))
-                            .then(function() { readBatch(); });
-                    });
-                })();
-            });
-        }
-        return Promise.resolve();
-    }
-
-    async function uploadEntries(entries, startIdx) {
-        // 1. Walk all entries into a flat list
-        var list = [];
-        await Promise.all(entries.map(function(e) { return walkEntries(e.entry, e.base, list); }));
-
-        // 2. Sort: directories first (shallow first), then files
-        var dirs = [], files = [];
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].entry && list[i].entry.isDirectory && list[i].fatDir) {
-                var d = list[i].fatDir;
-                if (dirs.indexOf(d) < 0) dirs.push(d);
-            } else if (list[i].fatPath) {
-                files.push(list[i]);
-            }
-        }
-        dirs.sort(function(a, b) { return a.split('/').length - b.split('/').length; });
-
-        // 3. Create directories
-        for (var di = 0; di < dirs.length; di++) {
-            var d = dirs[di];
-            $('#status').textContent = 'Creating ' + d + ' (' + (di + 1) + '/' + dirs.length + ')...';
-            await shellCmd('mkdir ' + shellEscapePath(d));
-            if (_lastError) { showError('mkdir failed', d + ': ' + _lastError); return; }
-        }
-
-        // 4. Upload files
-        for (var fi = 0; fi < files.length; fi++) {
-            var f = files[fi];
-            $('#status').textContent = 'Uploading ' + f.entry.name + ' (' + (fi + 1) + '/' + files.length + ')...';
-            await uploadSingleFile(f.entry, f.fatPath);
-            if (_lastError) { showError('Upload failed', f.fatPath + ': ' + _lastError); return; }
-        }
-
-        $('#status').textContent = 'Mounted ' + _fsType + ' — ' + files.length + ' files uploaded';
-        await refresh();
-    }
-
-    async function uploadSingleFile(entry, fatPath) {
-        var file = await new Promise(function(resolve, reject) {
-            entry.file(resolve, reject);
-        });
-        var buf = await file.arrayBuffer();
-        var tmpName = 'up_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        await writeTmp(tmpName, new Uint8Array(buf));
-        await shellCmd('import /tmp/' + shellEscapePath(tmpName) + ' ' + shellEscapePath(fatPath));
-        // Cleanup: delete tmp file from virtual FS (silent ignore errors)
-        _worker.postMessage({ type: 'write-tmp', name: tmpName, data: new Uint8Array(0) });
-    }
-
-    function shellEscapePath(p) {
-        if (p.indexOf(' ') >= 0) return '\'' + p + '\'';
-        return p;
-    }
-
-    async function writeTmp(name, data) {
-        _worker.postMessage({ type: 'write-tmp', name: name, data: data }, [data.buffer]);
-        await new Promise(function(resolve) {
-            var orig = _worker.onmessage;
-            var done = false;
-            _worker.onmessage = function(e) {
-                if (!done && e.data.type === 'tmp-ready' && e.data.name === name) {
-                    done = true; _worker.onmessage = orig; resolve();
-                } else if (orig) orig(e);
-            };
-        });
-    }
-
-    // ── Flat file list upload (no folders) ─────────────────
-    async function uploadFiles(files) {
-        for (var i = 0; i < files.length; i++) {
-            var f = files[i];
-            $('#status').textContent = 'Uploading ' + f.file.name + ' (' + (i+1) + '/' + files.length + ')...';
-            var buf = await f.file.arrayBuffer();
-            var tmpName = 'up_' + Date.now() + '_' + f.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-            await writeTmp(tmpName, new Uint8Array(buf));
-            await shellCmd('import /tmp/' + shellEscapePath(tmpName) + ' ' + shellEscapePath(f.fatPath));
-            if (_lastError) { showError('Upload failed', f.fatPath + ': ' + _lastError); return; }
-            _worker.postMessage({ type: 'write-tmp', name: tmpName, data: new Uint8Array(0) });
-        }
-        $('#status').textContent = 'Mounted ' + _fsType + ' — ' + files.length + ' files uploaded';
-        await refresh();
-    }
 })();
-
-function waitForShell(attempts) {
-    if (_shellReady) {
-        console.log('[app] shellReady, calling refresh');
-        $('#toolbar').style.display = 'flex';
-        _historyCwd = ['/']; _historyIdx = 0;
-        updateNavBtns();
-        if (_fsType) {
-            $('#fsInfo').textContent = _fsType;
-            $('#stateRow').style.display = 'flex';
-            $('#mainLayout').style.display = 'flex';
-        }
-        refresh();
-        return;
-    }
-    if (_lastError) { showError('Unlock Failed', _lastError); return; }
-    if (attempts > 300) { showError('Timeout', 'Unlock took too long.'); return; }
-    if (attempts % 10 === 0) $('#status').textContent = 'Waiting for shell... ' + (attempts/10).toFixed(0) + 's';
-    setTimeout(function() { waitForShell(attempts + 1); }, 100);
-}
 
 // ── Events ─────────────────────────────────────────────────────
 $('#passInput').oninput   = function() { $('#openBtn').disabled = !this.value; };

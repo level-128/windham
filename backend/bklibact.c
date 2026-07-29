@@ -412,6 +412,8 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
          qr_print_terminal(&qr, init_val->is_color_print);
       }
       free(modules);
+      printf("BACKUP_DONE\n");
+      fflush(stdout);
       return;
    }
 
@@ -520,6 +522,8 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
              (size_t)((uint8_t *)(meta + 1) - data.uuid_and_salt),
              out);
       fclose(out);
+      printf("BACKUP_DONE\n");
+      fflush(stdout);
       return;
    }
 

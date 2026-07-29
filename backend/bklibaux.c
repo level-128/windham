@@ -365,13 +365,15 @@ void action_aux_probe(
 		free(slot);
 	}
 
-	if (count == 0) {
-		printf(_("No aux entries found.\n"));
-	} else {
-		printf(_("Found %d aux entry(ies).\n"), count);
-	}
+   if (count == 0) {
+      printf(_("No aux entries found.\n"));
+   } else {
+      printf(_("Found %d aux entry(ies).\n"), count);
+   }
 
-	free(aux_zone);
+   free(aux_zone);
+   printf("AUXPROBE_OK\n");
+   fflush(stdout);
 }
 
 

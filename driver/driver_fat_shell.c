@@ -1276,6 +1276,10 @@ static int ff_shell_run(void)
 		Mounted = 0;
 	}
 
+#if defined(CFG_FF_SHELL_NOINTERACTIVE) || defined(__EMSCRIPTEN__)
+	printf("SHELL_EXITED\n");
+	fflush(stdout);
+#endif
 	return 0;
 }
 

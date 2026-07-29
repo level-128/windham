@@ -110,6 +110,7 @@ enum {
  	/* -- Driver selection ----------------------- */
  	NMOBJ_decrypt,
 	NMOBJ_print_encryption,
+	NMOBJ_show_master_key,
 
 	/* -- exFAT creation ------------------------- */
 	NMOBJ_create_exfat,
@@ -253,6 +254,7 @@ const struct option long_options[] = {
 	{"decrypt", required_argument, &options[NMOBJ_decrypt], 1},
 #endif
 	{"print-encryption", no_argument, &options[NMOBJ_print_encryption], 1},
+	{"show-master-key", no_argument, &options[NMOBJ_show_master_key], 1},
 
 	/* -- exFAT creation ------------------------- */
 #ifdef CFG_FF_CREATE
@@ -578,8 +580,9 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				max_unlock_level,
 				options[NMOBJ_is_allow_swap],
 				options[NMOBJ_target_decoy],
-				options[NMOBJ_target_dry_run],
-				options[NMOBJ_target_readonly],
+			options[NMOBJ_target_dry_run],
+			options[NMOBJ_show_master_key],
+			options[NMOBJ_target_readonly],
 				options[NMOBJ_target_allow_discards],
 				options[NMOBJ_target_no_read_workqueue],
 				options[NMOBJ_target_no_write_workqueue],

@@ -43,6 +43,7 @@ opt_allow(NMOBJ_action_open,
   NMOBJ_to,
   NMOBJ_target_readonly,
   NMOBJ_target_dry_run,
+  NMOBJ_show_master_key,
   NMOBJ_target_allow_discards,
   NMOBJ_target_no_read_workqueue,
   NMOBJ_target_no_write_workqueue,
@@ -171,6 +172,10 @@ ent(NMOBJ_action_ALL, err,
 ent(NMOBJ_action_open, err,
 "--to and --dry-run are mutually exclusive under action \"Open\".",
 has(1, NMOBJ_to, NMOBJ_target_dry_run))
+
+ent(NMOBJ_action_open, err,
+"--show-master-key and --dry-run are mutually exclusive under action \"Open\".",
+has(1, NMOBJ_show_master_key, NMOBJ_target_dry_run))
 
 ent(NMOBJ_action_open, err,
 "Cannot set a read only target's write workqueue status.",

@@ -9,50 +9,12 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 
-.header { background: #16213e; padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-.header h1 { font-size: 18px; color: #4fc3f7; flex: 1; }
-.header .status { font-size: 13px; color: #888; }
-.header .toolbar { display: flex; gap: 6px; }
-.header .toolbar button { background: #222; color: #ccc; border: 1px solid #444; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
-.header .toolbar button:hover:not(:disabled) { background: #333; }
-.header .toolbar button:disabled { opacity: 0.4; cursor: default; }
-.header .toolbar button.close-btn { background: #5c1a1a; border-color: #833; color: #f88; }
-.header .toolbar button.close-btn:hover { background: #7c2a2a; }
-
-.panel { flex: 1; display: flex; flex-direction: column; padding: 12px 20px; overflow: hidden; }
-
-.form-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 12px; flex-shrink: 0; }
-.form-row label { font-size: 13px; color: #aaa; display: block; margin-bottom: 4px; }
-.form-row input[type=password] { background: #222; border: 1px solid #444; color: #ccc; padding: 8px; border-radius: 4px; width: 220px; }
-.form-row button.primary { background: #0d7377; color: #fff; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
-.form-row button.primary:hover { background: #0e9594; }
-.form-row button.primary:disabled { background: #444; cursor: not-allowed; }
-
-.state-row { display: flex; gap: 12px; font-size: 13px; color: #888; margin-bottom: 8px; align-items: center; flex-shrink: 0; }
-.state-row .fs-info { color: #4fc3f7; font-weight: 600; }
-
-.main-layout { flex: 1; display: flex; gap: 12px; overflow: hidden; min-height: 0; }
-.tree-panel { flex: 1; background: #12122a; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
-.tree-panel .tree-header { padding: 8px 14px; font-size: 13px; color: #888; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-.tree-panel .tree-header .info { margin-left: auto; color: #555; font-size: 12px; }
-.tree-panel .tree-body { flex: 1; overflow-y: auto; }
-.tree-panel .tree-item { display: flex; align-items: center; padding: 4px 14px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #111; }
-.tree-panel .tree-item:hover { background: #1e1e3a; }
-.tree-panel .tree-item .icon { width: 22px; text-align: center; flex-shrink: 0; }
-.tree-panel .tree-item.dir .icon { color: #ffb74d; }
-.tree-panel .tree-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 8px; }
-.tree-panel .tree-item .size { color: #555; font-size: 12px; margin-right: 4px; flex-shrink: 0; }
-.tree-panel .tree-item .dl { color: #4fc3f7; font-size: 14px; cursor: pointer; padding: 2px 6px; visibility: hidden; }
-.tree-panel .tree-item:hover .dl { visibility: visible; }
-.tree-panel .tree-item .dl:hover { color: #fff; }
-
-.preview-panel { width: 320px; background: #0a0a14; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
-.preview-panel .preview-header { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #222; display: flex; align-items: center; flex-shrink: 0; }
-.preview-panel .preview-header .name { flex: 1; color: #ccc; }
-.preview-panel .preview-header .size { color: #555; margin-right: 8px; font-size: 12px; }
-.preview-panel .preview-header .close { cursor: pointer; color: #666; font-size: 16px; }
-.preview-panel .preview-header .close:hover { color: #f88; }
-.preview-panel .preview-body { flex: 1; padding: 12px; color: #888; font-size: 13px; }
+.header { background: #16213e; padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.header h1 { font-size: 16px; color: #4fc3f7; flex: 1; }
+.header .status { font-size: 13px; color: #888; margin-right: 10px; }
+.header .notice { font-size: 12px; color: #666; font-style: italic; margin-left: auto; margin-right: 16px; }
+.header .close-btn { background: #5c1a1a; border-color: #833; color: #f88; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; border: 1px solid #833; }
+.header .close-btn:hover { background: #7c2a2a; }
 
 .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
 .modal.active { display: flex; }
@@ -62,88 +24,159 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
 .modal .box button { background: #5c1a1a; color: #f88; border: 1px solid #833; padding: 8px 20px; border-radius: 4px; cursor: pointer; }
 .modal .box button:hover { background: #7c2a2a; }
 
-.loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: #666; flex-shrink: 0; }
+.loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: #666; }
 .spinner { width: 24px; height: 24px; border: 3px solid #333; border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.info-section { margin-top: 24px; padding: 16px 20px; background: #12122a; border: 1px solid #222; border-radius: 6px; font-size: 13px; color: #999; line-height: 1.7; }
-.info-section h2 { font-size: 15px; color: #4fc3f7; margin-bottom: 10px; }
-.info-section h3 { font-size: 13px; color: #ccc; margin: 12px 0 4px; }
-.info-section code { background: #1a1a2e; color: #4fc3f7; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
-.info-section a { color: #4fc3f7; text-decoration: none; }
-.info-section a:hover { text-decoration: underline; }
-.info-section pre { background: #0a0a14; padding: 8px 12px; border-radius: 4px; overflow-x: auto; margin: 4px 0 8px; }
-.info-section .star-line { margin-top: 14px; font-size: 13px; }
+/* ── Unlock screen ───────────────────────────────── */
+.unlock-screen { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 60px 40px 80px; overflow-y: auto; }
+.unlock-screen .box { background: #12122a; border: 1px solid #222; border-radius: 8px; padding: 36px 40px; max-width: 640px; width: 100%; flex-shrink: 0; }
+.unlock-screen h2 { font-size: 18px; color: #4fc3f7; margin-bottom: 20px; text-align: center; }
+.unlock-screen .row { display: flex; gap: 10px; margin-bottom: 12px; align-items: end; flex-wrap: wrap; }
+.unlock-screen label { font-size: 13px; color: #aaa; display: block; margin-bottom: 4px; }
+.unlock-screen input[type=password] { background: #222; border: 1px solid #444; color: #ccc; padding: 9px; border-radius: 4px; width: 100%; max-width: 100%; }
+.unlock-screen button.primary { background: #0d7377; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.unlock-screen button.primary:hover { background: #0e9594; }
+.unlock-screen button.primary:disabled { background: #444; cursor: not-allowed; }
+.unlock-screen .hint { font-size: 12px; color: #666; margin-top: 12px; text-align: center; }
+.unlock-screen .instructions { margin-top: 32px; padding: 0; background: none; border: none; font-size: 13px; line-height: 1.6; text-align: left; max-width: 640px; width: 100%; color: #777; }
+.unlock-screen .instructions h2 { font-size: 15px; color: #4fc3f7; margin: 0 0 6px; text-align: left; }
+.unlock-screen .instructions h3 { font-size: 12px; color: #999; margin: 20px 0 4px; letter-spacing: 0.5px; text-transform: uppercase; }
+.unlock-screen .instructions .card { background: #12122a; border: 1px solid #222; border-radius: 6px; padding: 14px 16px; margin-bottom: 10px; }
+.unlock-screen .instructions .card p { margin: 0; }
+.unlock-screen .instructions pre { background: #0a0a14; padding: 10px 14px; border-radius: 4px; overflow-x: auto; font-size: 12px; color: #b2dfdb; line-height: 1.5; border-left: 3px solid #0d7377; margin: 6px 0 10px; }
+.unlock-screen .instructions code { background: #1a1a2e; color: #4fc3f7; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.unlock-screen .instructions a { color: #4fc3f7; }
+.unlock-screen .instructions a:hover { text-decoration: underline; }
+.unlock-screen .instructions ul { margin: 6px 0 0 16px; color: #999; }
+.unlock-screen .instructions li { margin-bottom: 4px; }
+.unlock-screen .instructions .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-top: 4px; font-size: 12px; color: #888; }
+.unlock-screen .instructions .notes li { margin: 0; }
+.unlock-screen .instructions .star-line { margin-top: 16px; font-size: 12px; text-align: center; color: #666; }
+
+/* ── Main layout (unlocked) ──────────────────────── */
+.main-app { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+.sidebar { width: 140px; background: #0f0f20; border-right: 1px solid #222; display: flex; flex-direction: column; flex-shrink: 0; padding-top: 8px; }
+.sidebar .tab { padding: 12px 16px; cursor: pointer; font-size: 14px; color: #888; border-left: 3px solid transparent; user-select: none; }
+.sidebar .tab:hover { background: #1a1a30; color: #bbb; }
+.sidebar .tab.active { color: #4fc3f7; border-left-color: #4fc3f7; background: #12122a; }
+
+.content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Files tab ──────────────────────────────────── */
+.tab-files { display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+.tab-files .toolbar { display: flex; gap: 6px; padding: 8px 16px; background: #0a0a1e; border-bottom: 1px solid #222; flex-shrink: 0; align-items: center; }
+.tab-files .toolbar button { background: #222; color: #ccc; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.tab-files .toolbar button:hover { background: #333; }
+.tab-files .toolbar button:disabled { opacity: 0.4; cursor: default; }
+.tab-files .toolbar .fs-info { color: #4fc3f7; font-weight: 600; margin-left: 8px; font-size: 13px; }
+.tab-files .files-layout { flex: 1; display: flex; gap: 8px; overflow: hidden; padding: 8px; min-height: 0; }
+.tab-files .tree-panel { flex: 1; background: #12122a; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
+.tab-files .tree-header { padding: 8px 14px; font-size: 13px; color: #888; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.tab-files .tree-header .info { margin-left: auto; color: #555; font-size: 12px; }
+.tab-files .tree-body { flex: 1; overflow-y: auto; }
+.tab-files .tree-item { display: flex; align-items: center; padding: 4px 14px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #111; }
+.tab-files .tree-item:hover { background: #1e1e3a; }
+.tab-files .tree-item .icon { width: 22px; text-align: center; flex-shrink: 0; }
+.tab-files .tree-item.dir .icon { color: #ffb74d; }
+.tab-files .tree-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 8px; }
+.tab-files .tree-item .size { color: #555; font-size: 12px; margin-right: 4px; flex-shrink: 0; }
+.tab-files .tree-item .dl { color: #4fc3f7; font-size: 14px; cursor: pointer; padding: 2px 6px; visibility: hidden; }
+.tab-files .tree-item:hover .dl { visibility: visible; }
+.tab-files .tree-item .dl:hover { color: #fff; }
+.tab-files .preview-panel { width: 280px; background: #0a0a14; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.tab-files .preview-header { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #222; display: flex; align-items: center; flex-shrink: 0; }
+.tab-files .preview-header .pname { flex: 1; color: #ccc; }
+.tab-files .preview-header .psize { color: #555; margin-right: 8px; font-size: 12px; }
+.tab-files .preview-header .close { cursor: pointer; color: #666; font-size: 16px; }
+.tab-files .preview-header .close:hover { color: #f88; }
+.tab-files .preview-body { flex: 1; padding: 12px; color: #888; font-size: 13px; }
+
+/* ── Generic tab content ────────────────────────── */
+.tab-content { display: none; flex-direction: column; height: 100%; overflow-y: auto; padding: 20px; }
+.tab-content.active { display: flex; }
+.tab-content h2 { font-size: 16px; color: #4fc3f7; margin-bottom: 16px; }
+.tab-content p { font-size: 13px; color: #888; margin-bottom: 12px; }
+.tab-content button { background: #0d7377; color: #fff; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.tab-content button:hover { background: #0e9594; }
+.tab-content button:disabled { background: #444; cursor: not-allowed; }
+.tab-content .qr-canvas { background: #fff; border-radius: 4px; margin: 12px 0; image-rendering: pixelated; max-width: 320px; width: 100%; height: auto; }
+.tab-content table { border-collapse: collapse; font-size: 14px; width: 100%; margin-top: 8px; }
+.tab-content table th { text-align: left; color: #aaa; font-size: 12px; font-weight: normal; padding: 6px 10px; border-bottom: 1px solid #333; }
+.tab-content table td { padding: 6px 10px; border-bottom: 1px solid #1a1a2e; }
+.tab-content table td:first-child { color: #888; white-space: nowrap; }
+.tab-content .form-row { display: flex; gap: 8px; align-items: end; margin-bottom: 10px; flex-wrap: wrap; }
+.tab-content .form-row input { background: #222; border: 1px solid #444; color: #ccc; padding: 7px; border-radius: 4px; font-size: 13px; }
+.tab-content .form-row .small-btn { background: #333; color: #ccc; border: 1px solid #555; padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.tab-content .form-row .small-btn.danger { background: #5c1a1a; border-color: #833; color: #f88; }
+.tab-content .form-row .small-btn.danger:hover { background: #7c2a2a; }
+.tab-content .form-row .small-btn:hover { background: #444; }
+.tab-content .result { font-size: 13px; color: #aaa; white-space: pre-wrap; margin-top: 8px; font-family: monospace; }
 
 .drop-overlay { display: none; position: fixed; inset: 0; background: rgba(15,115,119,0.25); z-index: 200; align-items: center; justify-content: center; pointer-events: none; }
 .drop-overlay.active { display: flex; }
 .drop-overlay .box { background: #16213e; border: 2px dashed #4fc3f7; border-radius: 12px; padding: 40px 60px; text-align: center; color: #4fc3f7; font-size: 20px; }
+
+/* ── Responsive ─────────────────────────────────── */
+@media (max-width: 720px) {
+  .unlock-screen { padding: 24px 16px 40px; }
+  .unlock-screen .box { padding: 24px 20px; }
+  .unlock-screen .instructions { margin-top: 20px; }
+  .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 0; border-right: none; border-bottom: 1px solid #222; }
+  .sidebar .tab { border-left: none; border-bottom: 3px solid transparent; padding: 10px 14px; white-space: nowrap; }
+  .sidebar .tab.active { border-left-color: transparent; border-bottom-color: #4fc3f7; }
+  .main-app { flex-direction: column; }
+  .tab-files .files-layout { flex-direction: column; }
+  .tab-files .preview-panel { width: 100%; height: 40%; }
+  .tab-content { padding: 14px; }
+}
+@media (max-width: 480px) {
+  .unlock-screen .box { max-width: 100%; }
+  .unlock-screen .instructions { max-width: 100%; }
+  .unlock-screen .instructions pre { font-size: 11px; padding: 8px 10px; }
+  .header h1 { font-size: 15px; }
+  .tab-files .toolbar { padding: 6px 8px; }
+  .tab-files .tree-header { padding: 6px 10px; }
+  .tab-files .tree-item { padding: 3px 10px; font-size: 13px; }
+  .tab-content table { display: block; overflow-x: auto; white-space: nowrap; }
+  .tab-content table td, .tab-content table th { font-size: 12px; padding: 4px 8px; }
+}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>🔐 Windham Web</h1>
-  <div class="toolbar" id="toolbar" style="display:none">
-    <button id="navBack" title="Back">◀</button>
-    <button id="navFwd" title="Forward">▶</button>
-    <button id="refreshBtn" title="Refresh">↻</button>
-    <button id="closeBtn" class="close-btn" title="Close disk">✕ Close</button>
-  </div>
-  <span class="status" id="status">Ready</span>
+  <h1>Windham Web</h1>
+  <span class="notice" id="roNotice" style="display:none">Read-only</span>
+  <button id="closeBtn" class="close-btn" style="display:none">✕</button>
 </div>
 
-<div class="panel">
-  <div class="form-row">
-    <div>
-      <label>Passphrase</label>
-      <input type="password" id="passInput" placeholder="Enter passphrase">
+<!-- ── Unlock screen ────────────────────────────── -->
+<div class="unlock-screen" id="unlockScreen">
+  <div class="box">
+    <h2>Open an encrypted disk image</h2>
+    <div class="row">
+      <div>
+        <label>Passphrase</label>
+        <input type="password" id="passInput" placeholder="Enter passphrase">
+      </div>
+      <button id="openBtn" class="primary" disabled>Choose & Unlock</button>
     </div>
-    <button id="openBtn" class="primary" disabled>Choose &amp; Open Disk</button>
-  </div>
-
-  <div class="state-row" id="stateRow" style="display:none">
-    <span class="fs-info" id="fsInfo"></span>
-  </div>
-
-  <div class="main-layout" id="mainLayout" style="display:none">
-    <div class="tree-panel">
-      <div class="tree-header">
-        <span id="breadcrumb">/</span>
-        <span class="info" id="fileCount"></span>
-      </div>
-      <div class="tree-body" id="fileTree"></div>
-    </div>
-    <div class="preview-panel" id="previewPanel" style="display:none">
-      <div class="preview-header">
-        <span class="name" id="previewName"></span>
-        <span class="size" id="previewSize"></span>
-        <span class="close" id="previewClose">✕</span>
-      </div>
-      <div class="preview-body">
-        Select a file to preview. Click ⬇ to download.
-      </div>
+    <div class="hint">Drag a .img file here or click to select. Copy to local disk if opened from a remote server.</div>
+    <div id="unlockLoading" class="loading" style="display:none">
+      <div class="spinner"></div> Deriving key...
     </div>
   </div>
-
-  <div id="loadingArea" class="loading" style="display:none">
-    <div class="spinner"></div> Deriving key...
-  </div>
-
-  <div class="info-section" id="infoSection">
+  <div class="instructions">
     <h2>About Windham Web</h2>
-    <p>
-      Windham Web (Windham Emscripten Port) is an in-browser encrypted disk unlocker.
-      Upload a <strong>FAT32</strong> or <strong>exFAT</strong> disk image created by Windham,
-      enter your passphrase, and browse, navigate, and download files &mdash;
-      all decryption happens locally in WebAssembly.  No data leaves your machine.
-    </p>
+    <div class="card">
+      <p>Windham Web (Windham Emscripten Port) is an in-browser encrypted disk unlocker.  Upload a <strong style="color:#ccc">FAT32</strong> or <strong style="color:#ccc">exFAT</strong> disk image created by Windham, enter your passphrase, and browse, navigate, and download files — all decryption happens locally in WebAssembly.  No data leaves your machine.</p>
+    </div>
 
-    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, BSD, Zephyr, HarmonyOS, QNX, Windows, WASI, Redox OS and Nuttx.
-    </h3>
+    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, BSD, Zephyr, HarmonyOS, QNX, Windows, WASI, Redox OS and Nuttx.</h3>
     <pre>windham New disk.img --diskfile="your size here" --create-exfat</pre>
-
-    <p>
+    <p style="font-size:12px;color:#666;margin:0 0 16px">
       Not all supported platform has <code>Windham New</code> enabled. Windham running under FreeRTOS (including ESP-IDF), UEFI EDK II, non-frontend mode or basically all bare-metal systems without an OS has <code>New</code> support absent.
     </p>
 
@@ -154,30 +187,101 @@ sudo windham Open disk.img --to="Optional name"
 sudo mkfs.vfat -F 32 -n "your volume name" /dev/mapper/your_name
 # exFAT
 sudo mkfs.exfat -n "your volume name" /dev/mapper/your_name
-sudo windham Close your_name
-    </pre>
-    <p>
-      <b>Note:</b>
-      <br>
-      1. it is possible to pass block devices (e.g. /dev/sdx or /dev/nvme0nxpx) as disk image under UNIX. This is not recommended. No test has been
-      made to cover all browser combos for such use case.
-      <br>
-      2. UEFI GPT partition scheme inside windham image is not supported. However, it is possible to create a protective MBR which contains FAT/exFAT partition range.
-      <br>
-      3. Windham Web only supports 128/256 bit AES-XTS encryption with block size 512, 1024, 2048 and 4096; dm-crypt compatible XTS scheme, little-endian XTS counter. This is the only supported encryption scheme under ISO C, and it is default under GNU/Linux regardless of the host endianness. 
-      <br>
+sudo windham Close your_name</pre>
+
+    <p style="font-size:12px;color:#777;margin-top:12px">
+      <b>Note:</b><br>
+      1. it is possible to pass block devices (e.g. /dev/sdx or /dev/nvme0nxpx) as disk image under UNIX. This is not recommended. No test has been made to cover all browser combos for such use case.<br>
+      2. UEFI GPT partition scheme inside windham image is not supported. However, it is possible to create a protective MBR which contains FAT/exFAT partition range.<br>
+      3. Windham Web only supports 128/256 bit AES-XTS encryption with block size 512, 1024, 2048 and 4096; dm-crypt compatible XTS scheme, little-endian XTS counter. This is the only supported encryption scheme under ISO C, and it is default under GNU/Linux regardless of the host endianness.<br>
       4. UEFI TCG OPAL is <b>NOT</b> compatible with Windham Web and windham ISO C. Use Windham EDK II to issue TCG OPAL for your SSD.
     </p>
 
     <p class="star-line">
-      ⭐ Windham is open source &mdash;
-      <a href="https://github.com/level-128/windham" target="_blank" rel="noopener">
-        give it a star on GitHub
-      </a>
+      ⭐ Windham is open source —
+      <a href="https://github.com/level-128/windham" target="_blank" rel="noopener">give it a star on GitHub</a>
     </p>
   </div>
 </div>
 
+<!-- ── Main app (hidden until unlock) ────────────── -->
+<div class="main-app" id="mainApp" style="display:none">
+  <div class="sidebar" id="sidebar">
+    <div class="tab active" data-tab="files">📁 Files</div>
+    <div class="tab" data-tab="backup">🧊 Backup</div>
+    <div class="tab" data-tab="aux">📋 Aux</div>
+    <div class="tab" data-tab="meta">📄 Metadata</div>
+  </div>
+
+  <div class="content-area" id="contentArea">
+    <!-- Files -->
+    <div class="tab-content active" data-tab="files">
+      <div class="tab-files">
+        <div class="toolbar">
+          <button id="navBack" title="Back">◀</button>
+          <button id="navFwd" title="Forward">▶</button>
+          <button id="refreshBtn" title="Refresh">↻</button>
+          <span class="fs-info" id="fsInfo">—</span>
+        </div>
+        <div class="files-layout">
+          <div class="tree-panel">
+            <div class="tree-header">
+              <span id="breadcrumb">/</span>
+              <span class="info" id="fileCount"></span>
+            </div>
+            <div class="tree-body" id="fileTree"></div>
+          </div>
+          <div class="preview-panel" id="previewPanel" style="display:none">
+            <div class="preview-header">
+              <span class="pname" id="previewName"></span>
+              <span class="psize" id="previewSize"></span>
+              <span class="close" id="previewClose">✕</span>
+            </div>
+            <div class="preview-body">Select a file to preview. Click ⬇ to download.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backup -->
+    <div class="tab-content" data-tab="backup">
+      <h2>Fold Backup</h2>
+      <p>Download a compact 960 B backup containing a single keyslot. Suitable for paper or QR code recovery.</p>
+      <button id="buDownloadBtn">💾 Download fold backup (.bu)</button>
+      <button id="buQrBtn">📱 Show QR Code</button>
+      <canvas id="qrCanvas" class="qr-canvas" style="display:none"></canvas>
+      <div id="buStatus" class="result"></div>
+    </div>
+
+    <!-- Aux -->
+    <div class="tab-content" data-tab="aux">
+      <h2>Auxiliary Entries</h2>
+      <pre id="auxOutput" style="color:#ccc;font-size:13px;white-space:pre-wrap;word-break:break-all"></pre>
+      <div id="auxStatus" class="result"></div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="tab-content" data-tab="meta">
+      <h2>Header Metadata</h2>
+      <table id="metaTable">
+        <tr><th>Field</th><th>Value</th></tr>
+      </table>
+      <table id="slotTable" style="margin-top:16px">
+      </table>
+      <div id="metaStatus" class="result"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload overlay -->
+<div class="drop-overlay" id="dropOverlay">
+  <div class="box">⬇ Drop disk image to open</div>
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="fileInput" accept=".img,.bin,.raw" style="display:none">
+
+<!-- Error modal -->
 <div class="modal" id="errorModal">
   <div class="box">
     <div class="title" id="errTitle">Error</div>
@@ -186,14 +290,6 @@ sudo windham Close your_name
   </div>
 </div>
 
-<div class="drop-overlay" id="dropOverlay">
-  <div class="box">⬇ Drop disk image to open</div>
-</div>
-
-<input type="file" id="fileInput" accept=".img,.bin,.raw" style="display:none">
-
-<!-- Must precede windham.js so Emscripten's internal `out` variable
-     captures these functions at init time. -->
 <script src="app.js"></script>
 </body>
 </html>
