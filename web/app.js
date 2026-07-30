@@ -112,9 +112,10 @@ function handleStdout(text) {
     if (/^\s*ERROR/i.test(text)) { _lastError = text; _inError = true; }
     else if (_inError && /^\s*fat:/.test(text)) { _inError = false; }
     else if (_inError) { _lastError += '\n' + text; return; }
-    if (text.indexOf('MK ') === 0) {
-        _cachedMasterKey = text.substring(3).replace(/\s/g, '');
-        if (_pendingMasterKey) { _pendingMasterKey(); _pendingMasterKey = null; }
+    // Capture master key: hex bytes separated by spaces
+    if (_pendingMasterKey && /^[0-9a-f]{2}( [0-9a-f]{2})+$/.test(text)) {
+        _cachedMasterKey = text.replace(/\s/g, '');
+        _pendingMasterKey(); _pendingMasterKey = null;
         return;
     }
     if (text.indexOf('SHELL_EXITED') === 0) {

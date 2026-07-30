@@ -495,14 +495,16 @@ static bool action_open_single(
    // falls through
 
    case NMOBJ_MAPPER_DEVSTAT_DECOY: {
-      if (entry->is_dry_run) {
-         if (!entry->is_link_open) {
-            printf(_("Unlocking %s\n"), entry->device_path);
+      if (!entry->is_show_master_key) {
+         if (entry->is_dry_run) {
+            if (!entry->is_link_open) {
+               printf(_("Unlocking %s\n"), entry->device_path);
+            }
+         } else {
+            printf(_("Unlocking %s%s as %s...\n"),
+                   entry->is_link_open ? _("linked device ") : "",
+                   entry->device_path, effective_target_name);
          }
-      } else {
-         printf(_("Unlocking %s%s as %s...\n"),
-                entry->is_link_open ? _("linked device ") : "",
-                entry->device_path, effective_target_name);
       }
 
       if (entry->is_link_open) {
@@ -544,7 +546,6 @@ static bool action_open_single(
             causes action_open_single to return before the
             aux-zone probe that populates link entries.      */
          if (entry->is_show_master_key) {
-            printf("MK ");
             print_hex_array(HASHLEN, master_key);
             fflush(stdout);
             return true;

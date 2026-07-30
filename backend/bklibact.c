@@ -610,7 +610,7 @@ void action_restore(const char * device, const char * filename, const bool is_de
       uint16_t volatile rnd_loc;
       fill_secure_random_bits((uint8_t *)&rnd_loc, sizeof(rnd_loc));
       uint8_t volatile rnd_zone;
-      fill_secure_random_bits(&rnd_zone, 1); rnd_zone %= 2;
+      fill_secure_random_bits((uint8_t *)&rnd_zone, 1); rnd_zone %= 2;
 
       uint16_t keypool_loc;
       uint8_t  zone_idx;
