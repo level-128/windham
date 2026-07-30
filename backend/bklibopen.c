@@ -492,8 +492,32 @@ static bool action_open_single(
       }
       free(disk_key);
       disk_key = NULL;
-   // falls through
+    // falls through
 
+   /*
+    * NORM ⇢ DECOY: three code paths based on flags.
+    *
+    *  ═══ is_show_master_key  (non-link) ═══
+    *   • No "Unlocking" print
+    *   • get_master_key → print hex key → return true
+    *   • Skips metadata unlock, aux probe, driver — pure output
+    *
+    *  ═══ is_dry_run  (non-link) ═══
+    *   • Prints "Unlocking <device>" (short form, no target name)
+    *   • Full unlock + metadata decrypt + aux probe
+    *   • Prints structured metadata/key-slots (tab-prefixed) + DRYRUN_OK
+    *   • Skips driver (create_crypt_mapping)
+    *
+    *  ═══ normal open  (neither flag) ═══
+    *   • Prints "Unlocking <device> as <target>..."
+    *   • Full unlock + metadata decrypt + aux probe
+    *   • Creates crypt mapping → FF shell or dm-mapper
+    *
+    *  ═══ is_link_open  (any flags) ═══
+    *   • KDF via link-key instead of interactive key
+    *   • is_show_master_key prevented upstream (no aux probe → no links)
+    *   • Otherwise follows same is_dry_run / normal branching
+    */
    case NMOBJ_MAPPER_DEVSTAT_DECOY: {
       if (!entry->is_show_master_key) {
          if (entry->is_dry_run) {
