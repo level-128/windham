@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 #include "../include/windham_const.h"
-#include "../library/FatFs/ff.h"
+#include "../include/ff.h"
 #include "../library/FatFs/diskio.h"
 
 static int ff_ex_hex_nibble(char c) {

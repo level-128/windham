@@ -225,7 +225,7 @@ void frontend_help(const char * the_3rd_argv) {
             "\t--block-size <n>:     encryption sector size: 512, 1024, 2048, or 4096.\n"
             "\t--decoy-size <n>:     create a decoy partition of <n> MiB instead.\n"
              "\t--aux-sector-size <n>: size of the aux metadata zone, in 512-byte sectors.\n"
-#ifdef CFG_FF_CREATE
+#ifndef CFG_NO_FF_CREATE
              "\t--create-exfat:       after creating the header, format the encrypted data\n"
              "\t                       area as an exFAT filesystem using FatFs.\n"
 #endif

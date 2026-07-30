@@ -53,6 +53,9 @@ opt_allow(NMOBJ_action_open,
   NMOBJ_windhamtab_location,
   NMOBJ_windhamtab_pass,
   NMOBJ_aux_link_paths,
+#ifndef CFG_DRIVER_NO_DECRYPT
+  NMOBJ_decrypt,
+#endif
   ALLOW_COMMON)
 
 opt_allow(NMOBJ_action_close,
@@ -74,7 +77,7 @@ opt_allow(NMOBJ_action_new,
   NMOBJ_disk_file_size,
   NMOBJ_is_anonymous_key,
   NMOBJ_is_allow_swap,
-#ifdef CFG_FF_CREATE
+#ifndef CFG_NO_FF_CREATE
   NMOBJ_create_exfat,
 #endif
   ALLOW_COMMON)

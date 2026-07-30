@@ -483,9 +483,6 @@ void AES_ECB_decrypt(const struct AES_ctx* ctx, uint8_t* buf)
 #endif // #if defined(ECB) && (ECB == 1)
 
 
-
-
-
 #if defined(CBC) && (CBC == 1)
 
 

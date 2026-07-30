@@ -250,14 +250,14 @@ const struct option long_options[] = {
 	{"qrcode", optional_argument, &options[NMOBJ_qrcode], 1},
 
 	/* -- Driver selection ----------------------- */
-#ifdef CFG_DRIVER_DECRYPT
+#ifndef CFG_DRIVER_NO_DECRYPT
 	{"decrypt", required_argument, &options[NMOBJ_decrypt], 1},
 #endif
 	{"print-encryption", no_argument, &options[NMOBJ_print_encryption], 1},
 	{"show-master-key", no_argument, &options[NMOBJ_show_master_key], 1},
 
 	/* -- exFAT creation ------------------------- */
-#ifdef CFG_FF_CREATE
+#ifndef CFG_NO_FF_CREATE
 	{"create-exfat", no_argument, &options[NMOBJ_create_exfat], 1},
 #endif
 
@@ -269,12 +269,7 @@ const struct option long_options[] = {
     NMOBJ_max_unlock_time, NMOBJ_max_unlock_level,			\
     NMOBJ_target_decoy, NMOBJ_is_systemd, NMOBJ_is_nofail, NMOBJ_is_allow_swap
 
-#ifdef CFG_DRIVER_DECRYPT
-#define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help, \
-    NMOBJ_decrypt, NMOBJ_print_encryption
-#else
 #define ALLOW_COMMON NMOBJ_is_noadmin, NMOBJ_yes, NMOBJ_print_debug, NMOBJ_help
-#endif
 
 
 int frontend_check_actions(const char *input) {
@@ -487,7 +482,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 
    	const char *driver_name = NULL;
    	if (action_num == NMOBJ_action_open || action_num == NMOBJ_action_new || action_num == NMOBJ_action_close) {
-#ifdef CFG_DRIVER_DECRYPT
+#ifndef CFG_DRIVER_NO_DECRYPT
    	    if (options[NMOBJ_decrypt]) {
    	        decrypt_set_output_file(params[NMOBJ_decrypt]);
    	        driver_name = "decrypt";
@@ -623,7 +618,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				options[NMOBJ_is_no_detect_entropy],
 				options[NMOBJ_is_anonymous_key],
 				options[NMOBJ_is_allow_swap],
-#ifdef CFG_FF_CREATE
+#ifndef CFG_NO_FF_CREATE
 				options[NMOBJ_create_exfat]
 #else
 				false
@@ -832,7 +827,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 	windham_exit(0);
 }
 
-int main_(int argc, char *argv[]) {
+int windham_main(int argc, char *argv[]) {
 	STR_device = malloc(sizeof(Device));
 	environ = malloc(sizeof(char *));
 	*environ = NULL;

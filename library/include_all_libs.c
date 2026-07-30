@@ -1,5 +1,7 @@
 // Include all libraries if build system not present.
-#ifndef WINDHAM_PLAT_GNU_LINUX
+#ifdef WINDHAM_PLAT_GNU_LINUX
+#error "GNU/Linux should use cmake to include all libs"
+#endif
 
 // Map compiler thread-disabled state to Argon2's no-threads macro.
 // CMake handles this via -D; direct compiles need the fallback.
@@ -42,5 +44,3 @@
 #include "FatFs/ffunicode.c"
 #include "FatFs/ffsystem.c"
 #include "FatFs/ff_diskio.c"
-
-#endif

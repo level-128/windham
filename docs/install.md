@@ -34,20 +34,20 @@ cmake --build cmake-build-debug
 
 Pass with `-D<flag>=TRUE` to `cmake`:
 
-| Flag | Effect |
-|---|---|
-| `CFG_NO_MODULE_KEYRING` | Disable kernel key retention service |
-| `WINDHAM_NO_DISABLE_ATTACH` | Allow debugger to attach |
-| `WINDHAM_NO_ENFORCE_SPEC_MITIGATION` | Skip Spectre mitigation |
-| `WINDHAM_NO_SECCOMP` | Disable seccomp filter |
-| `CFG_NO_OPT` | Disable x86-64 SIMD optimization |
-| `CFG_USE_SWAP` | Allow KDF memory to use swap space (⚠ insecure) |
-| `CFG_WIPE_MEMORY` | Wipe memory after KDF |
-| `CFG_32BIT_ADDR_SPACE` | Limit Argon2 memory for 32-bit address space |
-| `CFG_DRIVER_FF` | Enable FatFs interactive shell driver |
-| `CFG_FF_CREATE` | Enable exFAT creation with --create-exfat |
-| `CFG_DRIVER_DECRYPT` | Enable full-disk decryption driver |
-| `WINDHAM_REPRODUCIBLE_BUILD` | Replace build timestamp/kernel version with fixed strings |
+| Flag                                 | Effect                                                    |
+|--------------------------------------|-----------------------------------------------------------|
+| `CFG_NO_MODULE_KEYRING`              | Disable kernel key retention service                      |
+| `WINDHAM_NO_DISABLE_ATTACH`          | Allow debugger to attach                                  |
+| `WINDHAM_NO_ENFORCE_SPEC_MITIGATION` | Skip Spectre mitigation                                   |
+| `WINDHAM_NO_SECCOMP`                 | Disable seccomp filter                                    |
+| `CFG_NO_OPT`                         | Disable x86-64 SIMD optimization                          |
+| `CFG_USE_SWAP`                       | Allow KDF memory to use swap space (⚠ insecure)           |
+| `CFG_WIPE_MEMORY`                    | Wipe memory after KDF                                     |
+| `CFG_32BIT_ADDR_SPACE`               | Limit Argon2 memory for 32-bit address space              |
+| `CFG_DRIVER_NO_FF`                   | Disable FatFs interactive shell driver                    |
+| `CFG_NO_FF_CREATE`                   | Disable exFAT creation with --create-exfat                |
+| `CFG_DRIVER_NO_DECRYPT`              | disable full-disk decryption driver                       |
+| `WINDHAM_REPRODUCIBLE_BUILD`         | Replace build timestamp/kernel version with fixed strings |
 
 ---
 

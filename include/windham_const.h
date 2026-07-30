@@ -2,7 +2,7 @@
 #define WINDHAM_INCL_WINDHAM_CONST_H
 
 #include <stdio.h>
-#ifndef WINDHAM_PLAT_WASI
+#ifndef WINDHAM_PLAT_EMSCRIPTEN
 #include <setjmp.h>
 #endif
 #include <stdbool.h>
@@ -114,8 +114,8 @@
 #define ARGON2_CLEAR_INTERNAL_MEMORY 0
 #endif
 
-#if defined(CFG_FF_CREATE) && !defined(CFG_DRIVER_FF)
-#error "CFG_FF_CREATE requires CFG_DRIVER_FF to be enabled"
+#if !defined(CFG_NO_FF_CREATE) && defined(CFG_DRIVER_NO_FF)
+#error "Fat creation needs FF driver."
 #endif
 
 
@@ -175,6 +175,8 @@ typedef struct {
 
 Device *STR_device;
 
+// is_device_mapper_available is declared+initialized by drivers
+extern bool is_device_mapper_available;
 
 // struct for describing platform information
 typedef struct {

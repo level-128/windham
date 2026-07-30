@@ -13,9 +13,7 @@
 
 #include "srclib.c"
 #include "endian.c"
-
-/* is_device_mapper_available is declared+initialized by dm_ioctl.c */
-extern bool is_device_mapper_available;
+#include "../driver/driver_dispatch.c"
 
 #define GPT_HDR_REVISION 0x00010000
 #define GPT_ENTRIES_MIN   1
@@ -261,7 +259,5 @@ bool read_GPT_header(
    return true;
 }
 
-
-#include "../driver/driver_dispatch.c"
 #endif
 

@@ -17,9 +17,7 @@ int     device_seek(void *handle, int64_t offset);
 int64_t device_read(void *handle, void *buf, size_t count);
 int64_t device_write(void *handle, const void *buf, size_t count);
 
-#ifdef __EMSCRIPTEN__
-#include "WASI/headerio.c"
-#elif defined(WINDHAM_PLAT_WASI)
+#if defined(WINDHAM_PLAT_EMSCRIPTEN)
 #include "WASI/headerio.c"
 #elif defined(WINDHAM_PLAT_GNU_LINUX)
 #include "GNU_Linux/headerio.c"

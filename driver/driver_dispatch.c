@@ -70,19 +70,19 @@ enum {
     EMOBJ_try_create_crypt_mapping_FAILED_MAPPING,
 };
 
-#ifdef CFG_DRIVER_DECRYPT
+#ifndef CFG_DRIVER_NO_DECRYPT
 void decrypt_set_output_file(const char *path);
 #endif
 
 // -- Driver registry -----------------------------------
 
-#ifdef WINDHAM_PLAT_GNU_LINUX
+#ifndef CFG_DRIVER_NO_DMMAPPER
 extern Driver driver_dm_mapper;
 #endif
-#ifdef CFG_DRIVER_FF
+#ifndef CFG_DRIVER_NO_FF
 extern Driver driver_ff;
 #endif
-#ifdef CFG_DRIVER_DECRYPT
+#ifndef CFG_DRIVER_NO_DECRYPT
 extern Driver driver_decrypt;
 #endif
 extern Driver driver_print;
@@ -99,15 +99,15 @@ void driver_init_all(const char *act_driver_name) {
     Driver *drv = NULL;
 
     if (0) {}
-#ifdef WINDHAM_PLAT_GNU_LINUX
+#ifndef CFG_DRIVER_NO_DMMAPPER
     else if (strcmp(act_driver_name, driver_dm_mapper.name) == 0)
         drv = &driver_dm_mapper;
 #endif
-#ifdef CFG_DRIVER_FF
+#ifndef CFG_DRIVER_NO_FF
     else if (strcmp(act_driver_name, driver_ff.name) == 0)
         drv = &driver_ff;
 #endif
-#ifdef CFG_DRIVER_DECRYPT
+#ifndef CFG_DRIVER_NO_DECRYPT
     else if (strcmp(act_driver_name, driver_decrypt.name) == 0)
         drv = &driver_decrypt;
 #endif
@@ -193,13 +193,13 @@ int create_crypt_mapping_from_disk_key(
 
 // -- Driver implementations --------------------------
 
-#ifdef WINDHAM_PLAT_GNU_LINUX
+#ifndef CFG_DRIVER_NO_DMMAPPER
 #include "driver_dm_mapper.c"
 #endif
-#ifdef CFG_DRIVER_FF
+#ifndef CFG_DRIVER_NO_FF
 #include "driver_fat_shell.c"
 #endif
-#ifdef CFG_DRIVER_DECRYPT
+#ifndef CFG_DRIVER_NO_DECRYPT
 #include "driver_decrypt.c"
 #endif
 #include "driver_print.c"
