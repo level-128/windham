@@ -92,9 +92,15 @@ void action_new_check_crypt_support_status(const char * str) {
 
    dup_stdout[dup_stdout_len - 1] = 0;
 
-   // modify STR_device because it will clean loop device when exit or interrupt.
-   memcpy(STR_device->name, dup_stdout, dup_stdout_len - 1);
-   STR_device->is_loop = true;
+    // modify STR_device because it will clean loop device when exit or interrupt.
+    size_t copy_len = dup_stdout_len - 1;
+    if (copy_len >= sizeof(STR_device->name)){
+      perror("invalid loop device path size");
+      exit(2);
+    }
+    memcpy(STR_device->name, dup_stdout, copy_len);
+    STR_device->name[copy_len] = '\0';
+    STR_device->is_loop = true;
    STR_device->block_count = -1;
    STR_device->block_size = -1;
    free(dup_stdout);

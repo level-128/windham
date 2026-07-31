@@ -37,7 +37,7 @@ cmake --build cmake-build-debug
 | 选项                                   | 作用                              |
 |--------------------------------------|---------------------------------|
 | `CFG_NO_MODULE_KEYRING`              | 禁用内核密钥保留服务                      |
-| `WINDHAM_NO_DISABLE_ATTACH`          | 允许调试器附加到进程                      |
+| `WINDHAM_NO_DISABLE_ATTACH`          | 允许调试器附加到进程（Release 构建下）           |
 | `WINDHAM_NO_ENFORCE_SPEC_MITIGATION` | 跳过 Spectre 漏洞缓解                 |
 | `WINDHAM_NO_SECCOMP`                 | 禁用 seccomp 过滤器                  |
 | `CFG_NO_OPT`                         | 关闭 x86-64 SIMD 优化               |
@@ -48,6 +48,80 @@ cmake --build cmake-build-debug
 | `CFG_NO_FF_CREATE`                   | 禁用 --create-exfat 创建 exFAT 文件系统 |
 | `CFG_DRIVER_NO_DECRYPT`              | 禁用全盘解密驱动                        |
 | `WINDHAM_REPRODUCIBLE_BUILD`         | 用固定字符串替换构建时间戳/内核版本              |
+| `WINDHAM_NO_ISOC_THREAD`             | 禁用多线程支持                         |
+| `CFG_FF_SHELL_NOINTERACTIVE`         | 非交互模式，从 ./cmd_queue 文件读取命令      |
+| `CFG_VFS_DISK_METADATA`              | 从 ./disk_size 文件读取磁盘大小            |
+| `CFG_ASCII`                          | 强制 ASCII 模式（屏蔽 UTF-16/UTF-32）    |
+
+---
+
+## Web 构建（Emscripten / WebAssembly）
+
+Windham 可编译为 WebAssembly 在浏览器中运行。Web 版本提供基于 FatFs 的只读
+交互式 Shell——可直接在浏览器中浏览、导航和下载 exFAT/FAT32 磁盘镜像中的文件。
+所有解密操作均在 WebAssembly 中本地完成，数据不会离开您的计算机。
+
+### 前置条件
+
+- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html)（已测试 6.0+）
+- Node.js（emsdk 需要）
+
+### 构建
+
+```bash
+# 安装并激活 emsdk
+cd ~
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+
+# 构建 Windham
+cd ~/windham
+source ~/emsdk/emsdk_env.sh
+emcmake cmake -B build/web -S web
+cmake --build build/web
+```
+
+输出文件：`build/web/windham.js`、`build/web/windham.wasm`，以及 Web 前端文件
+（`index.html`、`app.js`、`worker.js`）。
+
+### 启动服务
+
+应用需要 `Cross-Origin-Opener-Policy` 和 `Cross-Origin-Embedder-Policy`
+HTTP 头以支持 `SharedArrayBuffer`：
+
+```bash
+python3 web/serve.py
+# → http://localhost:8000
+```
+
+### 架构说明
+
+Web 构建是独立的 CMake 项目（`web/CMakeLists.txt`），**不使用**主 `CMakeLists.txt`。
+关键设计决策：
+
+- **文件 I/O**：用户选择的文件通过 `File.slice()` + `FileReaderSync` 在 Web Worker
+  内按需读取——整个磁盘镜像**不会**加载到内存。
+
+- **驱动**：使用 FatFs Shell 驱动（`driver_ff`），非交互模式（`CFG_FF_SHELL_NOINTERACTIVE`）。
+  命令通过 `/cmd_queue` 传递。
+
+- **文件系统**：Emscripten MEMFS 将加密磁盘镜像暴露为 `/disk.img`，
+  使用自定义 stream_ops 后端将每次 `fread`/`fwrite`/`fseek` 代理为分块文件读取。
+
+- **ASYNCIFY**：FatFs Shell 事件循环需要 ASYNCIFY（`emscripten_sleep`）。
+  栈大小增加至 64 KiB（`ASYNCIFY_STACK_SIZE=65536`）
+  以适应深层加密 I/O 调用栈。
+
+### 创建 Web 用的磁盘镜像
+
+```bash
+# GNU/Linux（任何支持 dm-crypt 的平台）
+windham New disk.img --diskfile=64MiB --key=密码 --create-exfat
+```
+
+然后将 `disk.img` 拖入网页，输入密码即可。
 
 ---
 

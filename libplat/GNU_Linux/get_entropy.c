@@ -1,5 +1,5 @@
 #include <errno.h>
-#include "windham_const.h"
+#include <stdint.h>
 #include <sys/random.h>
 
 void fill_secure_random_bits(uint8_t *address, const size_t size) {

@@ -37,7 +37,7 @@ Pass with `-D<flag>=TRUE` to `cmake`:
 | Flag                                 | Effect                                                    |
 |--------------------------------------|-----------------------------------------------------------|
 | `CFG_NO_MODULE_KEYRING`              | Disable kernel key retention service                      |
-| `WINDHAM_NO_DISABLE_ATTACH`          | Allow debugger to attach                                  |
+| `WINDHAM_NO_DISABLE_ATTACH`          | Allow debugger to attach under Release                    |
 | `WINDHAM_NO_ENFORCE_SPEC_MITIGATION` | Skip Spectre mitigation                                   |
 | `WINDHAM_NO_SECCOMP`                 | Disable seccomp filter                                    |
 | `CFG_NO_OPT`                         | Disable x86-64 SIMD optimization                          |
@@ -46,8 +46,87 @@ Pass with `-D<flag>=TRUE` to `cmake`:
 | `CFG_32BIT_ADDR_SPACE`               | Limit Argon2 memory for 32-bit address space              |
 | `CFG_DRIVER_NO_FF`                   | Disable FatFs interactive shell driver                    |
 | `CFG_NO_FF_CREATE`                   | Disable exFAT creation with --create-exfat                |
-| `CFG_DRIVER_NO_DECRYPT`              | disable full-disk decryption driver                       |
+| `CFG_DRIVER_NO_DECRYPT`              | Disable full-disk decryption driver                       |
 | `WINDHAM_REPRODUCIBLE_BUILD`         | Replace build timestamp/kernel version with fixed strings |
+| `WINDHAM_NO_ISOC_THREAD`             | Disable multithreading support                            |
+| `CFG_FF_SHELL_NOINTERACTIVE`         | Disable interactive shell; read commands from ./cmd_queue |
+| `CFG_VFS_DISK_METADATA`              | Read disk size from ./disk_size file                      |
+| `CFG_ASCII`                          | Force ASCII-only mode (mask UTF-16/UTF-32)                |
+
+---
+
+## Web (Emscripten / WebAssembly)
+
+Windham can be compiled to WebAssembly for in-browser use.  The web build
+provides a read-only interactive shell backed by FatFs — browse, navigate,
+and download files from an exFAT/FAT32 disk image directly in the browser.
+All decryption happens locally in WebAssembly; no data leaves your machine.
+
+### Prerequisites
+
+- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (tested with 6.0+)
+- Node.js (required by emsdk)
+
+### Build
+
+```bash
+# Install emsdk and activate
+cd ~
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+
+# Build Windham
+cd ~/windham
+source ~/emsdk/emsdk_env.sh
+emcmake cmake -B build/web -S web
+cmake --build build/web
+```
+
+Outputs: `build/web/windham.js`, `build/web/windham.wasm`, and web assets
+(`index.html`, `app.js`, `worker.js`).
+
+### Serve
+
+The app requires `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy`
+headers for `SharedArrayBuffer`:
+
+```bash
+python3 web/serve.py
+# → http://localhost:8000
+```
+
+### Architecture
+
+The web build is a standalone CMake project (`web/CMakeLists.txt`) that
+does **not** use the main `CMakeLists.txt`.  Key design decisions:
+
+- **File I/O**: Browser-selected files are read on demand via
+  `File.slice()` + `FileReaderSync` inside a Web Worker — the entire
+  disk image is **not** loaded into memory.
+
+- **Driver**: Uses the FatFs shell driver (`driver_ff`) in
+  non-interactive mode (`CFG_FF_SHELL_NOINTERACTIVE`).  Commands are
+  passed through `/cmd_queue`.
+
+- **File system**: Emscripten MEMFS exposes the encrypted disk image as
+  `/disk.img` with a custom stream_ops backend that proxies every
+  `fread`/`fwrite`/`fseek` to chunked file reads.
+
+- **ASYNCIFY**: Required for the FatFs shell event loop
+  (`emscripten_sleep`).  Stack size is increased to 64 KiB
+  (`ASYNCIFY_STACK_SIZE=65536`) to accommodate deep encryption I/O
+  call stacks.
+
+### Creating a disk image for the web
+
+```bash
+# GNU/Linux (any platform with dm-crypt)
+windham New disk.img --diskfile=64MiB --key=password --create-exfat
+```
+
+Then drag `disk.img` onto the web app and enter the passphrase.
 
 ---
 

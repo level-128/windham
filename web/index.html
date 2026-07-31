@@ -163,7 +163,7 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
       </div>
       <button id="openBtn" class="primary" disabled>Choose & Unlock</button>
     </div>
-    <div class="hint">Drag a .img file here or click to select. Copy to local disk if opened from a remote server.</div>
+    <div class="hint">Drag a .img file here or click to select.</div>
     <div id="unlockLoading" class="loading" style="display:none">
       <div class="spinner"></div> Deriving key...
     </div>
@@ -174,7 +174,7 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
       <p>Windham Web (Windham Emscripten Port) is an in-browser encrypted disk unlocker.  Upload a <strong style="color:#ccc">FAT32</strong> or <strong style="color:#ccc">exFAT</strong> disk image created by Windham, enter your passphrase, and browse, navigate, and download files — all decryption happens locally in WebAssembly.  No data leaves your machine.</p>
     </div>
 
-    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, BSD, Zephyr, HarmonyOS, QNX, Windows, WASI, Redox OS and Nuttx.</h3>
+    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, *BSD, Zephyr, HarmonyOS, QNX, Windows, Redox OS and Nuttx.</h3>
     <pre>windham New disk.img --diskfile="your size here" --create-exfat</pre>
     <p style="font-size:12px;color:#666;margin:0 0 16px">
       Not all supported platform has <code>Windham New</code> enabled. Windham running under FreeRTOS (including ESP-IDF), UEFI EDK II, non-frontend mode or basically all bare-metal systems without an OS has <code>New</code> support absent.
@@ -194,7 +194,7 @@ sudo windham Close your_name</pre>
       1. it is possible to pass block devices (e.g. /dev/sdx or /dev/nvme0nxpx) as disk image under UNIX. This is not recommended. No test has been made to cover all browser combos for such use case.<br>
       2. UEFI GPT partition scheme inside windham image is not supported. However, it is possible to create a protective MBR which contains FAT/exFAT partition range.<br>
       3. Windham Web only supports 128/256 bit AES-XTS encryption with block size 512, 1024, 2048 and 4096; dm-crypt compatible XTS scheme, little-endian XTS counter. This is the only supported encryption scheme under ISO C, and it is default under GNU/Linux regardless of the host endianness.<br>
-      4. UEFI TCG OPAL is <b>NOT</b> compatible with Windham Web and windham ISO C. Use Windham EDK II to issue TCG OPAL for your SSD.
+      4. UEFI TCG OPAL is <b>NOT</b> compatible with Windham Web and windham ISO C.
     </p>
 
     <p class="star-line">

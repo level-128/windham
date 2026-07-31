@@ -113,7 +113,7 @@ function handleStdout(text) {
     else if (_inError && /^\s*fat:/.test(text)) { _inError = false; }
     else if (_inError) { _lastError += '\n' + text; return; }
     // Capture master key: hex bytes separated by spaces
-    if (_pendingMasterKey && /^[0-9a-f]{2}( [0-9a-f]{2})+$/.test(text)) {
+    if (_pendingMasterKey && /^[0-9a-f]{2}( [0-9a-f]{2})+/.test(text.trim())) {
         _cachedMasterKey = text.replace(/\s/g, '');
         _pendingMasterKey(); _pendingMasterKey = null;
         return;
@@ -578,7 +578,8 @@ async function openDisk() {
         } catch(e) {
             return;
         }
-        openFile(await handle.getFile());
+        var file = await handle.getFile();
+        openFile(file);
     } else {
         $('#fileInput').click();
     }
@@ -608,8 +609,10 @@ async function openDisk() {
         e.preventDefault();
         dragCounter = 0;
         overlay.classList.remove('active');
-        if (!_shellReady && e.dataTransfer.files && e.dataTransfer.files[0])
-            openFile(e.dataTransfer.files[0]);
+        if (_shellReady) return;
+        var file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!file) return;
+        openFile(file);
     });
 })();
 

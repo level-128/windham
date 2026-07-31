@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 project(windham C)
+
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(FATAL_ERROR "This CMakeLists.txt is for GNU/Linux only.\n"
+            "For web/Emscripten builds, use:\n"
+            "  emcmake cmake -B build/web -S web\n"
+            "  cmake --build build/web")
+endif()
+
 set(CMAKE_C_STANDARD 11)
 
 # --------------------------------------------------------------------

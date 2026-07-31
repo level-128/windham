@@ -1,4 +1,4 @@
-// Windham Web Worker — Emscripten WASM + ASYNCIFY, streaming I/O
+// Windham Web Worker — Emscripten WASM + ASYNCIFY, partial reads via File.slice()
 
 var stdinWake = new Int32Array(new SharedArrayBuffer(4));
 var stdinChars = '';
@@ -27,20 +27,63 @@ try { importScripts('windham.js'); } catch(e) {
     self.postMessage({ type: 'error', msg: 'importScripts: ' + e });
 }
 
+function readChunk(offset, length) {
+    var blob = _diskFile.slice(offset, Math.min(offset + length, _diskSize));
+    return new Uint8Array(new FileReaderSync().readAsArrayBuffer(blob));
+}
+
+var _diskStreamOps = {
+    open: function(stream) { return 0; },
+    close: function(stream) {},
+    read: function(stream, buffer, offset, length, position) {
+        if (position == null) position = stream.position;
+        if (position >= _diskSize || length <= 0) return 0;
+        if (position + length > _diskSize) length = _diskSize - position;
+        var chunk = readChunk(position, length);
+        buffer.set(chunk, offset);
+        return chunk.byteLength;
+    },
+    write: function(stream, buffer, offset, length, position) {
+        return 0;
+    },
+    llseek: function(stream, offset, whence) {
+        var newPos;
+        if (whence === 0) newPos = offset;
+        else if (whence === 1) newPos = stream.position + offset;
+        else if (whence === 2) newPos = _diskSize + offset;
+        else return -1;
+        if (newPos < 0) return -1;
+        stream.position = newPos;
+        return newPos;
+    },
+    allocate: function(stream, offset, length) {
+        if (offset + length > stream.node.usedBytes)
+            stream.node.usedBytes = offset + length;
+        return 0;
+    }
+};
+
+function setupDiskImage(file, size) {
+    _diskFile = file;
+    _diskSize = size;
+
+    Module.FS.writeFile('/disk_size', String(size));
+    Module.FS.writeFile('/cmd_queue', new Uint8Array(0));
+    try { Module.FS.mkdir('/tmp'); } catch(ex) {}
+
+    try { Module.FS.unlink('/disk.img'); } catch(e) {}
+
+    Module.FS.createDataFile('/', 'disk.img', new Uint8Array(0), true, true, true);
+    var node = Module.FS.lookupPath('/disk.img').node;
+    node.usedBytes = size;
+    node.stream_ops = _diskStreamOps;
+}
+
 self.addEventListener('message', function(e) {
     var d = e.data;
     switch (d.type) {
     case 'setup-fs':
-        _diskFile = d.file;
-        _diskSize = d.diskSize;
-        Module.FS.writeFile('/disk_size', String(d.diskSize));
-
-        var reader = new FileReaderSync();
-        var ab = reader.readAsArrayBuffer(_diskFile);
-        Module.FS.writeFile('/disk.img', new Uint8Array(ab));
-
-        Module.FS.writeFile('/cmd_queue', new Uint8Array(0));
-        try { Module.FS.mkdir('/tmp'); } catch(ex) {}
+        setupDiskImage(d.file, d.diskSize);
         self.postMessage({ type: 'ready' });
         break;
     case 'callMain':
