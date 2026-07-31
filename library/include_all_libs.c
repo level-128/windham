@@ -15,6 +15,9 @@
 #define __Argon2_opt_disable__
 #endif
 
+// because all t=1, no thread needed.
+#define ARGON2_NO_THREADS
+
 #include "Argon2/argon2.c"
 #include "Argon2/core.c"
 #include "Argon2/ref.c"

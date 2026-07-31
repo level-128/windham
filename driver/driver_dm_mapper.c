@@ -2,10 +2,6 @@
 
 #define _GNU_SOURCE
 
-#if !defined(WINDHAM_PLAT_GNU_LINUX) && !defined(CFG_DRIVER_NO_DMMAPPER)
-#error "dm-mapper driver is avaliable only for GNU/Linux target"
-#endif
-
 
 #include <stdbool.h>
 #include <stdint.h>
