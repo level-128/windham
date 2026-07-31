@@ -607,6 +607,209 @@ static int cmd_mkdir(int argc, char **argv)
 }
 
 /*-----------------------------------------------------------------------*/
+/* dir [/B] [/W] [wildcard|path]                                        */
+/*   /B   bare format (filenames only)                                  */
+/*   /W   wide format (multi-column)                                     */
+/*   8.3  short filename shown if available                              */
+/*   Supports wildcards: dir *.txt, dir /W subdir\\*.bin                */
+/*-----------------------------------------------------------------------*/
+
+static int cmd_dir(int argc, char **argv)
+{
+	int opt_b = 0, opt_w = 0;
+	const char *path = ".";
+	FRESULT fr;
+
+	for (int i = 1; i < argc; i++) {
+		if (argv[i][0] == '/') {
+			const char *o = argv[i] + 1;
+			while (*o) {
+				char c = *o;
+				if (c == 'B' || c == 'b') opt_b = 1;
+				else if (c == 'W' || c == 'w') opt_w = 1;
+				else { fprintf(stderr, "dir: unknown option '/%c'\n", c); return 1; }
+				o++;
+			}
+		} else {
+			path = argv[i];
+		}
+	}
+
+	user_path_to_tchar(TPathBuf, MAX_PATH, path);
+
+	if (!opt_b) {
+		printf(" Volume in drive 0 has no label\n");
+		printf(" Volume Serial Number is %04X-%04X\n", 0x1A2B, 0x3C4D);
+		printf("\n Directory of %s\n\n", path);
+	}
+
+	FATFS_DIR dir;
+	fr = f_opendir(&dir, TPathBuf);
+	if (fr != FR_OK) { print_fresult(fr, "dir"); return 1; }
+
+	int file_count = 0, dir_count = 0;
+	QWORD total_size = 0;
+	FILINFO fno;
+
+	if (opt_w) {
+		/* Wide format: up to 5 columns */
+		int col = 0;
+		while ((fr = f_readdir(&dir, &fno)) == FR_OK && fno.fname[0]) {
+			char name[MAX_PATH];
+			tchar_to_cstr(name, fno.fname, MAX_PATH);
+
+			if (fno.fattrib & AM_DIR) {
+				printf("[%s]", name);
+				dir_count++;
+			} else {
+				printf("%s", name);
+				file_count++;
+				total_size += (QWORD)fno.fsize;
+			}
+			col++;
+			if (col >= 5) { col = 0; printf("\n"); }
+			else {
+				// pad to 14 chars
+				int w = (int)strlen(name) + (fno.fattrib & AM_DIR ? 2 : 0);
+				while (w++ < 14) putchar(' ');
+			}
+		}
+		if (col > 0) printf("\n");
+	} else if (opt_b) {
+		/* Bare format */
+		while ((fr = f_readdir(&dir, &fno)) == FR_OK && fno.fname[0]) {
+			char name[MAX_PATH], alt[14];
+			tchar_to_cstr(name, fno.fname, MAX_PATH);
+			tchar_to_cstr(alt, fno.altname, sizeof(alt));
+
+			if (fno.altname[0] && strcmp(name, alt) != 0)
+				printf("%s  [%s]\n", name, alt);
+			else
+				printf("%s\n", name);
+
+			if (fno.fattrib & AM_DIR) dir_count++;
+			else { file_count++; total_size += (QWORD)fno.fsize; }
+		}
+	} else {
+		/* Default MS-DOS format */
+		while ((fr = f_readdir(&dir, &fno)) == FR_OK && fno.fname[0]) {
+			char name[MAX_PATH], alt[14];
+			tchar_to_cstr(name, fno.fname, MAX_PATH);
+			tchar_to_cstr(alt, fno.altname, sizeof(alt));
+
+			char dstr[32], tstr[32];
+			format_date(dstr, sizeof(dstr), fno.fdate);
+			format_time(tstr, sizeof(tstr), fno.ftime);
+
+			if (fno.fattrib & AM_DIR) {
+				printf("%s  %s    <DIR>          %s", dstr, tstr, name);
+				if (fno.altname[0] && strcmp(name, alt) != 0)
+					printf(" [%s]", alt);
+				printf("\n");
+				dir_count++;
+			} else {
+				char szstr[32];
+				snprintf(szstr, sizeof(szstr), "%llu", (unsigned long long)(QWORD)fno.fsize);
+				// right-align size to 14 chars
+				printf("%s  %s  %14s  %s", dstr, tstr, szstr, name);
+				if (fno.altname[0] && strcmp(name, alt) != 0)
+					printf(" [%s]", alt);
+				printf("\n");
+				file_count++;
+				total_size += (QWORD)fno.fsize;
+			}
+		}
+		/* Summary */
+		printf("    %12d File(s)  %14llu bytes\n", file_count, (unsigned long long)total_size);
+		printf("    %12d Dir(s)\n", dir_count);
+	}
+
+	f_closedir(&dir);
+	if (!opt_b) {
+		FATFS *fs;
+		DWORD  fre_clust;
+		if (f_getfree(u"0:", &fre_clust, &fs) == FR_OK) {
+			QWORD fre = (QWORD)fre_clust * fs->csize * FF_MAX_SS;
+			printf("    %12llu bytes free\n", (unsigned long long)fre);
+		}
+	}
+	return 0;
+}
+
+/*-----------------------------------------------------------------------*/
+/* copy <source> <dest>    (MS-DOS style — files only, no dirs)          */
+/*-----------------------------------------------------------------------*/
+
+static int cmd_copy(int argc, char **argv)
+{
+	if (argc < 3) {
+		fprintf(stderr, "copy: missing operand\nUsage: copy <source> <dest>\n");
+		return 1;
+	}
+
+	user_path_to_tchar(TPathBuf,  MAX_PATH, argv[1]);
+	user_path_to_tchar(TPathBuf2, MAX_PATH, argv[2]);
+
+	FRESULT fr = cp_file(TPathBuf, TPathBuf2);
+	if (fr != FR_OK) { print_fresult(fr, "copy"); return 1; }
+
+	printf("        1 file(s) copied.\n");
+	return 0;
+}
+
+/*-----------------------------------------------------------------------*/
+/* del <path>    (MS-DOS style — delete file; no dirs, no /S)            */
+/*-----------------------------------------------------------------------*/
+
+static int cmd_del(int argc, char **argv)
+{
+	if (argc < 2) {
+		fprintf(stderr, "del: missing operand\nUsage: del <file>\n");
+		return 1;
+	}
+
+	user_path_to_tchar(TPathBuf, MAX_PATH, argv[1]);
+
+	FILINFO fno;
+	FRESULT fr = f_stat(TPathBuf, &fno);
+	if (fr != FR_OK) { print_fresult(fr, "del"); return 1; }
+	if (fno.fattrib & AM_DIR) {
+		fprintf(stderr, "del: '%s' is a directory\n", argv[1]);
+		return 1;
+	}
+
+	fr = f_unlink(TPathBuf);
+	if (fr != FR_OK) { print_fresult(fr, "del"); return 1; }
+	return 0;
+}
+
+/*-----------------------------------------------------------------------*/
+/* rmdir <path>   (MS-DOS style — remove empty directory only)           */
+/*-----------------------------------------------------------------------*/
+
+static int cmd_rmdir(int argc, char **argv)
+{
+	if (argc < 2) {
+		fprintf(stderr, "rmdir: missing operand\nUsage: rmdir <dir>\n");
+		return 1;
+	}
+
+	user_path_to_tchar(TPathBuf, MAX_PATH, argv[1]);
+
+	FILINFO fno;
+	FRESULT fr = f_stat(TPathBuf, &fno);
+	if (fr != FR_OK) { print_fresult(fr, "rmdir"); return 1; }
+	if (!(fno.fattrib & AM_DIR)) {
+		fprintf(stderr, "rmdir: '%s' is not a directory\n", argv[1]);
+		return 1;
+	}
+
+	fr = f_rmdir(TPathBuf);
+	if (fr != FR_OK) { print_fresult(fr, "rmdir"); return 1; }
+	return 0;
+}
+
+/*-----------------------------------------------------------------------*/
 /* find -name <pattern> [path]                                           */
 /*-----------------------------------------------------------------------*/
 
@@ -1119,18 +1322,25 @@ static int cmd_help(void)
 {
 	printf(
 		"Commands:\n"
-		"  ls [-lha] [path]           List directory contents\n"
-		"  cd <path>                  Change working directory\n"
-		"  cp [-r] <src> <dst>        Copy file(s)\n"
-		"  mv <src> <dst>             Move / rename\n"
-		"  find -name <pat> [path]    Find files (wildcards: * ?)\n"
-		"  import <host> <fat>        Copy host file into image\n"
-		"  export <fat> <host>        Copy image file to host\n"
-		"  rm [-r] <path>             Delete file(s)\n"
-		"  mkdir <path>               Create directory\n"
-		"  df                         Show disk usage\n"
-		"  help                       Show this help\n"
-		"  exit / quit                Exit shell\n"
+		"  Unix-style:\n"
+		"    ls [-lahp] [path]        List directory contents\n"
+		"    cd <path>                 Change working directory\n"
+		"    cp [-r] <src> <dst>       Copy file(s)\n"
+		"    mv <src> <dst>            Move / rename\n"
+		"    rm [-r] <path>            Delete file(s)\n"
+		"    mkdir <path>              Create directory\n"
+		"    find -name <pat> [path]   Find files (wildcards: * ?)\n"
+		"    import <host> <fat>       Copy host file into image\n"
+		"    export <fat> <host>       Copy image file to host\n"
+		"    df                        Show disk usage\n"
+		"    help                      Show this help\n"
+		"    exit / quit               Exit shell\n"
+		"\n"
+		"  DOS-style:\n"
+		"    dir [/B] [/W] [wc]        List directory (supports *.txt)\n"
+		"    copy <src> <dst>          Copy file\n"
+		"    del <file>                Delete file\n"
+		"    rmdir <dir>               Remove empty directory\n"
 	);
 	return 0;
 }
@@ -1143,11 +1353,15 @@ static int exec_command(int argc, char **argv)
 {
 	if (argc == 0) return 0;
 	if (strcmp(argv[0], "ls") == 0)           return cmd_ls(argc, argv);
+	if (strcmp(argv[0], "dir") == 0)          return cmd_dir(argc, argv);
 	if (strcmp(argv[0], "cd") == 0)           return cmd_cd(argc, argv);
+	if (strcmp(argv[0], "copy") == 0)         return cmd_copy(argc, argv);
 	if (strcmp(argv[0], "cp") == 0)           return cmd_cp(argc, argv);
 	if (strcmp(argv[0], "mv") == 0)           return cmd_mv(argc, argv);
 	if (strcmp(argv[0], "rm") == 0)           return cmd_rm(argc, argv);
+	if (strcmp(argv[0], "del") == 0)          return cmd_del(argc, argv);
 	if (strcmp(argv[0], "mkdir") == 0)        return cmd_mkdir(argc, argv);
+	if (strcmp(argv[0], "rmdir") == 0)        return cmd_rmdir(argc, argv);
 	if (strcmp(argv[0], "find") == 0)         return cmd_find(argc, argv);
 	if (strcmp(argv[0], "import") == 0)       return cmd_import(argc, argv);
 	if (strcmp(argv[0], "export") == 0)       return cmd_export(argc, argv);
