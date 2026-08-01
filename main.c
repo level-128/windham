@@ -561,41 +561,7 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 	// execute
 	// "Open", "Close", "New", "AddKey", "RevokeKey", "Backup", "Restore", "Suspend", "Resume"
 	switch (action_num) {
-		case NMOBJ_action_open:
-			action_open_(
-				device,
-				windhamtab_location,
-				params[NMOBJ_to],
-				timeout,
-				windhamtab_pass,
-				key,
-				master_key,
-				max_unlock_mem,
-				max_unlock_time,
-				max_unlock_level,
-				options[NMOBJ_is_allow_swap],
-				options[NMOBJ_target_decoy],
-			options[NMOBJ_target_dry_run],
-			options[NMOBJ_show_master_key],
-			options[NMOBJ_target_readonly],
-				options[NMOBJ_target_allow_discards],
-				options[NMOBJ_target_no_read_workqueue],
-				options[NMOBJ_target_no_write_workqueue],
-				options[NMOBJ_is_no_map_partition],
-				options[NMOBJ_is_nokeyring],
-				options[NMOBJ_is_nofail],
-				options[NMOBJ_windhamtab_pass],
-				options[NMOBJ_is_no_aux],
-				params[NMOBJ_aux_link_paths]);
-
-			break;
-		case NMOBJ_action_close:
-			if (options[NMOBJ_close_all]) {
-				action_close_all(options[NMOBJ_is_deffered_remove]);
-			} else {
-				action_close(device, options[NMOBJ_is_deffered_remove]);
-			}
-			break;
+#ifndef CFG_TARGET_READONLY
 		case NMOBJ_action_new:
 			init_device(device,
 			            false,
@@ -661,17 +627,6 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				options[NMOBJ_is_anonymous_key],
 				false);
 			break;
-		case NMOBJ_action_backup:
-			if (device)
-				init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
-
-			action_backup(device ? STR_device->name : NULL,
-			              params[NMOBJ_to],
-			              options[NMOBJ_target_decoy],
-			              options[NMOBJ_qrcode],
-			              params[NMOBJ_qrcode],
-			              options[NMOBJ_is_fold], key, master_key);
-			break;
 		case NMOBJ_action_restore:
 			init_device(device, false, true, options[NMOBJ_is_nofail], true, 0, 0);
 
@@ -708,6 +663,55 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 			init_device(device, false, false, options[NMOBJ_is_nofail], true, 0, 0);
 			action_destory(STR_device->name, options[NMOBJ_target_decoy]);
 			break;
+#endif
+		case NMOBJ_action_open:
+			action_open_(
+				device,
+				windhamtab_location,
+				params[NMOBJ_to],
+				timeout,
+				windhamtab_pass,
+				key,
+				master_key,
+				max_unlock_mem,
+				max_unlock_time,
+				max_unlock_level,
+				options[NMOBJ_is_allow_swap],
+				options[NMOBJ_target_decoy],
+			options[NMOBJ_target_dry_run],
+			options[NMOBJ_show_master_key],
+			options[NMOBJ_target_readonly],
+				options[NMOBJ_target_allow_discards],
+				options[NMOBJ_target_no_read_workqueue],
+				options[NMOBJ_target_no_write_workqueue],
+				options[NMOBJ_is_no_map_partition],
+				options[NMOBJ_is_nokeyring],
+				options[NMOBJ_is_nofail],
+				options[NMOBJ_windhamtab_pass],
+				options[NMOBJ_is_no_aux],
+				params[NMOBJ_aux_link_paths]);
+
+			break;
+		case NMOBJ_action_close:
+			if (options[NMOBJ_close_all]) {
+				action_close_all(options[NMOBJ_is_deffered_remove]);
+			} else {
+				action_close(device, options[NMOBJ_is_deffered_remove]);
+			}
+			break;
+
+		case NMOBJ_action_backup:
+			if (device)
+				init_device(device, false, true, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
+
+			action_backup(device ? STR_device->name : NULL,
+			              params[NMOBJ_to],
+			              options[NMOBJ_target_decoy],
+			              options[NMOBJ_qrcode],
+			              params[NMOBJ_qrcode],
+			              options[NMOBJ_is_fold], key, master_key);
+			break;
+
 		case NMOBJ_action_aux: {
 			init_device(device, false, false, options[NMOBJ_is_nofail], options[NMOBJ_target_decoy], 0, 0);
 
@@ -721,7 +725,18 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				print_error(_("Only one aux sub-action can be specified at a time"));
 			}
 
-			if (options[NMOBJ_aux_add]) {
+			if (options[NMOBJ_aux_probe]) {
+				action_aux_probe(
+					STR_device->name,
+					key,
+					master_key,
+					max_unlock_mem,
+					max_unlock_time,
+					max_unlock_level,
+					options[NMOBJ_is_allow_swap],
+					options[NMOBJ_target_decoy]);
+#ifndef CFG_TARGET_READONLY
+			} else if (options[NMOBJ_aux_add]) {
 				action_aux_add(
 					STR_device->name,
 					key,
@@ -769,16 +784,6 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 					max_unlock_level,
 					options[NMOBJ_is_allow_swap],
 					options[NMOBJ_target_decoy]);
-			} else if (options[NMOBJ_aux_probe]) {
-				action_aux_probe(
-					STR_device->name,
-					key,
-					master_key,
-					max_unlock_mem,
-					max_unlock_time,
-					max_unlock_level,
-					options[NMOBJ_is_allow_swap],
-					options[NMOBJ_target_decoy]);
 			} else if (options[NMOBJ_aux_rm]) {
 				long idx = strtol(params[NMOBJ_aux_rm], NULL, 10);
 				if (idx < 1) {
@@ -794,6 +799,9 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 					options[NMOBJ_is_allow_swap],
 					options[NMOBJ_target_decoy],
 					(int)idx);
+#endif
+			} else {
+				print_error(_("Unsupported aux option."));
 			}
 			break;
 		}

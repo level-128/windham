@@ -4,10 +4,16 @@
 #include <limits.h>
 #include "../libsrc/srclib.c"
 
+#ifdef CFG_NO_TEXT
+#define HELP(x) "STRIPPED\n"
+#else
+#define HELP(x) _(x) 
+#endif
+
 void frontend_print_unlock_args() {
 
    printf(
-      _("\nUnlock options:\n"
+      HELP("\nUnlock options:\n"
       "\t--key <string>:          password input as argument instead of asking interactively.\n"
       "\t--key-file <path>:       read password from a key file (excludes EOF). Mutually exclusive\n"
       "\t                         with --key and --keystdin.\n"
@@ -23,14 +29,14 @@ void frontend_print_unlock_args() {
       "\t--systemd-dialog:        use systemd password dialog for interactive input.\n")
       );
 #ifndef CFG_USE_SWAP
-   print_warning(_("--allow-swap disabled by compile configuration."));
+   print_warning(HELP("--allow-swap disabled by compile configuration."));
 #endif
 }
 
 
 void frontend_print_common_args() {
    printf(
-      _(
+      HELP(
           "\nCommon options:\n"
           "\t--no-admin:          skip root-privilege check.\n"
           "\t--yes:               skip confirmation prompts.\n"
@@ -43,7 +49,7 @@ void frontend_print_common_args() {
 
 void frontend_print_newpw_args() {
    printf(
-      _(
+      HELP(
          "\nNew passphrase (KDF) options:\n"
          "\t--target-memory <n>:    total max memory (KiB) for key derivation.\n"
          "\t--target-time <n>:      target time (sec) for key derivation. Larger values\n"
@@ -61,7 +67,7 @@ void frontend_print_newpw_args() {
 void frontend_help(const char * the_3rd_argv) {
    if (! the_3rd_argv) {
       printf(
-         _(
+         HELP(
             "usage: \"windham <action> <target>\"\n"
             "possible actions are:  'Open'  'Close'  'New'  'AddKey'  'DelKey'  'Backup'  'Restore'\n"
             "                       'Suspend'  'Resume'  'Destroy'  'Bench'  'Aux'  'Probe'  'List'\n\n"
@@ -91,7 +97,15 @@ void frontend_help(const char * the_3rd_argv) {
                "attacker.\033[0m\n"));
    	issue_count++;
 #endif
-#if ARGON2_CLEAR_INTERNAL_MEMORY == 0
+#ifdef WINDHAM_NO_SECCOMP
+      printf(_("\033[33mSeccomp is disabled, system is now untrusted and refuses to execute aux commands.\033[0m\n"));
+      issue_count++;
+#endif
+#ifndef WINDHAM_REPRODUCIBLE_BUILD
+      printf(_("\033[33mThe build is not reproducible, executable hash may change per build.\033[0m\n"));
+      issue_count++;
+#endif
+#ifndef CFG_WIPE_MEMORY
       printf(_("\033[33mWipe memory disabled.\033[0m\n"));
       issue_count ++;
 #endif
@@ -116,11 +130,22 @@ void frontend_help(const char * the_3rd_argv) {
       printf(_("\tDefault decryption target time (per slot): %i\n"), MAX_UNLOCK_TIME_FACTOR);
       printf(_("\tDefault encryption capped memory: %i\n"), DEFAULT_DISK_ENC_MEM_RATIO_CAP);
       printf(_("\tDefault encryption type: %s\n"), DEFAULT_DISK_ENC_MODE);
-#ifdef WINDHAM_UTF_32
-      printf(_("\tchar32_t encoding:       UTF-32\n"));
+#ifdef CFG_ASCII
+      printf(_("\tchar32_t encoding: ASCII support only, CFG_ASCII set.\n"));
+      printf(_("\tchar16_t encoding: ASCII support only, CFG_ASCII set.\n"));
 #else
-      printf(_("\tchar32_t encoding:       unspecified, system reduced to ASCII support!\n"));
+#ifdef WINDHAM_UTF_32
+      printf(_("\tchar32_t encoding: UTF-32\n"));
+#else
+      printf(_("\tchar32_t encoding: UTF-32 reduced to ASCII support!\n"));
 #endif
+#ifdef WINDHAM_UTF_16
+      printf(_("\tchar16_t encoding: UTF-16\n"));
+#else
+      printf(_("\tchar16_t encoding: UTF-16 reduced to ASCII support!\n"));
+#endif
+#endif
+
       printf(_("\nSystem and compiler information:\n"));
 #ifdef __clang__
       printf(_("\tCompiler: Clang %d.%d.%d\n"), __clang_major__, __clang_minor__, __clang_patchlevel__);
@@ -148,8 +173,8 @@ void frontend_help(const char * the_3rd_argv) {
 #endif // #if defined(WINDHAM_USING_CMAKE)
    } else if (strcmp("--license", the_3rd_argv) == 0) {
       printf(
-         _(
-            "    Copyright (C) 2023 2024 2025 by \"level-128\" (mail: level-128@gmx.com)\n"
+         HELP(
+            "    Copyright (C) 2023 2024 2025 2026 by \"level-128\" (mail: level-128@gmx.com)\n"
             "\n"
             "    This program is free software: you can redistribute it and/or modify\n"
             "    it under the terms of the GNU General Public License (version 3) as\n"
@@ -164,7 +189,7 @@ void frontend_help(const char * the_3rd_argv) {
             "    along with this program.  If not, see <https://www.gnu.org/licenses/>.\n"));
    } else if (strcmp("Open", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Open <target>: Unlock a Windham partition and create a decrypted mapper device\n"
             "under /dev/mapper/<name>. The key is provided interactively unless --key,\n"
             "--key-file, or --keystdin is used. If <target> is \"TAB\", entries from\n"
@@ -198,7 +223,7 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
    } else if (strcmp("Close", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Close <name>: Close (remove) an active dm-crypt mapper device. The name\n"
             "refers to the entry under /dev/mapper/<name>.\n"
             "\n"
@@ -208,7 +233,7 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
    } else if (strcmp("New", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "New <target>: Create a Windham header on <target> and enroll an initial\n"
             "passphrase. DO NOT copy headers between devices — they would share the\n"
             "same master key.\n"
@@ -233,13 +258,13 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_newpw_args();
       frontend_print_common_args();
       printf(
-         _(
+         HELP(
             "\nSupported encryption modes are listed in /proc/crypto. If the chosen scheme\n"
             "is valid but unsupported on your kernel, a warning is issued — the partition\n"
             "will not be openable on this system.\n"));
    } else if (strcmp("AddKey", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "AddKey <target>: Enroll a new passphrase on an existing Windham partition.\n"
             "You must unlock with an existing passphrase first, then provide the new one.\n"
             "\n"
@@ -257,7 +282,7 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
    } else if (strcmp("DelKey", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "DelKey <target>: Remove a passphrase from the Windham header.\n"
             "The passphrase to remove must be provided via --key or interactive input.\n"
             "\n"
@@ -269,7 +294,7 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
     } else if (strcmp("Backup", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
               "Backup <target>: Copy the Windham header to a backup file.\n"
               "\n"
               "Three modes (mutually exclusive):\n"
@@ -318,7 +343,7 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
    } else if (strcmp("Restore", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Restore <target>: Restore a Windham header from a backup file.\n"
             "\n"
             "    --to <path>    REQUIRED; source backup file.\n"
@@ -333,7 +358,7 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
    } else if (strcmp("Suspend", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Suspend <target>: Clear the encryption keys from the header so the\n"
             "device can be opened without a password. In suspended state, only\n"
             "Open and Close are available. Use Resume to restore normal operation.\n"));
@@ -341,19 +366,19 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
    } else if (strcmp("Resume", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Resume <target>: Restore the encryption keys into the header so the\n"
             "device requires a password again. Reverses Suspend.\n"));
       frontend_print_unlock_args();
       frontend_print_common_args();
    } else if (strcmp("Bench", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Bench: Run the Argon2 KDF benchmark to determine optimal unlock parameters.\n"));
       frontend_print_common_args();
    } else if (strcmp("Destory", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Destory <target>: Wipe the Windham header from the device, permanently\n"
             "destroying all passphrase and encryption metadata.\n"
             "\n"
@@ -362,7 +387,7 @@ void frontend_help(const char * the_3rd_argv) {
       frontend_print_common_args();
    } else if (strcmp("Aux", the_3rd_argv) == 0) {
       printf(
-         _(
+         HELP(
             "Aux <target>: Manage auxiliary data entries stored in the aux zone of a\n"
             "Windham partition. Each entry is encrypted with a key derived from the\n"
             "keyslot used to unlock the device.\n"
@@ -406,4 +431,8 @@ void frontend_help(const char * the_3rd_argv) {
    }
    exit(0);
 }
+#endif
+
+#ifdef HELP
+#undef HELP
 #endif

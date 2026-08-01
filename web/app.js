@@ -1,4 +1,11 @@
 // Windham Web — sidebar-driven disk browser
+// ── i18n ───────────────────────────────────────────────────
+_lang = detectLang();
+setLang(_lang);
+var _langSelect = document.getElementById('langSelect');
+_langSelect.value = _lang;
+_langSelect.onchange = function() { setLang(this.value); };
+
 // ── Browser capability check ────────────────────────────────
 function browserSupported() {
     var missing = [];
@@ -57,15 +64,15 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 (function() {
     if (_browserIssues.length > 0) {
         $('#openBtn').disabled = true;
-        showError('Browser not supported',
-            'Your browser is missing required APIs:\n\u2022 ' +
-            _browserIssues.join('\n\u2022 ') +
-            '\n\nUse Chrome 86+ or Edge 86+ for full support.');
+        showError(t('Browser not supported'),
+            t('Your browser is missing required APIs') + ':\n\u2022 ' +
+            _browserIssues.join('\n\u2022 ') + '\n\n' +
+            t('Use Chrome 86+ or Edge 86+ for full support.'));
         return;
     }
     _worker = new Worker('worker.js?v=3');
     _worker.onerror = function(e) {
-        showError('Worker Crashed', e.message || 'Unknown error');
+        showError(t('Worker Crashed'), e.message || t('Unknown error'));
     };
     _worker.onmessage = function(e) {
         var d = e.data;
@@ -77,7 +84,7 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
             _shellReady = false;
             break;
         case 'error':
-            showError('Worker Error', d.msg);
+            showError(t('Worker Error'), d.msg);
             break;
         case 'stdout':
             handleStdout(d.text);
@@ -177,7 +184,7 @@ function renderTree() {
     for (var i = 0; i < _fileTree.files.length; i++)
         (function(n,s){ el.appendChild(makeItem('📄', n, s, '', function(){ previewFile(n, s); })); })(_fileTree.files[i].name, _fileTree.files[i].size);
     $('#breadcrumb').textContent = _cwd;
-    $('#fileCount').textContent = _fileTree.dirs.length + ' dirs, ' + _fileTree.files.length + ' files';
+    $('#fileCount').textContent = tf('%d dirs, %d files', _fileTree.dirs.length, _fileTree.files.length);
 }
 
 function makeItem(icon, name, size, cls, onclick) {
@@ -192,7 +199,7 @@ function makeItem(icon, name, size, cls, onclick) {
 
 async function cd(dir) {
     await shellCmd(dir === '..' ? 'cd ..' : 'cd ' + dir);
-    if (_lastError) { showError('cd Failed', _lastError); return; }
+    if (_lastError) { showError(t('cd Failed'), _lastError); return; }
     _historyCwd = _historyCwd.slice(0, _historyIdx + 1);
     _historyCwd.push(_cwd);
     _historyIdx = _historyCwd.length - 1;
@@ -205,7 +212,7 @@ function updateNavBtns() { $('#navBack').disabled = _historyIdx <= 0; $('#navFwd
 
 async function refresh() {
     var output = await shellCmd('ls -p');
-    if (_lastError) { showError('ls Failed', _lastError); return; }
+    if (_lastError) { showError(t('ls Failed'), _lastError); return; }
     _fileTree = parseLs(output);
     renderTree();
 }
@@ -213,7 +220,7 @@ async function refresh() {
 async function exportFile(name) {
     var fpath = _cwd + '/' + name;
     await shellCmd('export ' + fpath + ' /tmp/x');
-    showError('Export', 'Export not yet supported with streaming I/O.');
+    showError(t('Export'), t('Export not yet supported with streaming I/O.'));
 }
 
 function previewFile(name, size) {
@@ -227,21 +234,21 @@ $('#previewClose').onclick = closePreview;
 // ── Backup tab ──────────────────────────────────────────────
 async function backupFold() {
     var statusEl = $('#buStatus');
-    if (!_cachedPass) { statusEl.textContent = 'No passphrase available. Re-open the disk first.'; return; }
+    if (!_cachedPass) { statusEl.textContent = t('No passphrase available. Re-open the disk first.'); return; }
     try {
-        statusEl.textContent = 'Exiting shell...';
+        statusEl.textContent = t('Exiting shell...');
         _shellExited = false;
         var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
         await shellCmd('exit');
         await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
         if (!_shellExited) throw new Error('Shell did not exit');
 
-        statusEl.textContent = 'Creating fold backup...';
+        statusEl.textContent = t('Creating fold backup...');
         var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
         _worker.postMessage({ type: 'callMain', args: ['Backup', '--fold', '--to', '/tmp/fold.bu', '--key', _cachedPass, '/disk.img'] });
         await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('backup timeout')); }, 30000); })]);
 
-        statusEl.textContent = 'Reading backup...';
+        statusEl.textContent = t('Reading backup...');
         var fileData = await new Promise(function(resolve, reject) {
             var orig = _worker.onmessage;
             _worker.onmessage = function(e) {
@@ -260,15 +267,15 @@ async function backupFold() {
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
-        statusEl.textContent = 'Backup downloaded. Remounting...';
+        statusEl.textContent = t('Backup downloaded. Remounting...');
 
         _shellExited = false;
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
-        statusEl.textContent = 'Backup complete.';
+        statusEl.textContent = t('Backup complete.');
     } catch(e) {
-        statusEl.textContent = 'Backup failed: ' + e;
-        showError('Backup Failed', String(e));
+        statusEl.textContent = tf('Backup failed: %s', e);
+        showError(t('Backup Failed'), String(e));
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
     }
@@ -279,22 +286,22 @@ $('#buDownloadBtn').onclick = backupFold;
 async function showQr() {
     var statusEl = $('#buStatus');
     var canvasEl = $('#qrCanvas');
-    if (!_cachedPass) { statusEl.textContent = 'No passphrase available.'; return; }
+    if (!_cachedPass) { statusEl.textContent = t('No passphrase available.'); return; }
     try {
-        statusEl.textContent = 'Exiting shell...';
+        statusEl.textContent = t('Exiting shell...');
         _shellExited = false;
         var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
         await shellCmd('exit');
         await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
         if (!_shellExited) throw new Error('Shell did not exit');
 
-        statusEl.textContent = 'Generating QR code...';
+        statusEl.textContent = t('Generating QR code...');
         _stdoutAcc = '';
         var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
         _worker.postMessage({ type: 'callMain', args: ['Backup', '--qrcode=/tmp/qr.bmp', '--to', '/tmp/fold.bu', '--key', _cachedPass, '/disk.img'] });
         await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 30000); })]);
 
-        statusEl.textContent = 'Reading QR image...';
+        statusEl.textContent = t('Reading QR image...');
         var bmpData = await new Promise(function(resolve, reject) {
             var orig = _worker.onmessage;
             _worker.onmessage = function(e) {
@@ -314,14 +321,14 @@ async function showQr() {
         var ctx = canvasEl.getContext('2d');
         ctx.drawImage(img, 0, 0);
         img.close();
-        statusEl.textContent = 'QR code generated.';
+        statusEl.textContent = t('QR code generated.');
 
         _shellExited = false;
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
     } catch(e) {
-        statusEl.textContent = 'QR failed: ' + e;
-        showError('QR Failed', String(e));
+        statusEl.textContent = tf('QR failed: %s', e);
+        showError(t('QR Failed'), String(e));
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
     }
@@ -332,8 +339,8 @@ $('#buQrBtn').onclick = showQr;
 async function loadAux() {
     var statusEl = $('#auxStatus');
     var outputEl = $('#auxOutput');
-    outputEl.textContent = 'Loading...';
-    if (!_cachedPass) { outputEl.textContent = 'No passphrase available.'; return; }
+    outputEl.textContent = t('Loading...');
+    if (!_cachedPass) { outputEl.textContent = t('No passphrase available.'); return; }
     try {
         _shellExited = false;
         var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
@@ -354,15 +361,15 @@ async function loadAux() {
             if (l.indexOf('AUXPROBE_OK') >= 0 || l.indexOf('MK ') === 0) continue;
             filtered.push(l);
         }
-        outputEl.textContent = filtered.join('\n').trim() || 'No aux entries found.';
+        outputEl.textContent = filtered.join('\n').trim() || t('No aux entries found.');
 
         _shellExited = false;
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
         statusEl.textContent = '';
     } catch(e) {
-        outputEl.textContent = 'Failed: ' + e;
-        showError('Aux Failed', String(e));
+        outputEl.textContent = tf('Failed: %s', e);
+        showError(t('Aux Failed'), String(e));
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
     }
@@ -371,7 +378,7 @@ async function loadAux() {
 // ── Metadata tab ────────────────────────────────────────────
 async function loadMeta() {
     var statusEl = $('#metaStatus');
-    if (!_cachedMasterKey) { statusEl.textContent = 'No master key available.'; return; }
+    if (!_cachedMasterKey) { statusEl.textContent = t('No master key available.'); return; }
     try {
         _shellExited = false;
         _pendingMasterKey = null;
@@ -434,7 +441,7 @@ async function loadMeta() {
             var hdr = slotTbody.insertRow();
             hdr.className = 'slot-hdr';
             ['Slot', 'Level', 'Memory', 'Zone', 'Identifier'].forEach(function(h) {
-                var th = hdr.insertCell(); th.textContent = h;
+                var th = hdr.insertCell(); th.textContent = t(h);
                 th.style.cssText = 'color:#aaa;font-size:12px;border-bottom:1px solid #4fc3f7';
                 if (h === 'Identifier') th.style.width = 'auto';
                 else th.style.width = '1px';
@@ -457,14 +464,14 @@ async function loadMeta() {
             }
         }
 
-        statusEl.textContent = 'Remounting...';
+        statusEl.textContent = t('Remounting...');
         _shellExited = false;
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
         statusEl.textContent = '';
     } catch(e) {
-        statusEl.textContent = 'Failed: ' + e;
-        showError('Metadata Failed', String(e));
+        statusEl.textContent = tf('Failed: %s', e);
+        showError(t('Metadata Failed'), String(e));
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
     }
@@ -509,30 +516,30 @@ async function closeDisk() {
 }
 
 async function openFile(file) {
-    if (!_workerReady) { showError('Worker not ready', 'Worker has not loaded yet.'); return; }
+    if (!_workerReady) { showError(t('Worker not ready'), t('Worker has not loaded yet.')); return; }
     $('#unlockLoading').style.display = 'flex';
     $('#openBtn').disabled = true;
 
     _worker.postMessage({ type: 'setup-fs', diskSize: file.size, file: file });
     _cachedPass = $('#passInput').value;
 
-    $('#unlockLoading').textContent = 'Deriving key...';
+    $('#unlockLoading').textContent = t('Deriving key...');
     _cachedMasterKey = '';
     _worker.postMessage({ type: 'callMain', args: ['Open', '--show-master-key', '--key', _cachedPass, '/disk.img'] });
     _pendingMasterKey = function() {
         _pendingMasterKey = null;
         if (!_cachedMasterKey) {
-            showError('Unlock Failed', 'Could not obtain master key.');
+            showError(t('Unlock Failed'), t('Could not obtain master key.'));
             $('#openBtn').disabled = false;
             return;
         }
-        $('#unlockLoading').textContent = 'Mounting filesystem...';
+        $('#unlockLoading').textContent = t('Mounting filesystem...');
         _shellExited = false;
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
     };
     setTimeout(function() {
-        if (_pendingMasterKey) { _pendingMasterKey = null; showError('Timeout', 'Master key derivation timed out.'); }
+        if (_pendingMasterKey) { _pendingMasterKey = null; showError(t('Timeout'), t('Master key derivation timed out.')); }
     }, 60000);
 }
 
@@ -550,22 +557,22 @@ function waitForShell(attempts) {
         return;
     }
     if (_lastError && attempts > 10) {
-        $('#unlockLoading').textContent = 'Failed.';
+        $('#unlockLoading').textContent = t('Failed.');
         $('#openBtn').disabled = false;
-        showError('Unlock Failed', _lastError);
+        showError(t('Unlock Failed'), _lastError);
         return;
     }
     if (attempts > 300) {
-        $('#unlockLoading').textContent = 'Timeout.';
+        $('#unlockLoading').textContent = t('Timeout.');
         $('#openBtn').disabled = false;
-        showError('Timeout', 'Unlock took too long.');
+        showError(t('Timeout'), t('Unlock took too long.'));
         return;
     }
     setTimeout(function() { waitForShell(attempts + 1); }, 100);
 }
 
 async function openDisk() {
-    if (!_workerReady) { showError('Worker not ready', 'Worker has not loaded yet.'); return; }
+    if (!_workerReady) { showError(t('Worker not ready'), t('Worker has not loaded yet.')); return; }
     var pass = $('#passInput').value;
     if (!pass) return;
 
@@ -573,7 +580,7 @@ async function openDisk() {
         var handle;
         try {
             [handle] = await window.showOpenFilePicker({
-                types: [{description: 'Disk images', accept: {'application/octet-stream': ['.img','.bin','.raw']}}]
+                types: [{description: t('Disk images'), accept: {'application/octet-stream': ['.img','.bin','.raw']}}]
             });
         } catch(e) {
             return;

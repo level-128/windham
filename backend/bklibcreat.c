@@ -14,7 +14,7 @@
 #endif
 
 
-
+#ifndef CFG_TARGET_READONLY
 void action_create(
    const
    char *         device,
@@ -128,28 +128,6 @@ void action_create(
    }
 #endif
 
-
-   // fill random data to first 128K.
-#ifdef WINDHAM_PLAT_GNU_LINUX
-   #include <fcntl.h>
-
-   if (decoy_size == 0) {
-      const int fp = open(device, O_DSYNC | O_WRONLY);
-      if (fp < 0) {
-         print_error(_("Failed to open %s: %s"), device, strerror(errno));
-      }
-      for (int i = 0; i < 32; i ++) {
-         uint8_t random_buffer[4096];
-         fill_secure_random_bits(random_buffer, 4096);
-         const ssize_t result = write(fp, random_buffer, sizeof(random_buffer));
-         if (result != sizeof(random_buffer)) {
-            break;
-         }
-      }
-      close(fp);
-   }
-#endif
-
     encrypt_aux_zone_using_master_key(&data, aux_zone, aux_sector_size * 512, master_key);
     write_aux_zone_to_device(device, &data, aux_zone, aux_sector_size * 512);
 
@@ -175,5 +153,6 @@ void action_create(
 
    free(aux_zone);
 }
+#endif // #ifndef CFG_TARGET_READONLY
 
 #endif

@@ -24,8 +24,7 @@
 #include "Argon2/encoding.c"
 #include "Argon2/blake2/blake2b.c"
 
-// cJSON
-#include "cJSON/cJSON.c"
+// cJSON only used by GNU/Linux
 
 // getopt_port
 #include "getopt_port/getopt.c"
@@ -42,8 +41,9 @@
 // tiny_AES.c
 #include "tiny_AES_c/aes.c"
 
-
+#ifndef CFG_DRIVER_NO_FF
 #include "FatFs/ff.c"
 #include "FatFs/ffunicode.c"
 #include "FatFs/ffsystem.c"
 #include "FatFs/ff_diskio.c"
+#endif

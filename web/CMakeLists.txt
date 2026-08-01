@@ -10,6 +10,8 @@ set(WINDHAM_ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Release, Debug, MinSizeRel")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Debug" "MinSizeRel")
 
+option(WINDHAM_WEB_MINIFY "Minify windham.js with Closure Compiler (slower link)" ON)
+
 # --- Version ---
 file(READ "${WINDHAM_ROOT}/build_misc/version.txt" WINDHAM_VERSION)
 string(STRIP "${WINDHAM_VERSION}" WINDHAM_VERSION)
@@ -34,6 +36,11 @@ set(CMAKE_C_FLAGS_MINSIZEREL           "${CMAKE_C_FLAGS_MINSIZEREL} -Oz -flto")
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE     "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -O3 -flto")
 set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL  "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} -Oz -flto")
 
+if (WINDHAM_WEB_MINIFY)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --closure 1")
+    message(STATUS "Closure Compiler minification enabled (WINDHAM_WEB_MINIFY=ON)")
+endif ()
+
 # --- Compile definitions ---
 add_compile_definitions(WINDHAM_PLAT_EMSCRIPTEN)
 add_compile_definitions(WINDHAM_NO_ISOC_THREAD)
@@ -49,11 +56,14 @@ add_compile_definitions(CFG_FF_SHELL_NOINTERACTIVE)
 add_compile_definitions(ARGON2_MAX_MEMORY_BITS=32)
 add_compile_definitions(ARGON2_NO_THREADS)
 add_compile_definitions(CFG_ISOC_HEADERIO_ENABLE_CACHE)
+add_compile_definitions(CFG_NO_TEXT)
+add_compile_definitions(CFG_TARGET_READONLY)
+add_compile_definitions(CFG_NO_ENTROPY_DETECTION)
 
 # --- Build target ---
 add_executable(windham ${WINDHAM_ROOT}/frontend.c)
 
-set(WEB_ASSETS index.html app.js worker.js)
+set(WEB_ASSETS index.html app.js worker.js i18n.js serve.py)
 foreach(_f ${WEB_ASSETS})
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${_f} ${CMAKE_CURRENT_BINARY_DIR}/${_f} COPYONLY)
 endforeach()

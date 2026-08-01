@@ -1,10 +1,6 @@
 #ifndef INCL_BKLIBACT
 #define INCL_BKLIBACT
 
-#ifdef WINDHAM_PLAT_GNU_LINUX
-#include <dirent.h>
-#endif
-
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -51,12 +47,7 @@ void action_close(const char * device, bool is_deferred_remove) {
       CHECK_DEVICE_TOPOLOGY_FREE(parent);
       remove_crypt_mapping(device, is_deferred_remove);
    } else {
-      // device[0] == '/'
-      if (STARTSWITH(device, "/dev/mapper/")) {
-         print_error(
-            _("The provided name is a mapped block device, use \"Windham Close %s\" to close the device."),
-            device + strlen("/dev/mapper/"));
-      } else if (STARTSWITH(device, "/dev/")) {
+      if (STARTSWITH(device, "/dev/")) {
          CHECK_DEVICE_TOPOLOGY(
             device,
             "",
@@ -93,6 +84,7 @@ void action_close(const char * device, bool is_deferred_remove) {
 
 void action_close_all(bool is_deferred_remove) {
 #ifdef WINDHAM_PLAT_GNU_LINUX
+#include <dirent.h>
     if (!current_driver || !current_driver->remove) {
         print_warning(_("cannot close: no driver loaded."));
         return;
@@ -125,6 +117,7 @@ void action_close_all(bool is_deferred_remove) {
 #endif
 }
 
+#ifndef CFG_TARGET_READONLY
 int action_addkey(
    const char * device,
    PARAMS_FOR_KEY,
@@ -215,9 +208,10 @@ int action_addkey(
    OPERATION_LOCK_AND_WRITE
    return 0;
 }
+#endif // #ifndef CFG_TARGET_READONLY
 
-#include <stdio.h>
 
+#ifndef CFG_TARGET_READONLY
 void action_removekey(
    const char * device,
    PARAMS_FOR_KEY,
@@ -260,8 +254,7 @@ void action_removekey(
             if (!is_public) {
                if (count == 0) {
                   printf(_("The following aux entries are associated with the key being deleted:\n"));
-}
-#endif
+               }
                count++;
                print_aux_entry(slot, slot_offset, false, count);
                has_aux_to_delete = true;
@@ -316,6 +309,7 @@ void action_removekey(
 LOCK_AND_WRITE:;
    OPERATION_LOCK_AND_WRITE
 }
+#endif // #ifndef CFG_TARGET_READONLY
 
 
 void action_backup(const char * device, char * filename, const bool is_decoy, const bool is_qrcode, const char * qrcode_path, const bool is_fold, const Key key, const uint8_t master_key_input[HASHLEN]) {
@@ -547,6 +541,8 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
    write_header_to_device(&alldata, filename, 0);
 }
 
+
+#ifndef CFG_TARGET_READONLY
 void action_restore(const char * device, const char * filename, const bool is_decoy, const bool is_fold, const Key key, const uint8_t master_key_input[HASHLEN]) {
    if (is_fold) {
       /* ======= FOLD MODE RESTORE ======= */
@@ -675,7 +671,7 @@ void action_restore(const char * device, const char * filename, const bool is_de
       return;
    }
 
-   /* ======= ALL MODE (original behaviour) ======= */
+   /* ======= ALL MODE ======= */
    Data    data;
    int64_t offset = 0;
 
@@ -698,8 +694,10 @@ void action_restore(const char * device, const char * filename, const bool is_de
       device,
       offset);
 }
+#endif // #ifndef CFG_TARGET_READONLY
 
 
+#ifndef CFG_TARGET_READONLY
 void action_suspend(const char * device, PARAMS_FOR_KEY) {
    Data    data;
    int64_t offset;
@@ -716,8 +714,10 @@ void action_suspend(const char * device, PARAMS_FOR_KEY) {
    suspend_encryption(&data_copy, master_key);
    write_header_to_device(&data_copy, device, offset);
 }
+#endif // #ifndef CFG_TARGET_READONLY
 
 
+#ifndef CFG_TARGET_READONLY
 void action_resume(const char * device, PARAMS_FOR_KEY) {
    Data    data;
    int64_t offset;
@@ -757,7 +757,10 @@ void action_resume(const char * device, PARAMS_FOR_KEY) {
    };
    write_header_to_device(&data_copy, device, (int64_t) offset);
 }
+#endif // #ifndef CFG_TARGET_READONLY
 
+
+#ifndef CFG_TARGET_READONLY
 void action_destory(const char * device, bool is_decoy) {
    Data    data;
    int64_t offset;
@@ -833,7 +836,7 @@ void action_destory(const char * device, bool is_decoy) {
       // depends on target.
 #ifdef WINDHAM_PLAT_GNU_LINUX
       sleep(1);
-#elif defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
+#elif defined(__STDC_NO_THREADS__)
       struct timespec start, current;
 
       if (timespec_get(&start, TIME_UTC) != TIME_UTC) {
@@ -857,6 +860,8 @@ void action_destory(const char * device, bool is_decoy) {
 
    fclose(fp);
 }
+#endif // #ifndef CFG_TARGET_READONLY
+
 
 void action_list(void) {
 #ifdef WINDHAM_PLAT_GNU_LINUX
@@ -942,3 +947,5 @@ void action_list(void) {
    print_error(_("List is not available in ISO C mode."));
 #endif
 }
+
+#endif

@@ -148,39 +148,43 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
 
 <div class="header">
   <h1>Windham Web</h1>
-  <span class="notice" id="roNotice" style="display:none">Read-only</span>
+  <span class="notice" id="roNotice" style="display:none"><span data-i18n="Read-only">Read-only</span></span>
+  <select id="langSelect" style="background:#16213e;color:#aaa;border:1px solid #333;border-radius:4px;padding:4px 6px;font-size:12px;margin-right:10px">
+    <option value="en">English</option>
+    <option value="zh-CN">简体中文</option>
+  </select>
   <button id="closeBtn" class="close-btn" style="display:none">✕</button>
 </div>
 
 <!-- ── Unlock screen ────────────────────────────── -->
 <div class="unlock-screen" id="unlockScreen">
   <div class="box">
-    <h2>Open an encrypted disk image</h2>
+    <h2 data-i18n="Open an encrypted disk image">Open an encrypted disk image</h2>
     <div class="row">
       <div>
-        <label>Passphrase</label>
-        <input type="password" id="passInput" placeholder="Enter passphrase">
+        <label data-i18n="Passphrase">Passphrase</label>
+        <input type="password" id="passInput" data-i18n-placeholder="Enter passphrase" placeholder="Enter passphrase">
       </div>
-      <button id="openBtn" class="primary" disabled>Choose & Unlock</button>
+      <button id="openBtn" class="primary" disabled><span data-i18n="Choose & Unlock">Choose & Unlock</span></button>
     </div>
-    <div class="hint">Drag a .img file here or click to select.</div>
+    <div class="hint" data-i18n="Drag a .img file here or click to select.">Drag a .img file here or click to select.</div>
     <div id="unlockLoading" class="loading" style="display:none">
-      <div class="spinner"></div> Deriving key...
+      <div class="spinner"></div> <span data-i18n="Deriving key...">Deriving key...</span>
     </div>
   </div>
   <div class="instructions">
-    <h2>About Windham Web</h2>
+    <h2 data-i18n="About Windham Web">About Windham Web</h2>
     <div class="card">
-      <p>Windham Web (Windham Emscripten Port) is an in-browser encrypted disk unlocker.  Upload a <strong style="color:#ccc">FAT32</strong> or <strong style="color:#ccc">exFAT</strong> disk image created by Windham, enter your passphrase, and browse, navigate, and download files — all decryption happens locally in WebAssembly.  No data leaves your machine.</p>
+      <p data-i18n-html="about_intro">Windham Web (Windham Emscripten Port) is an in-browser encrypted disk unlocker.  Upload a <strong style="color:#ccc">FAT32</strong> or <strong style="color:#ccc">exFAT</strong> disk image created by Windham, enter your passphrase, and browse, navigate, and download files — all decryption happens locally in WebAssembly.  No data leaves your machine.</p>
     </div>
 
-    <h3>Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, *BSD, Zephyr, HarmonyOS, QNX, Windows, Redox OS and Nuttx.</h3>
+    <h3 data-i18n-html="about_create_iso">Creating a disk on any ISO&nbsp;C platform: GNU/Linux, macOS, *BSD, Zephyr, HarmonyOS, QNX, Windows, Redox OS and Nuttx.</h3>
     <pre>windham New disk.img --diskfile="your size here" --create-exfat</pre>
-    <p style="font-size:12px;color:#666;margin:0 0 16px">
+    <p style="font-size:12px;color:#666;margin:0 0 16px" data-i18n-html="about_new_disabled">
       Not all supported platform has <code>Windham New</code> enabled. Windham running under FreeRTOS (including ESP-IDF), UEFI EDK II, non-frontend mode or basically all bare-metal systems without an OS has <code>New</code> support absent.
     </p>
 
-    <h3>Creating a FAT32 or ExFAT disk manually on GNU/Linux or Linux-kernel based OS with GNU compatible libc (musl …)</h3>
+    <h3 data-i18n="about_create_manual">Creating a FAT32 or ExFAT disk manually on GNU/Linux or Linux-kernel based OS with GNU compatible libc (musl …)</h3>
     <pre>windham New disk.img --diskfile="your size here"
 sudo windham Open disk.img --to="Optional name"
 # FAT32
@@ -190,16 +194,16 @@ sudo mkfs.exfat -n "your volume name" /dev/mapper/your_name
 sudo windham Close your_name</pre>
 
     <p style="font-size:12px;color:#777;margin-top:12px">
-      <b>Note:</b><br>
-      1. it is possible to pass block devices (e.g. /dev/sdx or /dev/nvme0nxpx) as disk image under UNIX. This is not recommended. No test has been made to cover all browser combos for such use case.<br>
-      2. UEFI GPT partition scheme inside windham image is not supported. However, it is possible to create a protective MBR which contains FAT/exFAT partition range.<br>
-      3. Windham Web only supports 128/256 bit AES-XTS encryption with block size 512, 1024, 2048 and 4096; dm-crypt compatible XTS scheme, little-endian XTS counter. This is the only supported encryption scheme under ISO C, and it is default under GNU/Linux regardless of the host endianness.<br>
-      4. UEFI TCG OPAL is <b>NOT</b> compatible with Windham Web and windham ISO C.
+      <b data-i18n="about_note">Note:</b><br>
+      <span data-i18n="about_note1">1. it is possible to pass block devices (e.g. /dev/sdx or /dev/nvme0nxpx) as disk image under UNIX. This is not recommended. No test has been made to cover all browser combos for such use case.</span><br>
+      <span data-i18n="about_note2">2. UEFI GPT partition scheme inside windham image is not supported. However, it is possible to create a protective MBR which contains FAT/exFAT partition range.</span><br>
+      <span data-i18n="about_note3">3. Windham Web only supports 128/256 bit AES-XTS encryption with block size 512, 1024, 2048 and 4096; dm-crypt compatible XTS scheme, little-endian XTS counter. This is the only supported encryption scheme under ISO C, and it is default under GNU/Linux regardless of the host endianness.</span><br>
+      <span data-i18n-html="about_note4">4. UEFI TCG OPAL is <b>NOT</b> compatible with Windham Web and windham ISO C.</span>
     </p>
 
     <p class="star-line">
-      ⭐ Windham is open source —
-      <a href="https://github.com/level-128/windham" target="_blank" rel="noopener">give it a star on GitHub</a>
+      ⭐ <span data-i18n="Windham is open source —">Windham is open source —</span>
+      <a href="https://github.com/level-128/windham" target="_blank" rel="noopener"><span data-i18n="give it a star on GitHub">give it a star on GitHub</span></a>
     </p>
   </div>
 </div>
@@ -207,10 +211,10 @@ sudo windham Close your_name</pre>
 <!-- ── Main app (hidden until unlock) ────────────── -->
 <div class="main-app" id="mainApp" style="display:none">
   <div class="sidebar" id="sidebar">
-    <div class="tab active" data-tab="files">📁 Files</div>
-    <div class="tab" data-tab="backup">🧊 Backup</div>
-    <div class="tab" data-tab="aux">📋 Aux</div>
-    <div class="tab" data-tab="meta">📄 Metadata</div>
+    <div class="tab active" data-tab="files">📁 <span data-i18n="Files">Files</span></div>
+    <div class="tab" data-tab="backup">🧊 <span data-i18n="Backup">Backup</span></div>
+    <div class="tab" data-tab="aux">📋 <span data-i18n="Aux">Aux</span></div>
+    <div class="tab" data-tab="meta">📄 <span data-i18n="Metadata">Metadata</span></div>
   </div>
 
   <div class="content-area" id="contentArea">
@@ -218,9 +222,9 @@ sudo windham Close your_name</pre>
     <div class="tab-content active" data-tab="files">
       <div class="tab-files">
         <div class="toolbar">
-          <button id="navBack" title="Back">◀</button>
-          <button id="navFwd" title="Forward">▶</button>
-          <button id="refreshBtn" title="Refresh">↻</button>
+          <button id="navBack" data-i18n-title="Back" title="Back">◀</button>
+          <button id="navFwd" data-i18n-title="Forward" title="Forward">▶</button>
+          <button id="refreshBtn" data-i18n-title="Refresh" title="Refresh">↻</button>
           <span class="fs-info" id="fsInfo">—</span>
         </div>
         <div class="files-layout">
@@ -237,7 +241,7 @@ sudo windham Close your_name</pre>
               <span class="psize" id="previewSize"></span>
               <span class="close" id="previewClose">✕</span>
             </div>
-            <div class="preview-body">Select a file to preview. Click ⬇ to download.</div>
+            <div class="preview-body" data-i18n="Select a file to preview. Click ⬇ to download.">Select a file to preview. Click ⬇ to download.</div>
           </div>
         </div>
       </div>
@@ -245,26 +249,26 @@ sudo windham Close your_name</pre>
 
     <!-- Backup -->
     <div class="tab-content" data-tab="backup">
-      <h2>Fold Backup</h2>
-      <p>Download a compact 960 B backup containing a single keyslot. Suitable for paper or QR code recovery.</p>
-      <button id="buDownloadBtn">💾 Download fold backup (.bu)</button>
-      <button id="buQrBtn">📱 Show QR Code</button>
+      <h2 data-i18n="Fold Backup">Fold Backup</h2>
+      <p data-i18n="backup_desc">Download a compact 960 B backup containing a single keyslot. Suitable for paper or QR code recovery.</p>
+      <button id="buDownloadBtn"><span data-i18n="💾 Download fold backup (.bu)">💾 Download fold backup (.bu)</span></button>
+      <button id="buQrBtn"><span data-i18n="📱 Show QR Code">📱 Show QR Code</span></button>
       <canvas id="qrCanvas" class="qr-canvas" style="display:none"></canvas>
       <div id="buStatus" class="result"></div>
     </div>
 
     <!-- Aux -->
     <div class="tab-content" data-tab="aux">
-      <h2>Auxiliary Entries</h2>
+      <h2 data-i18n="Auxiliary Entries">Auxiliary Entries</h2>
       <pre id="auxOutput" style="color:#ccc;font-size:13px;white-space:pre-wrap;word-break:break-all"></pre>
       <div id="auxStatus" class="result"></div>
     </div>
 
     <!-- Metadata -->
     <div class="tab-content" data-tab="meta">
-      <h2>Header Metadata</h2>
+      <h2 data-i18n="Header Metadata">Header Metadata</h2>
       <table id="metaTable">
-        <tr><th>Field</th><th>Value</th></tr>
+        <tr><th data-i18n="Field">Field</th><th data-i18n="Value">Value</th></tr>
       </table>
       <table id="slotTable" style="margin-top:16px">
       </table>
@@ -275,7 +279,7 @@ sudo windham Close your_name</pre>
 
 <!-- Upload overlay -->
 <div class="drop-overlay" id="dropOverlay">
-  <div class="box">⬇ Drop disk image to open</div>
+  <div class="box">⬇ <span data-i18n="Drop disk image to open">Drop disk image to open</span></div>
 </div>
 
 <!-- Hidden file input -->
@@ -286,10 +290,11 @@ sudo windham Close your_name</pre>
   <div class="box">
     <div class="title" id="errTitle">Error</div>
     <div class="body" id="errBody"></div>
-    <button id="errorClose">Dismiss</button>
+    <button id="errorClose" data-i18n="Dismiss">Dismiss</button>
   </div>
 </div>
 
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -56,12 +56,11 @@ struct device_handle {
 // This cache is only designed for 4K IOPS bounded, not seq speed bounded.
 // libc has very thick abstrations, on most implementations, it has some sort of buf. 
 // enable only you are not running on an OS, or your env has no buf.
+
+HeaderCache * cache_init(){
 #ifndef CFG_ISOC_HEADERIO_ENABLE_CACHE
-HeaderCache * cache_init(){
    return NULL;
-}
-#else
-HeaderCache * cache_init(){
+#endif
    HeaderCache * cache = calloc(1, sizeof(HeaderCache));
    // when calloc failed, fallback to no cache.
    for (int i = 0; i < CACHE_LINE_CNT && cache; i++){
@@ -69,7 +68,7 @@ HeaderCache * cache_init(){
    }
    return cache;
 }
-#endif
+
 
 
 
