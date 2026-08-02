@@ -8,14 +8,6 @@
 #include "../../include/huffman.h"
 
 
-// skip all huffman code.
-#ifdef CFG_NO_ENTROPY_DETECTION
-
-bool get_is_high_entropy(size_t size, uint8_t content[]){
-    return false;
-}
-
-#else
 struct _huffman_node
 {
 	struct _huffman_node *lr[2];
@@ -281,5 +273,3 @@ bool get_is_high_entropy(size_t size, uint8_t content[]){
     }
     return false;
 }
-
-#endif

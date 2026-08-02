@@ -259,6 +259,8 @@ bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char *device,
    } else if ((size_t)char_count * 4 > 1024) {
       result = true;
    } else {
+      result = false;
+#ifndef CFG_NO_ENTROPY_DETECTION
       uint8_t be_bytes[MAX_PASSWORD_INPUT_LEN * 4];
       for (unsigned i = 0; i < char_count; i++) {
          char32_t ch = pw[i];
@@ -268,6 +270,7 @@ bool prepare_key(const Key key, uint8_t inited_key[HASHLEN], const char *device,
          be_bytes[i * 4 + 3] = (uint8_t)(ch & 0xFF);
       }
       result = get_is_high_entropy(char_count * 4, be_bytes);
+#endif
    }
 
    free(heap_password);

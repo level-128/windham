@@ -30,7 +30,12 @@
 #include "getopt_port/getopt.c"
 
 // huffman
+// skip all huffman code.
+#ifndef CFG_NO_ENTROPY_DETECTION
+
 #include "huffman/huffman.c"
+
+#endif
 
 // QRCode
 #include "QRCode/QRCode.c"

@@ -30,6 +30,11 @@ option(WINDHAM_NO_SECCOMP           "Disable seccomp filter" OFF)
 option(WINDHAM_NO_DISABLE_ATTACH    "Allow debugger to attach under Release" OFF)
 option(WINDHAM_NO_ENFORCE_SPEC_MITIGATION "Skip Spectre mitigation enforcement" OFF)
 option(WINDHAM_REPRODUCIBLE_BUILD   "Replace build timestamp/kernel version with fixed strings" OFF)
+option(CFG_ISOC_HEADERIO_ENABLE_CACHE "Enable read cache under ISOC. Ignored for linux" OFF)
+option(CFG_NO_TEXT                  "Strip all help texts for minimal build size" OFF)
+option(CFG_TARGET_READONLY          "Enable actions that does not require target writing support" OFF)
+option(CFG_NO_ENTROPY_DETECTION     "Diasble huffman encoding for smart KDF entropy detection" OFF)
+
 
 set(CFG_DEFAULT_TARGET_TIME       "1.5"            CACHE STRING "Target KDF derivation time (seconds)")
 set(CFG_MAX_UNLOCK_TIME_FACTOR    "5"              CACHE STRING "Max unlock time = target × factor")
@@ -52,10 +57,10 @@ endif ()
 
 file(READ "build_misc/version.txt" WINDHAM_VERSION)
 string(STRIP "${WINDHAM_VERSION}" WINDHAM_VERSION)
-add_compile_definitions(WINDHAM_VERSION=\"${WINDHAM_VERSION}\")
+add_compile_definitions(WINDHAM_VERSION="${WINDHAM_VERSION}")
 
-add_compile_definitions(CMAKE_HOST_ARCH=\"${CMAKE_HOST_SYSTEM_PROCESSOR}\")
-add_compile_definitions(CMAKE_TARGET_ARCH=\"${CMAKE_SYSTEM_PROCESSOR}\")
+add_compile_definitions(CMAKE_HOST_ARCH="${CMAKE_HOST_SYSTEM_PROCESSOR}")
+add_compile_definitions(CMAKE_TARGET_ARCH="${CMAKE_SYSTEM_PROCESSOR}")
 
 set(WINDHAM_AMD64_NAMES amd64 AMD64 x86_64)
 if (CMAKE_SYSTEM_PROCESSOR IN_LIST WINDHAM_AMD64_NAMES)
@@ -307,23 +312,23 @@ endif()
 # --------------------------------------------------------------------
 # define common options
 set(WINDHAM_USING_CMAKE ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION})
-add_compile_definitions(WINDHAM_USING_CMAKE=\"${WINDHAM_USING_CMAKE}\")
+add_compile_definitions(WINDHAM_USING_CMAKE="${WINDHAM_USING_CMAKE}")
 
 add_compile_definitions(WINDHAM_PLAT_GNU_LINUX)
-add_compile_definitions(CFG_DEFAULT_DRIVER=\"dm-mapper\")
+add_compile_definitions(CFG_DEFAULT_DRIVER="dm-mapper")
 
 execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (WINDHAM_REPRODUCIBLE_BUILD)
-    add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"WIPED_REPRODUCIBLE\")
+    add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION="WIPED_REPRODUCIBLE")
 else ()
-    add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION=\"${KERNEL_VERSION}\")
+    add_compile_definitions(CMAKE_TARGET_KERNEL_VERSION="${KERNEL_VERSION}")
 endif ()
 
 if (WINDHAM_REPRODUCIBLE_BUILD)
-    add_compile_definitions(CMAKE_BUILD_TIME=\"WIPED_REPRODUCIBLE\")
+    add_compile_definitions(CMAKE_BUILD_TIME="WIPED_REPRODUCIBLE")
 else ()
     string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S" UTC)
-    add_compile_definitions(CMAKE_BUILD_TIME=\"${CURRENT_TIME}\")
+    add_compile_definitions(CMAKE_BUILD_TIME="${CURRENT_TIME}")
 endif ()
 
 
@@ -396,6 +401,19 @@ if (WINDHAM_NO_DISABLE_ATTACH)
     add_compile_definitions(WINDHAM_NO_DISABLE_ATTACH)
 endif ()
 
+if (CFG_NO_TEXT)
+    add_compile_definitions(CFG_NO_TEXT)
+endif ()
+
+if (CFG_TARGET_READONLY)
+    add_compile_definitions(CFG_TARGET_READONLY)
+endif ()
+
+if (CFG_NO_ENTROPY_DETECTION)
+    add_compile_definitions(CFG_NO_ENTROPY_DETECTION)
+endif ()
+
+
 # disabling Argon2 threads. We are not going to use them. All KDF has p=1
 add_compile_definitions(ARGON2_NO_THREADS)
 
@@ -406,7 +424,6 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 file(GLOB SHA256_SRC ${CMAKE_SOURCE_DIR}/library/SHA256/*.c)
 file(GLOB tiny_AES_c_SRC ${CMAKE_SOURCE_DIR}/library/tiny_AES_c/*.c)
-file(GLOB HUFFMAN_SRC ${CMAKE_SOURCE_DIR}/library/huffman/*.c)
 file(GLOB cJSON_SRC ${CMAKE_SOURCE_DIR}/library/cJSON/*.c)
 file(GLOB GETOPT_SRC ${CMAKE_SOURCE_DIR}/library/getopt_port/*.c)
 file(GLOB QRCODE_SRC ${CMAKE_SOURCE_DIR}/library/QRCode/*.c)
@@ -416,6 +433,13 @@ set(FATFS_SRC ${CMAKE_SOURCE_DIR}/library/FatFs/ff.c
               ${CMAKE_SOURCE_DIR}/library/FatFs/ff_diskio.c)
 
 set(ARGON2_DIR ${CMAKE_SOURCE_DIR}/library/Argon2)
+
+if (CFG_NO_ENTROPY_DETECTION STREQUAL OFF)
+    file(GLOB HUFFMAN_SRC ${CMAKE_SOURCE_DIR}/library/huffman/*.c)
+    set(LIBRARY_SOURCES ${LIBRARY_SOURCES} ${HUFFMAN_SRC})
+else ()
+    message(STATUS "Huffman library disabled.")
+endif ()
 
 if (CFG_NO_OPT)
     add_compile_definitions("__Argon2_opt_disable__")
@@ -432,7 +456,7 @@ else ()
             ${ARGON2_DIR}/thread.c ${ARGON2_DIR}/blake2/blake2b.c)
 endif ()
 
-set(LIBRARY_SOURCES ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${HUFFMAN_SRC} ${cJSON_SRC} ${GETOPT_SRC} ${FATFS_SRC} ${QRCODE_SRC})
+set(LIBRARY_SOURCES ${LIBRARY_SOURCES} ${Argon2_SRC} ${SHA256_SRC} ${tiny_AES_c_SRC} ${cJSON_SRC} ${GETOPT_SRC} ${FATFS_SRC} ${QRCODE_SRC})
 
 
 # --------------------------------------------------------------------
