@@ -65,5 +65,9 @@ add_executable(windham ${WINDHAM_ROOT}/frontend.c)
 
 set(WEB_ASSETS index.html app.js worker.js i18n.js serve.py)
 foreach(_f ${WEB_ASSETS})
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${_f} ${CMAKE_CURRENT_BINARY_DIR}/${_f} COPYONLY)
+    add_custom_command(TARGET windham POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/${_f}
+            ${CMAKE_CURRENT_BINARY_DIR}/${_f}
+        COMMENT "Copying web asset ${_f}")
 endforeach()
