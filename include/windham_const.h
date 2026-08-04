@@ -70,54 +70,6 @@
 /*
  * ---------- Define consts ----------
  */
-// Some consts are defined in CMake, these are:
-#ifndef CFG_DEFAULT_DRIVER
-#define CFG_DEFAULT_DRIVER "ff"
-#endif
-#ifndef DEFAULT_TARGET_TIME
-#define DEFAULT_TARGET_TIME 1.5
-#endif
-
-#ifndef MAX_UNLOCK_TIME_FACTOR
-#define MAX_UNLOCK_TIME_FACTOR 5
-#endif
-
-#ifndef DEFAULT_BLOCK_SIZE
-#define DEFAULT_BLOCK_SIZE 4096
-#endif
-
-#ifndef DEFAULT_DISK_ENC_MODE
-#define DEFAULT_DISK_ENC_MODE "aes-xts-plain64"
-#endif
-
-#ifndef DEFAULT_DISK_KEY_SIZE_BYTES
-#define DEFAULT_DISK_KEY_SIZE_BYTES 64  // AES-256-XTS: 32 data + 32 tweak
-#endif
-
-#ifndef DEFAULT_DISK_ENC_MEM_RATIO_CAP
-#define DEFAULT_DISK_ENC_MEM_RATIO_CAP 30
-#endif
-
-#ifndef DEFAULT_AUX_SECTOR_SIZE
-#define DEFAULT_AUX_SECTOR_SIZE 16
-#endif
-
-#ifndef DEFAULT_MIN_MEMLOCK_SIZE
-#define DEFAULT_MIN_MEMLOCK_SIZE 1024 * 1024 * 8
-#endif
-
-#ifndef WINDHAMTAB_FILE
-#define WINDHAMTAB_FILE "/etc/windhamtab"
-#endif
-
-#ifndef ARGON2_CLEAR_INTERNAL_MEMORY
-#define ARGON2_CLEAR_INTERNAL_MEMORY 0
-#endif
-
-#if !defined(CFG_NO_FF_CREATE) && defined(CFG_DRIVER_NO_FF)
-#error "Fat creation needs FF driver."
-#endif
-
 
 // those are constants, not defined by cmake
 #define KEY_SLOT_COUNT 16
@@ -229,6 +181,19 @@ uint8_t windham_partition_magic[16] = {'w', 'i', 'n', 'd', 'h', 'a', 'm', 'l', '
    'e', 'l', '-', '1', '2', '8'};
 
 #endif // WINDHAM_CONST_HEADER_ONLY
+
+
+// System memory info, populated by the platform init layer (get_system_info).
+// Values in KiB. A field of UINTPTR_MAX means "unknown / unlimited" — the
+// platform could not query it (or the value exceeds uintptr_t range), so key
+// derivation must assume there is enough memory.
+typedef struct SystemInfo {
+  uintptr_t free_ram;
+  uintptr_t free_swap;
+  uintptr_t total_ram;
+} SystemInfo;
+
+extern SystemInfo sys_info;
 
 
 // Metadata struct

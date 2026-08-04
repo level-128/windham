@@ -124,6 +124,9 @@ static bool uuid_is_seen(const uint8_t uuid[16]) {
 }
 
 static void uuid_mark_seen(const uint8_t uuid[16]) {
+    if (seen_uuids.elem_size == 0) {
+        db_init(&seen_uuids, 16);
+    }
     if (!uuid_is_seen(uuid)) {
         db_add(&seen_uuids, uuid);
     }

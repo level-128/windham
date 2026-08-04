@@ -14,6 +14,52 @@
 #include <linux/filter.h>
 #include "../../include/windham_const.h"
 
+// Clamp a system memory value to uintptr_t range. On platforms where the
+// value does not fit (e.g. 32-bit ix86 with PAE), report UINTPTR_MAX —
+// more memory than the address space can address is unusable anyway.
+static uintptr_t clamp_meminfo(unsigned long value) {
+   if (value > (unsigned long)UINTPTR_MAX) {
+      return UINTPTR_MAX;
+   }
+   return (uintptr_t)value;
+}
+
+// Read /proc/meminfo (KiB). On failure, report UINTPTR_MAX (unknown),
+// so key derivation always assumes there is enough memory.
+void get_system_info() {
+   FILE * meminfo = fopen("/proc/meminfo", "r");
+   if (meminfo == NULL) {
+      sys_info.free_ram  = UINTPTR_MAX;
+      sys_info.free_swap = UINTPTR_MAX;
+      sys_info.total_ram = UINTPTR_MAX;
+      return;
+   }
+
+   char          line[256];
+   unsigned long memFree  = 0;
+   unsigned long memTotal = 0;
+   unsigned long cached   = 0;
+   unsigned long swapFree = 0;
+
+   while (fgets(line, sizeof(line), meminfo)) {
+      if (strncmp(line, "MemFree:", 8) == 0) {
+         sscanf(line, "%*s %lu", &memFree);
+      } else if (strncmp(line, "MemTotal:", 9) == 0) {
+         sscanf(line, "%*s %lu", &memTotal);
+      } else if (strncmp(line, "Cached:", 7) == 0) {
+         sscanf(line, "%*s %lu", &cached);
+      } else if (strncmp(line, "SwapFree:", 9) == 0) {
+         sscanf(line, "%*s %lu", &swapFree);
+      }
+   }
+
+   sys_info.free_ram  = clamp_meminfo(memFree + cached);
+   sys_info.free_swap = clamp_meminfo(swapFree);
+   sys_info.total_ram = clamp_meminfo(memTotal);
+
+   fclose(meminfo);
+}
+
 bool should_use_color(void) {
     if (getenv("NO_COLOR") != NULL) {
         return false;

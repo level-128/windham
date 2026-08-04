@@ -15,16 +15,21 @@
 #include "../../include/sha256.h"
 #include "../../libsrc/srclib.c"
 
+// threads.h might be available yet disabled by WINDHAM_NO_ISOC_THREAD
+#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
+#define WINDHAM_NO_ENTROPY_THREADS
+#endif
+
 
 static bool is_rand_pool_init = false;
 static uint8_t rand_pool[HASHLEN];
-#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ENTROPY_THREADS
 mtx_t mutex_generate_entropy;
 #endif
 
 
 void generate_entropy(uint8_t * buf, size_t len) {
-#ifdef __STDC_NO_THREADS__
+#ifdef WINDHAM_NO_ENTROPY_THREADS
     static uint8_t internal_buffer[HASHLEN];
     struct internal_state {
         uint64_t counter;
@@ -54,7 +59,7 @@ void generate_entropy(uint8_t * buf, size_t len) {
             buf += len_left_in_buf;
             len_left_in_buf = HASHLEN;
 
-#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ENTROPY_THREADS
             uint8_t tmp_rand_pool[HASHLEN];
             mtx_lock(&mutex_generate_entropy); // protect rand_pool from race condition.
             memcpy(tmp_rand_pool, rand_pool, HASHLEN);
@@ -84,7 +89,7 @@ void generate_entropy(uint8_t * buf, size_t len) {
             sha256_update(&sha256_context, &x, sizeof(struct internal_state));
             sha256_final(&sha256_context, internal_buffer);
 
-#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ENTROPY_THREADS
             mtx_lock(&mutex_generate_entropy); // protect rand_pool from race condition.
             memcpy(rand_pool, tmp_rand_pool, HASHLEN);
             mtx_unlock(&mutex_generate_entropy);
@@ -157,13 +162,13 @@ void get_entropy_init(void) {
         fill_combined_randpool(true);
         break;
     }
-#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ENTROPY_THREADS
     mtx_init(&mutex_generate_entropy, mtx_plain);
 #endif
 }
 
 
-#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ENTROPY_THREADS
 static once_flag flag = ONCE_FLAG_INIT;
 void fill_secure_random_bits(uint8_t *address, const size_t size) {
     call_once(&flag, get_entropy_init);

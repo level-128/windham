@@ -40,63 +40,19 @@ void get_header_from_device(Data * data, const char * device, const int64_t offs
    operate_header_on_device(data, device, offset, true);
 }
 
-struct SystemInfo {
-   unsigned long free_ram;
-   unsigned long free_swap;
-   unsigned long total_ram;
-};
-
-
 struct SystemInfo sys_info;
-
-
-void get_system_info() {
-   FILE * meminfo = fopen("/proc/meminfo", "r");
-   if (meminfo == NULL) {
-      print_warning(
-         _("Failed to read system information. Can not determine adequate memory size (or memory limit) for key derivation."));
-      sys_info.free_ram  = ULONG_MAX;
-      sys_info.free_swap = ULONG_MAX;
-      sys_info.total_ram = ULONG_MAX;
-      return;
-   }
-
-   char          line[256];
-   unsigned long memFree  = 0;
-   unsigned long memTotal = 0;
-   unsigned long cached   = 0;
-   unsigned long swapFree = 0;
-
-   while (fgets(line, sizeof(line), meminfo)) {
-      if (strncmp(line, "MemFree:", 8) == 0) {
-         sscanf(line, "%*s %lu", &memFree);
-      } else if (strncmp(line, "MemTotal:", 9) == 0) {
-         sscanf(line, "%*s %lu", &memTotal);
-      } else if (strncmp(line, "Cached:", 7) == 0) {
-         sscanf(line, "%*s %lu", &cached);
-      } else if (strncmp(line, "SwapFree:", 9) == 0) {
-         sscanf(line, "%*s %lu", &swapFree);
-      }
-   }
-
-   sys_info.free_ram  = memFree + cached;
-   sys_info.free_swap = swapFree;
-   sys_info.total_ram = memTotal;
-
-   fclose(meminfo);
-}
 
 
 size_t check_target_mem(size_t target_mem, bool is_encrypt, bool is_allow_swap) {
    if (target_mem == SIZE_MAX) { // no memory designated
-      if (sys_info.total_ram != 0 && sys_info.total_ram != ULONG_MAX &&
+      if (sys_info.total_ram != UINTPTR_MAX &&
           (double) sys_info.free_ram / (double) sys_info.total_ram < 0.3 && ! is_allow_swap) {
          print_warning(
             _("The system is low on memory (< 30%%). It is recommended to utilize the system swap space via parameter "
                "\"--allow-swap\". However, as for windham, swap deduces security."));
       }
       if (is_encrypt) {
-         if (sys_info.total_ram == ULONG_MAX) {
+         if (sys_info.total_ram == UINTPTR_MAX) {
             return DEFAULT_MIN_MEMLOCK_SIZE;
          }
          return (size_t) (sys_info.total_ram * 0.01 * DEFAULT_DISK_ENC_MEM_RATIO_CAP); // 30% default

@@ -4,7 +4,16 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "../../include/windham_const.h"
 #include "../../library/include_all_libs.c"
+
+// ISO C has no portable way to query system memory. Report UINTPTR_MAX
+// (unknown / unlimited) so key derivation always assumes enough memory.
+void get_system_info() {
+   sys_info.free_ram  = UINTPTR_MAX;
+   sys_info.free_swap = UINTPTR_MAX;
+   sys_info.total_ram = UINTPTR_MAX;
+}
 
 static int verify_unix_device(const char *path, int (*validator)(FILE*)) {
     FILE *dev = fopen(path, "rb+");

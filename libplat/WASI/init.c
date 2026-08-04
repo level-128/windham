@@ -4,6 +4,15 @@
 #include "../../library/include_all_libs.c"
 
 
+// Emscripten has no portable way to query system memory. Report UINTPTR_MAX
+// (unknown / unlimited) so key derivation always assumes enough memory.
+void get_system_info() {
+   sys_info.free_ram  = UINTPTR_MAX;
+   sys_info.free_swap = UINTPTR_MAX;
+   sys_info.total_ram = UINTPTR_MAX;
+}
+
+
 void frontend_init(int argc, char *argv[]){
 
     setvbuf(stdout, NULL, _IONBF, 0);

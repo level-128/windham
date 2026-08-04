@@ -3,7 +3,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import run_windham, assert_success, create_test_device
 
-def _new(device): return ["New", device, "--key=123", "--target-time=0.1", "--yes", "--no-admin", "--allow-swap"]
+def _new(device): return ["New", device, "--target-level=3", "--key=123", "--target-time=0.1", "--yes", "--no-admin"]
 
 def test_probe_dir(binary, device):
     create_test_device(device)

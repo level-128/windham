@@ -76,7 +76,7 @@ void decrypt_set_output_file(const char *path);
 
 // -- Driver registry -----------------------------------
 
-#ifndef CFG_DRIVER_NO_DMMAPPER
+#if !defined(CFG_DRIVER_NO_DMMAPPER) && defined(WINDHAM_PLAT_GNU_LINUX)
 extern Driver driver_dm_mapper;
 #endif
 #ifndef CFG_DRIVER_NO_FF
@@ -99,7 +99,7 @@ void driver_init_all(const char *act_driver_name) {
     Driver *drv = NULL;
 
     if (0) {}
-#ifndef CFG_DRIVER_NO_DMMAPPER
+#if !defined(CFG_DRIVER_NO_DMMAPPER) && defined(WINDHAM_PLAT_GNU_LINUX)
     else if (strcmp(act_driver_name, driver_dm_mapper.name) == 0)
         drv = &driver_dm_mapper;
 #endif
@@ -193,7 +193,8 @@ int create_crypt_mapping_from_disk_key(
 
 // -- Driver implementations --------------------------
 
-#ifndef CFG_DRIVER_NO_DMMAPPER
+// dm-mapper is GNU/Linux-only; the ISO C baseline has no dm-crypt.
+#if !defined(CFG_DRIVER_NO_DMMAPPER) && defined(WINDHAM_PLAT_GNU_LINUX)
 #include "driver_dm_mapper.c"
 #endif
 #ifndef CFG_DRIVER_NO_FF

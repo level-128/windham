@@ -217,7 +217,7 @@ ISO C mode compiles `frontend.c` directly. No build system is required — invok
 any C11 compiler:
 
 ```bash
-cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
+cc -std=c11 frontend.c -lm -o windham
 ```
 
 ### Basic mode requirements

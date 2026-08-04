@@ -5,7 +5,7 @@ import os, sys, uuid, subprocess, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import assert_success, create_test_device, run_windham, TestFailure
 
-_FLAGS  = ["--yes", "--no-admin", "--allow-swap"]
+_FLAGS  = ["--yes", "--no-admin"]
 _UNLOCK = ["--max-unlock-time=3", "--max-unlock-memory=500000"]
 
 def _parse_mapper_name(stdout):
@@ -28,7 +28,7 @@ def test_decrypt_zero(binary, device):
         f.seek(32 * 1024 * 1024 - 1)
         f.write(b"\0")
     assert_success(
-        ["New", device, "--key=123", "--target-level=1", "--target-time=0.1"] + _FLAGS,
+        ["New", device, "--key=123", "--target-level=3", "--target-time=0.1"] + _FLAGS,
         binary, timeout=30)
 
     # 2. Open it (creates dm-crypt mapper with auto-generated name)

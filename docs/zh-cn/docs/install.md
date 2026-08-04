@@ -209,7 +209,7 @@ CC=musl-gcc CFLAGS="-I$HOME/musl-kernhdrs" \
 基础模式只需直接编译 `frontend.c`，不需要 CMake 构建系统——任何 C11 编译器都可以：
 
 ```bash
-cc -std=c11 -DWINDHAM_ISOC frontend.c -o windham
+cc -std=c11 frontend.c -lm -o windham
 ```
 
 ### 基础模式的要求

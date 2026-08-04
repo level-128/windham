@@ -120,6 +120,7 @@ void init(bool is_root, const char *act_driver) {
 
 void init(bool is_root, const char *act_driver) {
     (void)is_root;
+    get_system_info();
     driver_init_all(act_driver);
 }
 #endif

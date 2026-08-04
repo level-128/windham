@@ -5,7 +5,7 @@ import os, sys, subprocess, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import create_test_device, run_windham, TestFailure
 
-_FLAGS  = ["--yes", "--no-admin", "--allow-swap"]
+_FLAGS  = ["--yes", "--no-admin"]
 _UNLOCK = ["--max-unlock-time=3", "--max-unlock-memory=500000"]
 
 
@@ -19,7 +19,7 @@ def test_create_exfat(binary, device):
 
     # 1. New with --create-exfat
     rc, so, se = run_windham(
-        ["New", device, "--key=123", "--target-level=1",
+        ["New", device, "--key=123", "--target-level=3",
          "--target-time=0.1", "--create-exfat"] + _FLAGS,
         binary, timeout=60)
     if rc != 0:

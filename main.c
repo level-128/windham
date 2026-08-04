@@ -2,6 +2,8 @@
 #include <stdnoreturn.h>
 #include <string.h>
 
+#include "windham_config.h"
+
 #include "include/windham_const.h"
 #include "include/getopt.h"
 #include "libplat/headerio.c"
@@ -203,7 +205,6 @@ const struct option long_options[] = {
 	/* -- Bool flags: dm-crypt / device ----------- */
 	{"restore", no_argument, &options[NMOBJ_target_restore], 1},
 	{"decoy", no_argument, &options[NMOBJ_target_decoy], 1},
-	{"fold", no_argument, &options[NMOBJ_is_fold], 1},
 	{"readonly", no_argument, &options[NMOBJ_target_readonly], 1},
 	{"allow-discards", no_argument, &options[NMOBJ_target_allow_discards], 1},
 	{"no-read-workqueue", no_argument, &options[NMOBJ_target_no_read_workqueue], 1},
@@ -247,6 +248,7 @@ const struct option long_options[] = {
 	/* -- Misc ------------------------------------- */
 	{"all", no_argument, &options[NMOBJ_close_all], 1},
 	{"aux-rm", required_argument, &options[NMOBJ_aux_rm], 1},
+	{"fold", no_argument, &options[NMOBJ_is_fold], 1},
 	{"qrcode", optional_argument, &options[NMOBJ_qrcode], 1},
 
 	/* -- Driver selection ----------------------- */
@@ -953,7 +955,14 @@ int windham_main(int argc, char *argv[]) {
 			} else if (opt == ':') {
 				print_error(_("missing parameter for %s"), argv[optind - 1]);
 			} else {
-				params[long_index] = optarg;
+				// The flag field points at options[NMOBJ_x], so the enum
+				// index is derivable without assuming that the option table
+				// order matches the enum order (it does not: --fold sits in
+				// the device section, and CFG_DRIVER_NO_DECRYPT /
+				// CFG_NO_FF_CREATE compile table entries out conditionally).
+				const struct option *matched = &long_options[long_index];
+				if (matched->flag)
+					params[matched->flag - options] = optarg;
 			}
 		}
 		if (options[NMOBJ_help]) {

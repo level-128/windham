@@ -13,9 +13,7 @@
 // Cache def
 
 
-#ifndef CFG_ISOC_HEADERIO_CACHE_SIZE
-#define CFG_ISOC_HEADERIO_CACHE_SIZE (1024 * 512)
-#endif
+// CFG_ISOC_HEADERIO_CACHE_SIZE default lives in windham_config.h.
 
 // Don't put this under CFG_
 #ifndef CACHE_LINE_CNT 

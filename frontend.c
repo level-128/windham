@@ -2,7 +2,7 @@
 
 #define IS_FRONTEND_ENTRY
 
-#include "isoc_config_c.h"
+#include "windham_config.h"
 
 #include "libplat/init.c"
 #include "include/windham_const.h"
