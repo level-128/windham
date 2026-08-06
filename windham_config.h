@@ -148,8 +148,8 @@
 /* ---- Drivers ---- */
 
 // #define CFG_DRIVER_NO_DMMAPPER
-// Disable the dm-mapper driver (dm-crypt mapping, GNU/Linux). The
-// Emscripten build defines this.
+// Disable the dm-mapper driver (dm-crypt mapping, GNU/Linux). Only
+// tuneable under GNU/Linux build, Ignored on ISO C and Emscripten.
 
 // #define CFG_DRIVER_NO_FF
 // Disable the FatFs driver: the interactive shell (ISO C) and the
