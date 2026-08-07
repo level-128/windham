@@ -240,16 +240,16 @@ data under a visible plaintext filesystem. See [docs/decoy.md](decoy.md).
 
 ### KDF memory wiggle
 
-Starting at KDF level 3 (~22 KiB memory), the exact memory allocation per iteration
+Starting at KDF level 3 (~22 MiB memory), the exact memory allocation per iteration
 is randomized by a hash of the previous output XORed with `master_key_mask`. The wiggle
-scale ranges from 0.013% (level 3) to 0.02% (level 25, ~237 GiB). This prevents
+scale ranges from 0.013% (level 3) to 0.02% (level 25, ~220 TiB). This prevents
 attackers from building fixed-size custom hardware for KDF acceleration.
 
 ### Upper-bound allocation
 
 Windham always allocates the **upper bound** of the wiggle range for each iteration.
 This prevents page-fault-based side channels that could measure the exact memory
-footprint. Huge pages are used when available to reduce page table granularity.
+footprint.
 
 ### Speculation mitigation
 

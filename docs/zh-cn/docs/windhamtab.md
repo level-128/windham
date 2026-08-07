@@ -13,16 +13,17 @@ sudo windham Open TAB
 每行描述一个设备，格式如下：
 
 ```
-<设备路径>  <映射名称>  <密钥方式>  <选项>
+<设备>  <映射名称>  <密钥方式>  <选项>  <pass>
 ```
 
-示例条目：
+`<设备>` 字段必须以 `DEV=`、`PATH=` 或 `UUID=` 前缀开头。`<pass>` 是控制解锁
+顺序的纯数字（0–65535），可省略（视为 0）。示例条目：
 
 ```
-/dev/sda                    root  ASK      readonly
-UUID=abc-def-123            home  KEYFILE=/etc/keys/home.key
-/dev/nvme0n1p3              data  CLEVIS=/etc/clevis/data.jwe  nofail
-/dev/sdb                    swap  ASK      allow-discards,no-read-workqueue
+DEV=/dev/sda                    root  ASK      readonly
+UUID=abc-def-123                home  KEYFILE=/etc/keys/home.key
+DEV=/dev/nvme0n1p3              data  CLEVIS=/etc/clevis/data.jwe  nofail
+DEV=/dev/sdb                    swap  ASK      allow-discards,no-read-workqueue
 ```
 
 ### 密钥方式
@@ -36,19 +37,18 @@ UUID=abc-def-123            home  KEYFILE=/etc/keys/home.key
 ### 可用选项（逗号分隔）
 
 `readonly`、`allow-discards`、`no-read-workqueue`、`no-write-workqueue`、
-`nofail`、`systemd`、`no-map-partition`、`max-unlock-mem=<KiB>`、
-`max-unlock-time=<秒>`
+`nofail`、`systemd`、`no-map-partition`、`unlock-slot=<序号>`、
+`max-unlock-memory=<KiB>`、`max-unlock-time=<秒>`
 
-### Pass 排序控制依赖
+### Pass 排序控制
 
-添加 `pass:<序号>` 选项即可控制解锁先后顺序：
+末尾的 `<pass>` 列（纯数字）控制解锁先后顺序，序号越小的越先处理。如需单独
+执行某一个 pass，可在命令行加 `--windhamtab-pass=<序号>`：
 
 ```
-<设备> <名称> <密钥> <选项>,pass:1
-<设备> <名称> <密钥> <选项>,pass:2
+DEV=/dev/sda root ASK readonly 1
+DEV=/dev/sdb home ASK readonly 2
 ```
-
-序号越小的越先处理。如需单独执行某一个 pass，可在命令行加 `--windhamtab-pass=<序号>`。
 
 ---
 
@@ -68,7 +68,7 @@ sudo windham AddKey /dev/sda --generate-random-key \
 在 `/etc/windhamtab` 中这样写：
 
 ```
-/dev/sda root CLEVIS=/etc/clevis/root.jwe
+DEV=/dev/sda root CLEVIS=/etc/clevis/root.jwe
 ```
 
 或者直接在命令行使用：
@@ -92,7 +92,7 @@ sudo windham AddKey /dev/sda --generate-random-key \
 在 systemd 服务中运行时，终端交互式密码输入不可用。此时在 windhamtab 中添加 `systemd` 选项：
 
 ```
-/dev/sda root ASK systemd
+DEV=/dev/sda root ASK systemd
 ```
 
 添加该选项后，Windham 会改用 `systemd-ask-password` 弹出密码提示，并可与 Plymouth 开机画面集成。

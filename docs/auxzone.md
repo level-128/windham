@@ -7,11 +7,14 @@ is independently encrypted with a key derived from the keyslot used to unlock th
 ## Design
 
 - **Location**: `start_aux_sector` sectors after device start (default: header area end, sector 40)
-- **Size**: configurable via `--aux-sector-size` (default: 16 sectors = 8 KiB)
+- **Size**: 16 sectors = 8 KiB at creation. A compile-time constant
+  (`DEFAULT_AUX_SECTOR_SIZE` in `windham_config.h`); there is no per-device CLI option.
 - **Encryption**: Each entry has its own random IV and is AES-CBC encrypted. The key
   is derived from the unlocking keyslot's `inited_key`.
-- **Public entries**: If unlocked with `--master-key`, the aux slot key is all-zero
-  (no encryption). These entries are visible during `--aux-probe` even without a valid key.
+- **Public entries**: When unlocked with `--master-key`, the aux slot key is all-zero
+  (no encryption). These zero-key entries are shown during `--aux-probe` when the
+  device is unlocked with the master key; probing with a wrong passphrase cannot read
+  the aux zone at all.
 - **Cross-re-transform persistence**: The aux zone is re-encrypted with the new
   `master_key_mask` (CBC IV) during normal (non-rapid) header re-transform, so aux
   data survives header changes.
@@ -22,10 +25,10 @@ is independently encrypted with a key derived from the keyslot used to unlock th
 
 ### PLAINTEXT (type 0)
 
-Raw `char32_t` content stored directly. Added via `--add=<content>`.
+Raw `char32_t` content stored directly. Added via `--aux-add=<content>`.
 
 ```bash
-windham Aux /dev/sda --key=mypass --add="Backup passphrase hint: blue elephant"
+windham Aux /dev/sda --key=mypass --aux-add="Backup passphrase hint: blue elephant"
 ```
 
 ### SHELL (type 1)

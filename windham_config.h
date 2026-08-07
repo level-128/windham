@@ -201,7 +201,7 @@
 
 // #define WINDHAM_NO_ISOC_THREAD
 // Disable multithreading (threads.h). Unlocking runs up to 2× slower.
-// Maps to ARGON2_NO_THREADS. CMake auto-disables it when the platform
+// Maps to ARGON2_NO_THREADS. Windham auto-disables it when the platform
 // lacks working ISO C threads.
 
 // #define WINDHAM_NO_SHEBANG_ENTRY

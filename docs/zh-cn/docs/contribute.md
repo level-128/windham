@@ -41,8 +41,8 @@ sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test test_link
 # 以普通用户身份跑不需要 root 的用例
 python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate test_probe
 
-# 列出所有可用测试
-python3 tests/run_tests.py --list
+# 列出所有运行器选项
+python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate --help
 ```
 
 测试代码放在 `tests/` 目录，纯 Python 编写。每个 `def test_*()` 就是一个独立用例。运行时会通过 `subprocess` 启动 `windham_test` 并捕获标准输入、标准输出和标准错误。
@@ -66,6 +66,9 @@ python3 tests/run_tests.py --list
 | `test_aux_variants.py` | 辅助数据区条目类型、跳过辅助数据区标志 |
 | `test_link_open.py` | 5 台设备链接级联 + 悬空 UUID 测试 |
 | `test_link_open_flags.py` | 8 台设备树，验证 SHORTCUT 剪枝正确性 |
+| `test_shell_exec.py` | SHELL 辅助命令执行、`@` 替换、BLCKOPEN |
+| `test_decrypt.py` | 离线全盘解密（`--decrypt`） |
+| `test_fat.py` | FatFs Shell / `--create-exfat` |
 | `test_suspend.py` | 悬置 / 恢复 |
 | `test_params.py` | 块大小、加密算法、密钥文件、KDF 参数 |
 | `test_probe.py` | 探测目录、探测 Linux 设备、探测不存在设备 |
@@ -75,6 +78,7 @@ python3 tests/run_tests.py --list
 
 ```
 windham/
+├── windham_config.h     # 构建配置（默认值与功能开关）
 ├── main.c              # 命令行解析，操作分发
 ├── frontend.c          # main() 入口、平台初始化
 ├── backend/            # 各操作的实现
@@ -94,9 +98,12 @@ windham/
 │   └── srclib.c        # 公共工具宏
 ├── libplat/            # 平台相关
 │   ├── GNU_Linux/      # 完整模式：dm-crypt、内核密钥环、loop ioctl
-│   └── ISOC/           # ISO C11 基础模式
+│   ├── ISOC/           # ISO C11 基础模式
+│   └── WASI/           # Emscripten / WebAssembly
+├── driver/             # 驱动注册表 + dm-mapper / FatFs Shell / 解密
 ├── library/            # 第三方库
 ├── include/            # 头文件：windham_const.h、argon2.h、sha256.h 等
+├── web/                # Emscripten Web 应用（index.html、worker.js）
 └── tests/              # Python 测试套件
 ```
 

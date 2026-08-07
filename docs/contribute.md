@@ -43,7 +43,7 @@ sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test test_link
 python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate test_probe
 
 # List available tests
-python3 tests/run_tests.py --list
+python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate --help
 ```
 
 Tests are Python files under `tests/`. Each `def test_*()` function is a separate
@@ -67,6 +67,9 @@ test case. Tests spawn `windham_test` via `subprocess` and capture stdin/stdout/
 | `test_aux_variants.py` | Aux type, no-aux flag |
 | `test_link_open.py` | 5-device LINK_OPEN cascade, dangling UUID |
 | `test_link_open_flags.py` | 8-device tree with SHORTCUT pruning |
+| `test_shell_exec.py` | SHELL aux command execution, `@` replacement, BLCKOPEN |
+| `test_decrypt.py` | Offline full-disk decryption (`--decrypt`) |
+| `test_fat.py` | FatFs shell / `--create-exfat` |
 | `test_suspend.py` | Suspend / Resume cycle |
 | `test_params.py` | Block size, encrypt type, key file, target memory/level |
 | `test_probe.py` | Probe --dir, --probe-linux, nonexistent |
@@ -76,6 +79,7 @@ test case. Tests spawn `windham_test` via `subprocess` and capture stdin/stdout/
 
 ```
 windham/
+├── windham_config.h     # Build configuration (defaults + feature switches)
 ├── main.c              # CLI parsing, action dispatch
 ├── frontend.c          # main(), platform init
 ├── backend/            # Action implementations
@@ -95,9 +99,12 @@ windham/
 │   └── srclib.c        # Shared utilities, macros
 ├── libplat/            # Platform-specific implementations
 │   ├── GNU_Linux/      # Full support: dm-crypt, keyring, loop ioctl
-│   └── ISOC/           # ISO C11 portable mode
+│   ├── ISOC/           # ISO C11 portable mode
+│   └── WASI/           # Emscripten / WebAssembly
+├── driver/             # Driver registry + dm-mapper / FatFs shell / decrypt
 ├── library/            # Third-party libraries
 ├── include/            # Headers: windham_const.h, argon2.h, sha256.h, etc.
+├── web/                # Emscripten web app (index.html, worker.js)
 └── tests/              # Python test suite
 ```
 

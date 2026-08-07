@@ -61,9 +61,16 @@ sudo windham Open /dev/sdb --dry-run
 # Prints the master key — back this up securely!
 ```
 
+Or use the dedicated option, which prints only the hex key (no mapper is created):
+
+```bash
+sudo windham Open /dev/sdb --show-master-key
+```
+
 **The master key can unlock, control, and modify the entire partition. It cannot
 be regenerated if lost or compromised.** Store it offline, on paper, or in a
-hardware security module.
+hardware security module. See [backup.md](backup.md) for header backup modes
+(full, `--fold`, QR code).
 
 ---
 
@@ -142,6 +149,58 @@ sudo windham Probe --dir=/mnt/headers/
 sudo windham Backup /dev/sdb --to=windham_backup
 sudo windham Restore /dev/sdb --to=windham_backup
 ```
+
+See [backup.md](backup.md) for the `--fold` (single-keyslot, ~960 B) and
+`--qrcode` (terminal / BMP) backup modes.
+
+---
+
+## File-based encrypted containers
+
+Instead of a block device, create a sparse-file encrypted volume:
+
+```bash
+sudo windham New disk.img --diskfile=64MiB --key=password
+sudo windham Open disk.img --to=mycrypt
+sudo mkfs.ext4 /dev/mapper/mycrypt
+```
+
+`--diskfile <size>` creates a sparse file (blocks are only allocated on write),
+so a large container costs almost nothing until it is used. Optionally format
+the container right away:
+
+```bash
+sudo windham New disk.img --diskfile=64MiB --key=password --create-exfat
+```
+
+---
+
+## Offline decryption
+
+Decrypt a device (or container) to a plaintext file without root, dm-crypt, or a
+mapping — useful for data recovery:
+
+```bash
+sudo windham Open /dev/sdb --decrypt=/tmp/sdb_plain.img --key=123
+# Writes the decrypted data area to /tmp/sdb_plain.img
+```
+
+`--print-encryption` shows the cipher, key size, and sector layout instead of
+decrypting.
+
+---
+
+## Destroy
+
+Permanently wipe the Windham header from a device:
+
+```bash
+sudo windham Destroy /dev/sdb
+```
+
+The header area is overwritten with random data three times. After this, the
+device **cannot be opened again — not even with the master key**. It is highly
+recommended to also delete any backups you made of this device.
 
 ---
 

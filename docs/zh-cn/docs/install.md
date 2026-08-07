@@ -32,6 +32,10 @@ cmake --build cmake-build-debug
 
 ### 编译选项
 
+所有开关及其默认值都以 `windham_config.h` 为准——这是 `frontend.c` 最先包含的
+权威配置文件。不用 CMake 直接编译（`cc -std=c11 frontend.c -lm`）时使用其中
+默认值；下面的 CMake 选项通过 `-D` 覆盖它们。
+
 通过 `-D<选项名>=TRUE` 传递给 cmake：
 
 | 选项                                   | 作用                              |
@@ -46,12 +50,20 @@ cmake --build cmake-build-debug
 | `CFG_32BIT_ADDR_SPACE`               | 32位地址空间下限制 Argon2 内存            |
 | `CFG_DRIVER_NO_FF`                   | 禁用 FatFs 交互式 Shell 驱动           |
 | `CFG_NO_FF_CREATE`                   | 禁用 --create-exfat 创建 exFAT 文件系统 |
+| `CFG_DRIVER_NO_DMMAPPER`             | 禁用 dm-mapper 驱动（仅 GNU/Linux）     |
 | `CFG_DRIVER_NO_DECRYPT`              | 禁用全盘解密驱动                        |
 | `WINDHAM_REPRODUCIBLE_BUILD`         | 用固定字符串替换构建时间戳/内核版本              |
 | `WINDHAM_NO_ISOC_THREAD`             | 禁用多线程支持                         |
 | `CFG_FF_SHELL_NOINTERACTIVE`         | 非交互模式，从 ./cmd_queue 文件读取命令      |
 | `CFG_VFS_DISK_METADATA`              | 从 ./disk_size 文件读取磁盘大小            |
 | `CFG_ASCII`                          | 强制 ASCII 模式（屏蔽 UTF-16/UTF-32）    |
+| `CFG_NO_TEXT`                        | 去除全部帮助文本以缩小体积                 |
+| `CFG_TARGET_READONLY`                | 只保留不需要写入目标的动作                 |
+| `CFG_NO_ENTROPY_DETECTION`           | 禁用用于智能 KDF 参数的 huffman 熵检测      |
+| `CFG_ISOC_HEADERIO_ENABLE_CACHE`     | 启用 ISO C 头文件 I/O 层读缓存           |
+| `WINDHAM_NO_SHEBANG_ENTRY`           | 禁用 shebang 入口                    |
+| `WINDHAM_HAS_MNTENT`                 | Probe 显示挂载信息（CMake 自动检测）        |
+| `WINDHAM_NO_LOOP_IOCTL`              | 改用 losetup 而非 loop ioctl（CMake 自动检测） |
 
 ---
 
@@ -63,7 +75,7 @@ Windham 可编译为 WebAssembly 在浏览器中运行。Web 版本提供基于 
 
 ### 前置条件
 
-- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html)（已测试 6.0+）
+- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html)（已测试近期版本）
 - Node.js（emsdk 需要）
 
 ### 构建

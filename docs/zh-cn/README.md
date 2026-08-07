@@ -36,7 +36,7 @@ cmake -B build && cmake --build build
 | 层级 | 条件 | 能力 |
 |---|---|---|
 | **完整模式**（GNU/Linux） | Linux 2.6+、GNU 扩展 C11 编译器、linux-headers | 全部功能 |
-| **基础模式**（ISO C11） | stdlib.h、string.h、stdio.h、可选 threads.h、约 510 KB 堆内存 | 加密头管理、解锁、探测（无 dm-crypt 映射） |
+| **基础模式**（ISO C11） | stdlib.h、string.h、stdio.h、可选 threads.h、约 492 KB 堆内存 | 加密头管理、解锁、探测（无 dm-crypt 映射） |
 
 完整模式的系统依赖：`linux-headers`、`libgettextpo-dev`（国际化，可选）。
 `libblkid` 和 `libkeyutils` 在运行时通过 `dlopen` 动态加载——可以没有这两个库，功能会降级但程序仍能运行。`libdevmapper`（lvm2）已不再需要。参见[安装与构建](docs/install.md)。
@@ -71,6 +71,7 @@ sudo windham Close --all                          # 锁定所有设备
 |---|---|
 | [快速入门](docs/quickstart.md) | 分步指南（New、Open、Close、Suspend、AddKey、DelKey） |
 | [安装与构建](docs/install.md) | 构建依赖、交叉编译、编译选项、ISO C 基础模式 |
+| [备份与恢复](docs/backup.md) | 备份模式（完整 / --fold / 二维码）、恢复、安全提示 |
 | [安全模型](docs/security.md) | 主密钥体系、槽历史攻击、匿名密钥、侧信道、防篡改 |
 | [辅助数据区](docs/auxzone.md) | Aux zone 类型（PLAINTEXT、SHELL、LINK_OPEN）、标志、RAID 级联 |
 | [诱饵分区](docs/decoy.md) | 诱饵分区指南 — GPT 布局、TRIM 问题、文件系统建议 |

@@ -32,6 +32,11 @@ cmake --build cmake-build-debug
 
 ### Feature switches
 
+All switches and their defaults are documented in `windham_config.h` — the canonical
+configuration header included first by `frontend.c`. Building without CMake
+(`cc -std=c11 frontend.c -lm`) compiles with those defaults; the CMake options below
+override them via `-D`.
+
 Pass with `-D<flag>=TRUE` to `cmake`:
 
 | Flag                                 | Effect                                                    |
@@ -46,12 +51,20 @@ Pass with `-D<flag>=TRUE` to `cmake`:
 | `CFG_32BIT_ADDR_SPACE`               | Limit Argon2 memory for 32-bit address space              |
 | `CFG_DRIVER_NO_FF`                   | Disable FatFs interactive shell driver                    |
 | `CFG_NO_FF_CREATE`                   | Disable exFAT creation with --create-exfat                |
+| `CFG_DRIVER_NO_DMMAPPER`             | Disable dm-mapper driver (GNU/Linux only)                 |
 | `CFG_DRIVER_NO_DECRYPT`              | Disable full-disk decryption driver                       |
 | `WINDHAM_REPRODUCIBLE_BUILD`         | Replace build timestamp/kernel version with fixed strings |
 | `WINDHAM_NO_ISOC_THREAD`             | Disable multithreading support                            |
 | `CFG_FF_SHELL_NOINTERACTIVE`         | Disable interactive shell; read commands from ./cmd_queue |
 | `CFG_VFS_DISK_METADATA`              | Read disk size from ./disk_size file                      |
 | `CFG_ASCII`                          | Force ASCII-only mode (mask UTF-16/UTF-32)                |
+| `CFG_NO_TEXT`                        | Strip all help texts for minimal build size               |
+| `CFG_TARGET_READONLY`                | Keep only actions that do not write to the target         |
+| `CFG_NO_ENTROPY_DETECTION`           | Disable huffman entropy detection for smart KDF params    |
+| `CFG_ISOC_HEADERIO_ENABLE_CACHE`     | Enable read cache in the ISO C header I/O layer           |
+| `WINDHAM_NO_SHEBANG_ENTRY`           | Disable the shebang entry point                           |
+| `WINDHAM_HAS_MNTENT`                 | Probe mount info via mntent.h (auto-detected by CMake)    |
+| `WINDHAM_NO_LOOP_IOCTL`              | Fall back to losetup instead of loop ioctls (auto-detected) |
 
 ---
 
@@ -64,7 +77,7 @@ All decryption happens locally in WebAssembly; no data leaves your machine.
 
 ### Prerequisites
 
-- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (tested with 6.0+)
+- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (tested with recent releases)
 - Node.js (required by emsdk)
 
 ### Build

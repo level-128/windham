@@ -14,16 +14,18 @@ sudo windham Open TAB
 Format (one device per line):
 
 ```
-<device> <mapper_name> <key_method> <options>
+<device> <mapper_name> <key_method> <options> <pass>
 ```
 
-Examples:
+The `<device>` field must carry one of the `DEV=`, `PATH=`, or `UUID=` prefixes.
+`<pass>` is a plain number (0–65535) that controls unlock order; it may be omitted
+(0). Examples:
 
 ```
-/dev/sda                    root  ASK      readonly
-UUID=abc-def-123            home  KEYFILE=/etc/keys/home.key
-/dev/nvme0n1p3              data  CLEVIS=/etc/clevis/data.jwe  nofail
-/dev/sdb                    swap  ASK      allow-discards,no-read-workqueue
+DEV=/dev/sda                    root  ASK      readonly
+UUID=abc-def-123                home  KEYFILE=/etc/keys/home.key
+DEV=/dev/nvme0n1p3              data  CLEVIS=/etc/clevis/data.jwe  nofail
+DEV=/dev/sdb                    swap  ASK      allow-discards,no-read-workqueue
 ```
 
 ### Key methods
@@ -37,20 +39,19 @@ UUID=abc-def-123            home  KEYFILE=/etc/keys/home.key
 ### Options (comma-separated)
 
 `readonly`, `allow-discards`, `no-read-workqueue`, `no-write-workqueue`,
-`nofail`, `systemd`, `no-map-partition`, `max-unlock-mem=<KiB>`,
-`max-unlock-time=<sec>`
+`nofail`, `systemd`, `no-map-partition`, `unlock-slot=<n>`,
+`max-unlock-memory=<KiB>`, `max-unlock-time=<sec>`
 
 ### Pass ordering
 
-Add a `pass:<n>` entry to control unlock order:
+The trailing `<pass>` column (a plain number) controls unlock order; lower pass
+numbers are processed first. Use `--windhamtab-pass=<n>` to execute only a
+specific pass:
 
 ```
-<device> <name> <key> <options>,pass:1
-<device> <name> <key> <options>,pass:2
+DEV=/dev/sda root ASK readonly 1
+DEV=/dev/sdb home ASK readonly 2
 ```
-
-Lower pass numbers are processed first. Use `--windhamtab-pass=<n>` to execute only
-a specific pass.
 
 ---
 
@@ -71,7 +72,7 @@ which seals it with the TPM2, and writes the JWE blob to a file.
 In `/etc/windhamtab`:
 
 ```
-/dev/sda root CLEVIS=/etc/clevis/root.jwe
+DEV=/dev/sda root CLEVIS=/etc/clevis/root.jwe
 ```
 
 Or from the command line:
@@ -96,7 +97,7 @@ When running as a systemd service, the password prompt is not available on the
 terminal. Use `systemd` as an option in windhamtab:
 
 ```
-/dev/sda root ASK systemd
+DEV=/dev/sda root ASK systemd
 ```
 
 Windham uses `systemd-ask-password` for interactive prompts when `systemd` is

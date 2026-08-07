@@ -249,7 +249,6 @@ void frontend_help(const char * the_3rd_argv) {
             "\t                       Default: \"aes-xts-plain64\".\n"
             "\t--block-size <n>:     encryption sector size: 512, 1024, 2048, or 4096.\n"
             "\t--decoy-size <n>:     create a decoy partition of <n> MiB instead.\n"
-             "\t--aux-sector-size <n>: size of the aux metadata zone, in 512-byte sectors.\n"
 #ifndef CFG_NO_FF_CREATE
              "\t--create-exfat:       after creating the header, format the encrypted data\n"
              "\t                       area as an exFAT filesystem using FatFs.\n"
@@ -376,10 +375,10 @@ void frontend_help(const char * the_3rd_argv) {
          HELP(
             "Bench: Run the Argon2 KDF benchmark to determine optimal unlock parameters.\n"));
       frontend_print_common_args();
-   } else if (strcmp("Destory", the_3rd_argv) == 0) {
+   } else if (strcmp("Destroy", the_3rd_argv) == 0) {
       printf(
          HELP(
-            "Destory <target>: Wipe the Windham header from the device, permanently\n"
+            "Destroy <target>: Wipe the Windham header from the device, permanently\n"
             "destroying all passphrase and encryption metadata.\n"
             "\n"
             "options:\n"

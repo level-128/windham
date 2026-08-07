@@ -59,7 +59,13 @@ sudo windham Open /dev/sdb --dry-run
 # 终端会打印主密钥的十六进制形式——务必离线、安全地保存！
 ```
 
-**主密钥可以解锁、读写、修改整个加密分区。一旦丢失或泄露，无法重新生成。** 请把它离线保存在纸上、U 盘或硬件安全模块里。
+也可以使用专用选项，只打印十六进制密钥（不创建映射）：
+
+```bash
+sudo windham Open /dev/sdb --show-master-key
+```
+
+**主密钥可以解锁、读写、修改整个加密分区。一旦丢失或泄露，无法重新生成。** 请把它离线保存在纸上、U 盘或硬件安全模块里。加密头备份的三种模式（完整、`--fold`、二维码）见 [backup.md](backup.md)。
 
 ---
 
@@ -134,6 +140,55 @@ sudo windham Probe --dir=/mnt/headers/
 sudo windham Backup /dev/sdb --to=加密头备份文件
 sudo windham Restore /dev/sdb --to=加密头备份文件
 ```
+
+`--fold`（单密钥槽、约 960 B）和 `--qrcode`（终端 / BMP 图片）备份模式见
+[backup.md](backup.md)。
+
+---
+
+## 基于文件的加密容器
+
+不想用块设备时，可以创建一个稀疏文件形式的加密卷：
+
+```bash
+sudo windham New disk.img --diskfile=64MiB --key=password
+sudo windham Open disk.img --to=mycrypt
+sudo mkfs.ext4 /dev/mapper/mycrypt
+```
+
+`--diskfile <大小>` 创建稀疏文件（只有写入时才真正占用磁盘块），大容量的
+容器在真正使用之前几乎不占空间。也可以创建后立即格式化：
+
+```bash
+sudo windham New disk.img --diskfile=64MiB --key=password --create-exfat
+```
+
+---
+
+## 离线解密
+
+无需 root、dm-crypt 或建立映射，即可把设备（或容器）解密成普通文件——
+适合数据抢救：
+
+```bash
+sudo windham Open /dev/sdb --decrypt=/tmp/sdb_plain.img --key=123
+# 把解密后的数据区写入 /tmp/sdb_plain.img
+```
+
+`--print-encryption` 只显示加密算法、密钥长度和扇区布局，不解密数据。
+
+---
+
+## 彻底销毁
+
+永久抹除设备上的 Windham 加密头：
+
+```bash
+sudo windham Destroy /dev/sdb
+```
+
+加密头区域会被随机数据覆盖三次。此后该设备**永远无法再打开——即使持有主
+密钥也不行**。强烈建议同时删除你为此设备做的所有备份。
 
 ---
 
