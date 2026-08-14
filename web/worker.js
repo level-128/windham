@@ -67,13 +67,21 @@ function setupDiskImage(file, size) {
     _diskFile = file;
     _diskSize = size;
 
+    if (!Module.FS || typeof Module.FS.writeFile !== 'function') {
+        self.postMessage({ type: 'error', msg: 'WASM filesystem not ready yet.' });
+        return;
+    }
+
     Module.FS.writeFile('/disk_size', String(size));
     Module.FS.writeFile('/cmd_queue', new Uint8Array(0));
     try { Module.FS.mkdir('/tmp'); } catch(ex) {}
 
     try { Module.FS.unlink('/disk.img'); } catch(e) {}
 
-    Module.FS.createDataFile('/', 'disk.img', new Uint8Array(0), true, true, true);
+    // Create an empty /disk.img and swap in custom stream ops that serve
+    // reads from the browser File via slice()+FileReaderSync. (Older builds
+    // used FS.createDataFile here — removed in newer Emscripten.)
+    Module.FS.writeFile('/disk.img', new Uint8Array(0));
     var node = Module.FS.lookupPath('/disk.img').node;
     node.usedBytes = size;
     node.stream_ops = _diskStreamOps;
