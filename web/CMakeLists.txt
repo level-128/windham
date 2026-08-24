@@ -63,11 +63,19 @@ add_compile_definitions(CFG_NO_ENTROPY_DETECTION)
 # --- Build target ---
 add_executable(windham ${WINDHAM_ROOT}/frontend.c)
 
+# Copy web assets into the build dir. Modeled as a separate target with proper
+# file dependencies so assets are refreshed even when the wasm does not relink.
 set(WEB_ASSETS index.html app.js worker.js i18n.js serve.py)
+set(WEB_ASSET_OUTPUTS)
 foreach(_f ${WEB_ASSETS})
-    add_custom_command(TARGET windham POST_BUILD
+    add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_f}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/${_f}
             ${CMAKE_CURRENT_BINARY_DIR}/${_f}
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${_f}
         COMMENT "Copying web asset ${_f}")
+    list(APPEND WEB_ASSET_OUTPUTS ${CMAKE_CURRENT_BINARY_DIR}/${_f})
 endforeach()
+add_custom_target(web-assets ALL DEPENDS ${WEB_ASSET_OUTPUTS})
+add_dependencies(web-assets windham)
