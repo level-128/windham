@@ -127,7 +127,7 @@
 */
 
 
-#define FF_PATH_DEPTH	10
+#define FF_PATH_DEPTH	32
 /*  This option defines maximum depth of directory in the exFAT volume. It is NOT
 /   relevant to FAT/FAT32 volume.
 /   For example, FF_PATH_DEPTH = 3 will able to follow a path "/dir1/dir2/dir3/file"

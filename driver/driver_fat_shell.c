@@ -872,6 +872,38 @@ static int cmd_find(int argc, char **argv)
 
 #define TAR_BLOCK  512
 
+/* Recursively create every missing ancestor of a host-style <path>.
+   Archives do not always carry intermediate directory entries (e.g.
+   "Programs/windham/" without "Programs/"), so each path segment must
+   be ensured in turn or f_mkdir/f_open will fail with FR_NO_PATH. */
+static FRESULT tar_mkdir_all(const char *path)
+{
+	char prefix[MAX_PATH];
+	size_t i = 0;
+
+	if (!path || !*path) return FR_OK;
+
+	for (;;) {
+		size_t j = i;
+		while (path[j] && path[j] != '/') j++;
+
+		memcpy(prefix, path, j);
+		prefix[j] = '\0';
+
+		if (prefix[0]) {
+			FRESULT fr;
+			user_path_to_tchar(TPathBuf2, MAX_PATH, prefix);
+			fr = f_mkdir(TPathBuf2);
+			if (fr != FR_OK && fr != FR_EXIST)
+				return fr;
+		}
+
+		if (!path[j]) break;
+		i = j + 1;
+	}
+	return FR_OK;
+}
+
 static int cmd_import(int argc, char **argv)
 {
 	int opt_tar = 0;
@@ -899,9 +931,8 @@ static int cmd_import(int argc, char **argv)
 		FILE *hf = fopen(hostpath, "rb");
 		if (!hf) { perror("import -tar: fopen host"); return 1; }
 
-		/* Create the target directory */
-		user_path_to_tchar(TPathBuf, MAX_PATH, fatpath);
-		FRESULT fr = f_mkdir(TPathBuf);
+		/* Create the target directory (and any missing ancestors) */
+		FRESULT fr = tar_mkdir_all(fatpath);
 
 		unsigned char block[TAR_BLOCK];
 		while (fread(block, 1, TAR_BLOCK, hf) == TAR_BLOCK) {
@@ -956,8 +987,8 @@ static int cmd_import(int argc, char **argv)
 			QWORD padded = (fsize + TAR_BLOCK - 1) & ~(QWORD)(TAR_BLOCK - 1);
 
 			if (type == '5' || (nl > 0 && fsize == 0 && block[0] != 0)) {
-				/* Directory entry */
-				fr = f_mkdir(TPathBuf);
+				/* Directory entry: create all missing ancestors too */
+				fr = tar_mkdir_all(fullpath);
 				if (fr != FR_OK && fr != FR_EXIST)
 					fprintf(stderr, "import -tar: mkdir '%s' failed: %d\n", fullpath, (int)fr);
 				continue;
@@ -976,8 +1007,12 @@ static int cmd_import(int argc, char **argv)
 				char *sl = strrchr(parent, '/');
 				if (sl && sl != parent) {
 					*sl = '\0';
-					user_path_to_tchar(TPathBuf2, MAX_PATH, parent);
-					f_mkdir(TPathBuf2);
+					fr = tar_mkdir_all(parent);
+					if (fr != FR_OK && fr != FR_EXIST) {
+						fprintf(stderr, "import -tar: mkdir '%s' failed: %d\n", parent, (int)fr);
+						if (padded > 0) fseek(hf, (long)padded, SEEK_CUR);
+						continue;
+					}
 				}
 			}
 
@@ -1202,6 +1237,7 @@ static FRESULT tar_export_dir_recursive(FILE *hf, const TCHAR *fatdir, const cha
 static int cmd_export(int argc, char **argv)
 {
 	int opt_tar = 0;
+	unsigned long long opt_head = ~0ULL;
 	const char *fatpath = NULL;
 	const char *hostpath = NULL;
 	int i;
@@ -1209,6 +1245,8 @@ static int cmd_export(int argc, char **argv)
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-tar") == 0) {
 			opt_tar = 1;
+		} else if (strcmp(argv[i], "--head") == 0 && i + 1 < argc) {
+			opt_head = strtoull(argv[++i], NULL, 0);
 		} else if (!fatpath) {
 			fatpath = argv[i];
 		} else if (!hostpath) {
@@ -1217,7 +1255,7 @@ static int cmd_export(int argc, char **argv)
 	}
 
 	if (!fatpath || !hostpath) {
-		fprintf(stderr, "export: missing operand\nUsage: export [-tar] <fat-path> <host-path>\n");
+		fprintf(stderr, "export: missing operand\nUsage: export [-tar] [--head <n>] <fat-path> <host-path>\n");
 		return 1;
 	}
 
@@ -1252,10 +1290,14 @@ static int cmd_export(int argc, char **argv)
 		FIL ff;
 		fr = f_open(&ff, TPathBuf, FA_READ);
 		if (fr == FR_OK) {
+			unsigned long long remaining = opt_head;
 			for (;;) {
 				UINT br;
-				fr = f_read(&ff, CopyBuf, COPY_BUF_SIZE, &br);
+				UINT want = remaining < COPY_BUF_SIZE ? (UINT)remaining : COPY_BUF_SIZE;
+				if (want == 0) break;
+				fr = f_read(&ff, CopyBuf, want, &br);
 				if (fr != FR_OK || br == 0) break;
+				remaining -= br;
 				if (fwrite(CopyBuf, 1, br, hf) != br) { fr = FR_DISK_ERR; break; }
 			}
 			f_close(&ff);
@@ -1332,6 +1374,7 @@ static int cmd_help(void)
 		"    find -name <pat> [path]   Find files (wildcards: * ?)\n"
 		"    import <host> <fat>       Copy host file into image\n"
 		"    export <fat> <host>       Copy image file to host\n"
+		"      --head <n>              Only copy the first <n> bytes\n"
 		"    df                        Show disk usage\n"
 		"    help                      Show this help\n"
 		"    exit / quit               Exit shell\n"
