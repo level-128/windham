@@ -85,13 +85,22 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
 .tab-files .tree-item .dl { color: #4fc3f7; font-size: 14px; cursor: pointer; padding: 2px 6px; visibility: hidden; }
 .tab-files .tree-item:hover .dl { visibility: visible; }
 .tab-files .tree-item .dl:hover { color: #fff; }
-.tab-files .preview-panel { width: 280px; background: #0a0a14; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
-.tab-files .preview-header { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #222; display: flex; align-items: center; flex-shrink: 0; }
-.tab-files .preview-header .pname { flex: 1; color: #ccc; }
-.tab-files .preview-header .psize { color: #555; margin-right: 8px; font-size: 12px; }
-.tab-files .preview-header .close { cursor: pointer; color: #666; font-size: 16px; }
+.tab-files .preview-panel { width: 360px; background: #0a0a14; border: 1px solid #333; border-radius: 6px; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.tab-files .preview-header { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #222; display: flex; align-items: center; flex-shrink: 0; gap: 8px; }
+.tab-files .preview-header .pname { flex: 1; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-files .preview-header .psize { color: #555; font-size: 12px; flex-shrink: 0; }
+.tab-files .preview-header .dlh { cursor: pointer; color: #4fc3f7; font-size: 14px; flex-shrink: 0; }
+.tab-files .preview-header .dlh:hover { color: #fff; }
+.tab-files .preview-header .close { cursor: pointer; color: #666; font-size: 16px; flex-shrink: 0; }
 .tab-files .preview-header .close:hover { color: #f88; }
-.tab-files .preview-body { flex: 1; padding: 12px; color: #888; font-size: 13px; }
+.tab-files .preview-body { flex: 1; padding: 12px; color: #888; font-size: 13px; overflow: auto; min-height: 0; }
+.tab-files .preview-body.media-fill { padding: 0; display: flex; flex-direction: column; }
+.tab-files .preview-body pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; line-height: 1.5; color: #ccc; font-family: monospace; margin: 0; }
+.tab-files .preview-body img { max-width: 100%; height: auto; border-radius: 4px; display: block; }
+.tab-files .preview-body iframe { flex: 1; width: 100%; border: none; background: #fff; border-radius: 0 0 6px 6px; min-height: 0; }
+.tab-files .preview-body audio { width: 100%; }
+.tab-files .preview-body video { max-width: 100%; max-height: 100%; }
+.tab-files .preview-body .truncated { color: #666; font-size: 11px; margin-top: 10px; }
 
 /* ── Generic tab content ────────────────────────── */
 .tab-content { display: none; flex-direction: column; height: 100%; overflow-y: auto; padding: 20px; }
@@ -239,9 +248,10 @@ sudo windham Close your_name</pre>
             <div class="preview-header">
               <span class="pname" id="previewName"></span>
               <span class="psize" id="previewSize"></span>
+              <span class="dlh" id="previewDl" title="Download" data-i18n-title="Download">⬇</span>
               <span class="close" id="previewClose">✕</span>
             </div>
-            <div class="preview-body" data-i18n="Select a file to preview. Click ⬇ to download.">Select a file to preview. Click ⬇ to download.</div>
+            <div class="preview-body" id="previewBody" data-i18n="Select a file to preview. Click ⬇ to download.">Select a file to preview. Click ⬇ to download.</div>
           </div>
         </div>
       </div>

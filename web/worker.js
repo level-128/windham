@@ -15,7 +15,13 @@ var Module = {
         self.postMessage({ type: 'loaded' });
     },
     print: function(t)   { self.postMessage({ type: 'stdout', text: t }); },
-    printErr: function(t){ self.postMessage({ type: 'stderr', text: t }); },
+    printErr: function(t){
+        // Emscripten prints "program exited (with status: N), but keepRuntimeAlive() is set
+        // (counter=0)..." to stderr on a normal exit() while async work is pending. It is
+        // informational noise, not a real error - swallowing it keeps _lastError clean.
+        if (typeof t === 'string' && t.indexOf('keepRuntimeAlive() is set') >= 0) return;
+        self.postMessage({ type: 'stderr', text: t });
+    },
     stdin: function() {
         if (stdinChars.length) { var c = stdinChars.charCodeAt(0); stdinChars = stdinChars.slice(1); return c; }
         do { Atomics.wait(stdinWake, 0, 0); } while (!stdinChars.length);
@@ -32,6 +38,44 @@ function readChunk(offset, length) {
     return new Uint8Array(new FileReaderSync().readAsArrayBuffer(blob));
 }
 
+// FS.lookupPath was removed in newer Emscripten; a stream always exposes its
+// node though ("node" is part of the public stream-ops calling convention).
+function fsNode(path) {
+    var stream = Module.FS.open(path, 'r');
+    var node = stream.node;
+    Module.FS.close(stream);
+    return node;
+}
+
+// Newer Emscripten minifies node internals (stream_ops -> "i"), so locate the
+// stream-ops property by shape: an object holding both read and write fns.
+function findStreamOpsKey(node) {
+    var keys = Object.keys(node);
+    for (var i = 0; i < keys.length; i++) {
+        var v = node[keys[i]];
+        if (v && typeof v === 'object' && typeof v.read === 'function' && typeof v.write === 'function')
+            return keys[i];
+    }
+    return null;
+}
+
+// MEMFS keeps the file size in node.usedBytes ("o" when minified). Locate the
+// property by probing a throwaway file with a distinctive length.
+function setNodeFileSize(node, size) {
+    var PROBE_SIZE = 4919;
+    try {
+        Module.FS.writeFile('/.size_probe', new Uint8Array(PROBE_SIZE));
+        var pnode = fsNode('/.size_probe');
+        var keys = Object.keys(pnode);
+        for (var i = 0; i < keys.length; i++) {
+            if (pnode[keys[i]] === PROBE_SIZE) { node[keys[i]] = size; break; }
+        }
+        Module.FS.unlink('/.size_probe');
+    } catch (e) {
+        if ('usedBytes' in node) node.usedBytes = size;
+    }
+}
+
 var _diskStreamOps = {
     open: function(stream) { return 0; },
     close: function(stream) {},
@@ -44,21 +88,6 @@ var _diskStreamOps = {
         return chunk.byteLength;
     },
     write: function(stream, buffer, offset, length, position) {
-        return 0;
-    },
-    llseek: function(stream, offset, whence) {
-        var newPos;
-        if (whence === 0) newPos = offset;
-        else if (whence === 1) newPos = stream.position + offset;
-        else if (whence === 2) newPos = _diskSize + offset;
-        else return -1;
-        if (newPos < 0) return -1;
-        stream.position = newPos;
-        return newPos;
-    },
-    allocate: function(stream, offset, length) {
-        if (offset + length > stream.node.usedBytes)
-            stream.node.usedBytes = offset + length;
         return 0;
     }
 };
@@ -79,12 +108,28 @@ function setupDiskImage(file, size) {
     try { Module.FS.unlink('/disk.img'); } catch(e) {}
 
     // Create an empty /disk.img and swap in custom stream ops that serve
-    // reads from the browser File via slice()+FileReaderSync. (Older builds
-    // used FS.createDataFile here — removed in newer Emscripten.)
+    // reads from the browser File via slice()+FileReaderSync. Build the ops
+    // on top of the node's default ops so llseek/mmap/allocate keep working
+    // under their (possibly minified) names.
     Module.FS.writeFile('/disk.img', new Uint8Array(0));
-    var node = Module.FS.lookupPath('/disk.img').node;
-    node.usedBytes = size;
-    node.stream_ops = _diskStreamOps;
+    var node = fsNode('/disk.img');
+    if (!node || !node.mode) {
+        self.postMessage({ type: 'error', msg: 'Cannot access /disk.img node.' });
+        return;
+    }
+    var opsKey = findStreamOpsKey(node);
+    if (opsKey) {
+        var ops = {};
+        for (var k in node[opsKey]) ops[k] = node[opsKey][k];
+        ops.open  = _diskStreamOps.open;
+        ops.close = _diskStreamOps.close;
+        ops.read  = _diskStreamOps.read;
+        ops.write = _diskStreamOps.write;
+        node[opsKey] = ops;
+    } else {
+        node.stream_ops = _diskStreamOps;
+    }
+    setNodeFileSize(node, size);
 }
 
 self.addEventListener('message', function(e) {
@@ -120,6 +165,24 @@ self.addEventListener('message', function(e) {
         } catch(e) {
             self.postMessage({ type: 'file-error', path: d.path, msg: String(e) });
         }
+        break;
+    case 'read-chunk':
+        // positional read (pread): serves export/preview without holding the
+        // whole file in a JS-side buffer
+        try {
+            var stream = Module.FS.open(d.path, 'r');
+            var buf = new Uint8Array(d.length);
+            var n = Module.FS.read(stream, buf, 0, d.length, d.offset);
+            Module.FS.close(stream);
+            if (n < d.length) buf = buf.subarray(0, n);
+            self.postMessage({ type: 'chunk-data', path: d.path, offset: d.offset,
+                               data: buf, bytes: n }, [buf.buffer]);
+        } catch(e) {
+            self.postMessage({ type: 'file-error', path: d.path, msg: String(e) });
+        }
+        break;
+    case 'unlink':
+        try { Module.FS.unlink(d.path); } catch(e) {}
         break;
     case 'cmd-queue':
         Module.FS.writeFile('/cmd_queue', d.text);

@@ -40,6 +40,11 @@ var _pendingShellExit = null;
 var _pendingMasterKey = null;
 var _pendingBackupDone = null;
 var _pendingAuxDone = null;
+var _pendingChunk = null;
+var _transferBusy = false;
+var _previewURL = null;
+var _previewName = '';
+var _previewSize = 0;
 
 // ── Error modal ───────────────────────────────────────────────
 function showError(title, msg) {
@@ -70,7 +75,7 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
             t('Use Chrome 86+ or Edge 86+ for full support.'));
         return;
     }
-    _worker = new Worker('worker.js?v=3');
+    _worker = new Worker('worker.js?v=6');
     _worker.onerror = function(e) {
         showError(t('Worker Crashed'), e.message || t('Unknown error'));
     };
@@ -92,6 +97,18 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
         case 'stderr':
             _lastError = d.text;
             if (_pendingCmd) { _pendingCmd.reject(d.text); _pendingCmd = null; }
+            break;
+        case 'chunk-data':
+            if (_pendingChunk && _pendingChunk.path === d.path && _pendingChunk.offset === d.offset) {
+                var ck = _pendingChunk; _pendingChunk = null;
+                ck.resolve(d.data);
+            }
+            break;
+        case 'file-error':
+            if (_pendingChunk && _pendingChunk.path === d.path) {
+                var ce = _pendingChunk; _pendingChunk = null;
+                ce.reject(new Error(d.msg));
+            }
             break;
         }
     };
@@ -193,7 +210,7 @@ function makeItem(icon, name, size, cls, onclick) {
     d.innerHTML = '<span class="icon">' + icon + '</span><span class="name">' + esc(name) + '</span><span class="size">' + (size > 0 ? fmtSize(size) : '') + '</span><span class="dl" title="Download">⬇</span>';
     d.onclick = onclick;
     var dl = d.querySelector('.dl');
-    if (dl && cls !== 'dir') dl.onclick = function(e) { e.stopPropagation(); exportFile(name); };
+    if (dl && cls !== 'dir') dl.onclick = function(e) { e.stopPropagation(); exportFile(name, size); };
     return d;
 }
 
@@ -217,19 +234,313 @@ async function refresh() {
     renderTree();
 }
 
-async function exportFile(name) {
-    var fpath = _cwd + '/' + name;
-    await shellCmd('export ' + fpath + ' /tmp/x');
-    showError(t('Export'), t('Export not yet supported with streaming I/O.'));
+// ── File transfer: export / download / preview ───────────────
+var CHUNK_SIZE = 1048576;   // 1 MiB per read-chunk round trip
+var TEXT_HEAD  = 262144;    // bytes fetched for text preview
+var HEX_HEAD   = 4096;      // bytes shown in the hex view
+var PREVIEW_CAPS = { image: 64*1048576, pdf: 128*1048576,
+                     audio: 512*1048576, video: 512*1048576, unknown: 64*1048576 };
+
+var EXT_KINDS = {
+    text: ('txt md log csv json xml html htm css js ts c h cpp hpp cc cxx py pyw sh bash zsh fish ps1 bat ' +
+           'ini cfg conf config toml yaml yml rst tex srt ass patch diff go rs java kt kts php rb sql pl lua vim ' +
+           'emacs service automount desktop list m3u m3u8 nfo gitignore dockerfile makefile cmakelists').split(' '),
+    image: 'png jpg jpeg gif webp bmp svg ico avif jfif'.split(' '),
+    pdf: 'pdf'.split(' '),
+    audio: 'mp3 wav ogg oga flac m4a aac opus wma mid'.split(' '),
+    video: 'mp4 webm mkv mov m4v avi wmv ts'.split(' ')
+};
+var EXT_MIME = {
+    png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp',
+    bmp:'image/bmp', svg:'image/svg+xml', ico:'image/x-icon', avif:'image/avif', jfif:'image/jpeg',
+    pdf:'application/pdf',
+    mp3:'audio/mpeg', wav:'audio/wav', ogg:'audio/ogg', oga:'audio/ogg', flac:'audio/flac',
+    m4a:'audio/mp4', aac:'audio/aac', opus:'audio/ogg', wma:'audio/x-ms-wma',
+    mp4:'video/mp4', webm:'video/webm', mkv:'video/x-matroska', mov:'video/quicktime',
+    m4v:'video/mp4', avi:'video/x-msvideo', wmv:'video/x-ms-wmv', ts:'video/mp2t'
+};
+
+function extOf(name) {
+    var i = name.lastIndexOf('.');
+    return i < 0 ? '' : name.substring(i + 1).toLowerCase();
+}
+function classifyByName(name) {
+    var ext = extOf(name);
+    for (var k in EXT_KINDS)
+        if (EXT_KINDS[k].indexOf(ext) >= 0) return k;
+    return 'unknown';
 }
 
-function previewFile(name, size) {
-    $('#previewName').textContent = name;
-    $('#previewSize').textContent = fmtSize(size);
-    $('#previewPanel').style.display = 'block';
+// content sniffing for extensionless / unknown files
+function sniffKind(b) {
+    if (!b || !b.length) return 'text';
+    function magic(s, off) {
+        off = off || 0;
+        for (var i = 0; i < s.length; i++) if (b[off + i] !== s.charCodeAt(i)) return false;
+        return true;
+    }
+    if (magic('\x89PNG')) return 'image/png';
+    if (magic('\xff\xd8\xff')) return 'image/jpeg';
+    if (magic('GIF8')) return 'image/gif';
+    if (magic('BM')) return 'image/bmp';
+    if (magic('RIFF') && magic('WEBP', 8)) return 'image/webp';
+    if (magic('%PDF')) return 'pdf';
+    var n = Math.min(b.length, 4096), ctrl = 0;
+    for (var i = 0; i < n; i++) {
+        var c = b[i];
+        if (c === 0) return 'binary';
+        if (c < 9 || (c > 13 && c < 32)) ctrl++;
+    }
+    return ctrl * 32 < n ? 'text' : 'binary';
 }
-function closePreview() { $('#previewPanel').style.display = 'none'; }
+
+function decodeTextBytes(bytes) {
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE)
+        return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF)
+        return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+    if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF)
+        return new TextDecoder('utf-8').decode(bytes.subarray(3));
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+    catch (e) {
+        try { return new TextDecoder('windows-1252').decode(bytes); }
+        catch (e2) { return new TextDecoder('utf-8').decode(bytes); }
+    }
+}
+
+function requestFileChunk(path, offset, length) {
+    return new Promise(function(resolve, reject) {
+        _pendingChunk = { path: path, offset: offset, resolve: resolve, reject: reject };
+        _worker.postMessage({ type: 'read-chunk', path: path, offset: offset, length: length });
+    });
+}
+
+async function exportToTemp(fpath, tempPath, head) {
+    _worker.postMessage({ type: 'unlink', path: tempPath });
+    _lastError = '';
+    try {
+        await shellCmd('export ' + (head ? '--head ' + head + ' ' : '') + fpath + ' ' + tempPath);
+    } catch (e) {
+        throw new Error(_lastError || String(e));
+    }
+}
+
+function fatPathOf(name) {
+    return (_cwd === '/' ? '' : _cwd) + '/' + name;
+}
+
+// ── Preview panel helpers ─────────────────────────────────────
+function openPreviewPanel(name, size) {
+    _previewName = name; _previewSize = size;
+    $('#previewName').textContent = name;
+    $('#previewSize').textContent = size > 0 ? fmtSize(size) : '';
+    $('#previewPanel').style.display = 'flex';
+    $('#previewDl').style.display = size > 0 ? 'inline' : 'none';
+}
+function setPreviewStatus(text) {
+    var el = $('#previewBody');
+    el.className = 'preview-body';
+    el.textContent = text;
+}
+function setPreviewProgress(got, total) {
+    var el = $('#previewBody');
+    el.className = 'preview-body';
+    el.textContent = t('Downloading...') + ' ' + fmtSize(got) +
+                     (total > 0 ? ' / ' + fmtSize(total) : '');
+}
+function clearPreviewMedia() {
+    if (_previewURL) { URL.revokeObjectURL(_previewURL); _previewURL = null; }
+}
+
+function renderTextPreview(bytes, size) {
+    var el = $('#previewBody');
+    el.className = 'preview-body';
+    el.innerHTML = '';
+    var pre = document.createElement('pre');
+    pre.textContent = decodeTextBytes(bytes);
+    el.appendChild(pre);
+    if (bytes.length < size) {
+        var note = document.createElement('div');
+        note.className = 'truncated';
+        note.textContent = tf('Showing first %s of the file.', fmtSize(bytes.length));
+        el.appendChild(note);
+    }
+}
+
+function renderHexPreview(bytes, size) {
+    var lines = [];
+    for (var off = 0; off < bytes.length; off += 16) {
+        var hex = '', asc = '';
+        for (var i = 0; i < 16; i++) {
+            var has = off + i < bytes.length;
+            var b = has ? bytes[off + i] : 0;
+            hex += (has ? ((b < 16 ? '0' : '') + b.toString(16)) : '  ') + ' ';
+            asc += has ? ((b >= 32 && b < 127) ? String.fromCharCode(b) : '.') : ' ';
+        }
+        lines.push(('00000000' + off.toString(16)).slice(-8) + '  ' + hex + ' ' + asc);
+    }
+    var el = $('#previewBody');
+    el.className = 'preview-body';
+    el.innerHTML = '';
+    var pre = document.createElement('pre');
+    pre.textContent = lines.join('\n');
+    el.appendChild(pre);
+    if (bytes.length < size) {
+        var note = document.createElement('div');
+        note.className = 'truncated';
+        note.textContent = tf('Showing first %s of the file.', fmtSize(bytes.length));
+        el.appendChild(note);
+    }
+}
+
+function renderMediaPreview(kind, mime, blob) {
+    clearPreviewMedia();
+    _previewURL = URL.createObjectURL(blob);
+    var el = $('#previewBody');
+    el.innerHTML = '';
+    var node;
+    if (kind === 'image') {
+        node = document.createElement('img');
+        node.alt = _previewName;
+    } else if (kind === 'pdf') {
+        node = document.createElement('iframe');
+        node.title = _previewName;
+        el.className = 'preview-body media-fill';
+    } else if (kind === 'audio') {
+        node = document.createElement('audio');
+        node.controls = true;
+    } else {
+        node = document.createElement('video');
+        node.controls = true;
+    }
+    node.src = _previewURL;
+    el.appendChild(node);
+}
+
+// ── Preview (click on file) ───────────────────────────────────
+async function previewFile(name, size) {
+    if (_transferBusy) return;
+    _transferBusy = true;
+    var fpath = fatPathOf(name);
+    openPreviewPanel(name, size);
+    setPreviewStatus(size === 0 ? t('File is empty.') : t('Loading preview...'));
+    try {
+        var kind = classifyByName(name);
+        var head = null;
+
+        if (kind === 'unknown' || kind === 'text') {
+            // cheap head export: enough for text render and content sniffing
+            await exportToTemp(fpath, '/tmp/.pv', TEXT_HEAD);
+            head = await requestFileChunk('/tmp/.pv', 0, TEXT_HEAD);
+            if (kind === 'unknown') {
+                var sniff = sniffKind(head);
+                if (sniff === 'text') kind = 'text';
+                else if (sniff === 'binary') kind = 'hex';
+                else if (sniff === 'pdf') kind = 'pdf';
+                else kind = { mime: sniff };   // sniffed image/*
+            }
+        }
+
+        if (kind === 'text') {
+            renderTextPreview(head, size);
+        } else if (kind === 'hex') {
+            renderHexPreview(head.subarray(0, HEX_HEAD), size);
+        } else {
+            var isImg = typeof kind === 'object';
+            var k = isImg ? 'image' : kind;
+            var cap = PREVIEW_CAPS[k] || PREVIEW_CAPS.unknown;
+            if (size > cap) {
+                setPreviewStatus(tf('File too large to preview (max %s).', fmtSize(cap)));
+                return;
+            }
+            if (size === 0) return;
+            await exportToTemp(fpath, '/tmp/.pv', 0);
+            var mime = isImg ? kind.mime : (EXT_MIME[extOf(name)] || 'application/octet-stream');
+            var chunks = [];
+            var got = 0;
+            for (;;) {
+                var data = await requestFileChunk('/tmp/.pv', got, CHUNK_SIZE);
+                if (!data || data.length === 0) break;
+                chunks.push(data);
+                got += data.length;
+                setPreviewProgress(got, size);
+                if (data.length < CHUNK_SIZE) break;
+            }
+            renderMediaPreview(k, mime, new Blob(chunks, { type: mime }));
+        }
+    } catch (e) {
+        setPreviewStatus(tf('Failed: %s', e));
+    } finally {
+        _worker.postMessage({ type: 'unlink', path: '/tmp/.pv' });
+        _transferBusy = false;
+    }
+}
+
+// ── Download (⬇ button) ───────────────────────────────────────
+async function downloadFile(name, size) {
+    if (_transferBusy) return;
+    _transferBusy = true;
+    var fpath = fatPathOf(name);
+    // grab the save handle first: user activation expires after awaits
+    var writable = null;
+    if (typeof window.showSaveFilePicker === 'function') {
+        try {
+            var handle = await window.showSaveFilePicker({ suggestedName: name });
+            writable = await handle.createWritable();
+        } catch (e) {
+            if (e && e.name === 'AbortError') { _transferBusy = false; return; }
+            writable = null;   // fall back to in-memory Blob download
+        }
+    }
+    openPreviewPanel(name, size);
+    try {
+        await exportToTemp(fpath, '/tmp/.dl', 0);
+        var got = 0;
+        if (writable) {
+            // stream chunk-by-chunk straight to disk - constant memory
+            for (;;) {
+                var data = await requestFileChunk('/tmp/.dl', got, CHUNK_SIZE);
+                if (!data || data.length === 0) break;
+                await writable.write(data);
+                got += data.length;
+                setPreviewProgress(got, size);
+                if (data.length < CHUNK_SIZE) break;
+            }
+            await writable.close();
+            writable = null;
+        } else {
+            var chunks = [];
+            for (;;) {
+                var data2 = await requestFileChunk('/tmp/.dl', got, CHUNK_SIZE);
+                if (!data2 || data2.length === 0) break;
+                chunks.push(data2);
+                got += data2.length;
+                setPreviewProgress(got, size);
+                if (data2.length < CHUNK_SIZE) break;
+            }
+            var link = document.createElement('a');
+            link.download = name;
+            link.href = URL.createObjectURL(new Blob(chunks));
+            link.click();
+            setTimeout(function() { URL.revokeObjectURL(link.href); }, 60000);
+        }
+    } catch (e) {
+        showError(t('Export Failed'), String(e));
+        if (writable) { try { writable.close(); } catch (e2) {} }
+    } finally {
+        _worker.postMessage({ type: 'unlink', path: '/tmp/.dl' });
+        _transferBusy = false;
+    }
+}
+
+async function exportFile(name, size) { await downloadFile(name, size); }
+
+function closePreview() {
+    clearPreviewMedia();
+    $('#previewPanel').style.display = 'none';
+}
 $('#previewClose').onclick = closePreview;
+$('#previewDl').onclick = function() { if (_previewName) downloadFile(_previewName, _previewSize); };
 
 // ── Backup tab ──────────────────────────────────────────────
 async function backupFold() {
@@ -506,6 +817,7 @@ async function closeDisk() {
     _shellReady = false; _cwd = '/'; _fsType = ''; _cachedPass = '';
     _fileTree = { dirs: [], files: [] };
     _historyCwd = ['/']; _historyIdx = 0;
+    clearPreviewMedia();
     $('#mainApp').style.display = 'none';
     $('#unlockScreen').style.display = 'flex';
     $('#closeBtn').style.display = 'none';
@@ -535,6 +847,7 @@ async function openFile(file) {
         }
         $('#unlockLoading').textContent = t('Mounting filesystem...');
         _shellExited = false;
+        _lastError = '';   // main #1's normal exit() may have left a stale message
         _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
         waitForShell(0);
     };
@@ -551,8 +864,10 @@ function waitForShell(attempts) {
         $('#roNotice').style.display = 'block';
         _historyCwd = ['/']; _historyIdx = 0;
         updateNavBtns();
-        if (!_currentTab) { _currentTab = 'files'; }
-        switchTab(_currentTab);
+        // Leave _currentTab empty on first unlock: switchTab's same-tab guard
+        // (files is marked active in the initial HTML) would otherwise skip
+        // the initial refresh() and leave the file tree blank.
+        switchTab(_currentTab || 'files');
         if (_fsType) $('#fsInfo').textContent = _fsType;
         return;
     }
