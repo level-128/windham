@@ -175,6 +175,36 @@ function shellCmd(cmd) {
     });
 }
 
+// ── Credential helpers ─────────────────────────────────────────
+// Operations like Backup/Aux/Open all accept --master-key (ALLOW_OPEN_COMMON).
+// Unlocking with the cached master key skips the whole password KDF.
+function remountShell() {
+    _shellExited = false;
+    if (_cachedMasterKey)
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--master-key', _cachedMasterKey, '/disk.img'] });
+    else
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+    waitForShell(0);
+}
+
+// Credential argv for Backup: user-selectable (master key = no KDF),
+// falling back to the passphrase when no master key is cached.
+function backupCredArgs() {
+    var wantMk = true;
+    var sel = document.getElementById('buCred');
+    if (sel) wantMk = sel.value !== 'password';
+    if (wantMk && !_cachedMasterKey) wantMk = false;
+    return wantMk ? ['--master-key', _cachedMasterKey] : ['--key', _cachedPass];
+}
+function backupCredMissing() {
+    var wantMk = true;
+    var sel = document.getElementById('buCred');
+    if (sel) wantMk = sel.value !== 'password';
+    if (wantMk && !_cachedMasterKey) return t('No master key available. Re-open the disk first.');
+    if (!wantMk && !_cachedPass) return t('No passphrase available. Re-open the disk first.');
+    return '';
+}
+
 // ── Files tab ────────────────────────────────────────────────
 function parseLs(output) {
     var r = { dirs: [], files: [] };
@@ -545,7 +575,8 @@ $('#previewDl').onclick = function() { if (_previewName) downloadFile(_previewNa
 // ── Backup tab ──────────────────────────────────────────────
 async function backupFold() {
     var statusEl = $('#buStatus');
-    if (!_cachedPass) { statusEl.textContent = t('No passphrase available. Re-open the disk first.'); return; }
+    var missing = backupCredMissing();
+    if (missing) { statusEl.textContent = missing; return; }
     try {
         statusEl.textContent = t('Exiting shell...');
         _shellExited = false;
@@ -556,7 +587,7 @@ async function backupFold() {
 
         statusEl.textContent = t('Creating fold backup...');
         var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
-        _worker.postMessage({ type: 'callMain', args: ['Backup', '--fold', '--to', '/tmp/fold.bu', '--key', _cachedPass, '/disk.img'] });
+        _worker.postMessage({ type: 'callMain', args: ['Backup', '--fold', '--to', '/tmp/fold.bu'].concat(backupCredArgs()).concat(['/disk.img']) });
         await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('backup timeout')); }, 30000); })]);
 
         statusEl.textContent = t('Reading backup...');
@@ -579,16 +610,12 @@ async function backupFold() {
         link.click();
         URL.revokeObjectURL(link.href);
         statusEl.textContent = t('Backup downloaded. Remounting...');
-
-        _shellExited = false;
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
         statusEl.textContent = t('Backup complete.');
     } catch(e) {
         statusEl.textContent = tf('Backup failed: %s', e);
         showError(t('Backup Failed'), String(e));
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
     }
 }
 
@@ -597,7 +624,8 @@ $('#buDownloadBtn').onclick = backupFold;
 async function showQr() {
     var statusEl = $('#buStatus');
     var canvasEl = $('#qrCanvas');
-    if (!_cachedPass) { statusEl.textContent = t('No passphrase available.'); return; }
+    var missing = backupCredMissing();
+    if (missing) { statusEl.textContent = missing; return; }
     try {
         statusEl.textContent = t('Exiting shell...');
         _shellExited = false;
@@ -609,7 +637,7 @@ async function showQr() {
         statusEl.textContent = t('Generating QR code...');
         _stdoutAcc = '';
         var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
-        _worker.postMessage({ type: 'callMain', args: ['Backup', '--qrcode=/tmp/qr.bmp', '--to', '/tmp/fold.bu', '--key', _cachedPass, '/disk.img'] });
+        _worker.postMessage({ type: 'callMain', args: ['Backup', '--qrcode=/tmp/qr.bmp', '--to', '/tmp/fold.bu'].concat(backupCredArgs()).concat(['/disk.img']) });
         await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 30000); })]);
 
         statusEl.textContent = t('Reading QR image...');
@@ -634,14 +662,11 @@ async function showQr() {
         img.close();
         statusEl.textContent = t('QR code generated.');
 
-        _shellExited = false;
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
     } catch(e) {
         statusEl.textContent = tf('QR failed: %s', e);
         showError(t('QR Failed'), String(e));
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
     }
 }
 $('#buQrBtn').onclick = showQr;
@@ -651,7 +676,7 @@ async function loadAux() {
     var statusEl = $('#auxStatus');
     var outputEl = $('#auxOutput');
     outputEl.textContent = t('Loading...');
-    if (!_cachedPass) { outputEl.textContent = t('No passphrase available.'); return; }
+    if (!_cachedMasterKey && !_cachedPass) { outputEl.textContent = t('No passphrase available.'); return; }
     try {
         _shellExited = false;
         var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
@@ -662,7 +687,10 @@ async function loadAux() {
 
         _stdoutAcc = '';
         var auxDone = new Promise(function(r) { _pendingAuxDone = r; });
-        _worker.postMessage({ type: 'callMain', args: ['Aux', '--aux-probe', '--key', _cachedPass, '/disk.img'] });
+        // master key locates keyslots directly - no KDF roundtrip
+        _worker.postMessage({ type: 'callMain', args: _cachedMasterKey
+            ? ['Aux', '--aux-probe', '--master-key', _cachedMasterKey, '/disk.img']
+            : ['Aux', '--aux-probe', '--key', _cachedPass, '/disk.img'] });
         await Promise.race([auxDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('aux timeout')); }, 30000); })]);
 
         var lines = _stdoutAcc.split('\n');
@@ -674,15 +702,12 @@ async function loadAux() {
         }
         outputEl.textContent = filtered.join('\n').trim() || t('No aux entries found.');
 
-        _shellExited = false;
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
         statusEl.textContent = '';
     } catch(e) {
         outputEl.textContent = tf('Failed: %s', e);
         showError(t('Aux Failed'), String(e));
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
     }
 }
 
@@ -776,15 +801,12 @@ async function loadMeta() {
         }
 
         statusEl.textContent = t('Remounting...');
-        _shellExited = false;
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
         statusEl.textContent = '';
     } catch(e) {
         statusEl.textContent = tf('Failed: %s', e);
         showError(t('Metadata Failed'), String(e));
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
-        waitForShell(0);
+        remountShell();
     }
 }
 
@@ -837,7 +859,9 @@ async function openFile(file) {
 
     $('#unlockLoading').textContent = t('Deriving key...');
     _cachedMasterKey = '';
-    _worker.postMessage({ type: 'callMain', args: ['Open', '--show-master-key', '--key', _cachedPass, '/disk.img'] });
+    // generous max-unlock-time: slots calibrated on fast native machines can
+    // take tens of seconds under the (slower) wasm Argon2 build
+    _worker.postMessage({ type: 'callMain', args: ['Open', '--show-master-key', '--key', _cachedPass, '--max-unlock-time=60', '/disk.img'] });
     _pendingMasterKey = function() {
         _pendingMasterKey = null;
         if (!_cachedMasterKey) {
@@ -848,7 +872,8 @@ async function openFile(file) {
         $('#unlockLoading').textContent = t('Mounting filesystem...');
         _shellExited = false;
         _lastError = '';   // main #1's normal exit() may have left a stale message
-        _worker.postMessage({ type: 'callMain', args: ['Open', '--key', _cachedPass, '/disk.img'] });
+        // mount with the just-derived master key: skips a second full KDF
+        _worker.postMessage({ type: 'callMain', args: ['Open', '--master-key', _cachedMasterKey, '/disk.img'] });
         waitForShell(0);
     };
     setTimeout(function() {

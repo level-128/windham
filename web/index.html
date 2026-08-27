@@ -261,6 +261,13 @@ sudo windham Close your_name</pre>
     <div class="tab-content" data-tab="backup">
       <h2 data-i18n="Fold Backup">Fold Backup</h2>
       <p data-i18n="backup_desc">Download a compact 960 B backup containing a single keyslot. Suitable for paper or QR code recovery.</p>
+      <div class="form-row" style="margin-bottom:14px">
+        <span style="color:#aaa;font-size:13px;align-self:center" data-i18n="Backup credential">Backup credential</span>
+        <select id="buCred" style="background:#222;border:1px solid #444;color:#ccc;padding:7px 10px;border-radius:4px;font-size:13px">
+          <option value="masterkey" data-i18n="Master key (no KDF)">Master key (no KDF)</option>
+          <option value="password" data-i18n="Passphrase">Passphrase</option>
+        </select>
+      </div>
       <button id="buDownloadBtn"><span data-i18n="💾 Download fold backup (.bu)">💾 Download fold backup (.bu)</span></button>
       <button id="buQrBtn"><span data-i18n="📱 Show QR Code">📱 Show QR Code</span></button>
       <canvas id="qrCanvas" class="qr-canvas" style="display:none"></canvas>
