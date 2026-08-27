@@ -7,8 +7,12 @@ set(CMAKE_EXECUTABLE_SUFFIX ".js")
 set(WINDHAM_ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
 
 # --- Build type ---
-set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Release, Debug, MinSizeRel")
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release" "Debug" "MinSizeRel")
+# An empty CMAKE_BUILD_TYPE silently compiles with NO optimization (-O0),
+# which cripples the KDF and AES throughput. Force the default instead of
+# just suggesting it, so a bare "emcmake cmake -B build/web -S web" stays fast.
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Release, Debug, MinSizeRel" FORCE)
+endif()
 
 option(WINDHAM_WEB_MINIFY "Minify windham.js with Closure Compiler (slower link)" ON)
 
