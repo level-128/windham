@@ -360,6 +360,29 @@ function fatPathOf(name) {
 }
 
 // ── Preview panel helpers ─────────────────────────────────────
+// Progress widget: indeterminate bar by default; set(cur,total) makes it a
+// determinate bar. Fills <el> with a text line + bar.
+function startProgress(el, text) {
+    el.innerHTML = '';
+    var t = document.createElement('div');
+    t.className = 'ptext';
+    if (text) t.textContent = text;
+    var bar = document.createElement('div');
+    bar.className = 'pbar ind';
+    bar.appendChild(document.createElement('i'));
+    el.appendChild(t);
+    el.appendChild(bar);
+    return {
+        text: function(s) { t.textContent = s; },
+        set: function(cur, total) {
+            bar.classList.remove('ind');
+            var f = total > 0 ? cur / total : 0;
+            bar.firstChild.style.width = (Math.min(1, f) * 100).toFixed(1) + '%';
+        },
+        done: function() { el.innerHTML = ''; }
+    };
+}
+
 function openPreviewPanel(name, size) {
     _previewName = name; _previewSize = size;
     $('#previewName').textContent = name;
@@ -371,12 +394,6 @@ function setPreviewStatus(text) {
     var el = $('#previewBody');
     el.className = 'preview-body';
     el.textContent = text;
-}
-function setPreviewProgress(got, total) {
-    var el = $('#previewBody');
-    el.className = 'preview-body';
-    el.textContent = t('Downloading...') + ' ' + fmtSize(got) +
-                     (total > 0 ? ' / ' + fmtSize(total) : '');
 }
 function clearPreviewMedia() {
     if (_previewURL) { URL.revokeObjectURL(_previewURL); _previewURL = null; }
@@ -453,7 +470,10 @@ async function previewFile(name, size) {
     _transferBusy = true;
     var fpath = fatPathOf(name);
     openPreviewPanel(name, size);
-    setPreviewStatus(size === 0 ? t('File is empty.') : t('Loading preview...'));
+    var body = $('#previewBody');
+    body.className = 'preview-body';
+    if (size === 0) { setPreviewStatus(t('File is empty.')); return; }
+    var prog = startProgress(body, t('Loading preview...'));
     try {
         var kind = classifyByName(name);
         var head = null;
@@ -483,17 +503,18 @@ async function previewFile(name, size) {
                 setPreviewStatus(tf('File too large to preview (max %s).', fmtSize(cap)));
                 return;
             }
-            if (size === 0) return;
             await exportToTemp(fpath, '/tmp/.pv', 0);
             var mime = isImg ? kind.mime : (EXT_MIME[extOf(name)] || 'application/octet-stream');
             var chunks = [];
             var got = 0;
+            prog.set(0, size);
             for (;;) {
                 var data = await requestFileChunk('/tmp/.pv', got, CHUNK_SIZE);
                 if (!data || data.length === 0) break;
                 chunks.push(data);
                 got += data.length;
-                setPreviewProgress(got, size);
+                prog.text(t('Loading preview...') + ' ' + fmtSize(got) + ' / ' + fmtSize(size));
+                prog.set(got, size);
                 if (data.length < CHUNK_SIZE) break;
             }
             renderMediaPreview(k, mime, new Blob(chunks, { type: mime }));
@@ -524,8 +545,12 @@ async function downloadFile(name, size) {
     }
     openPreviewPanel(name, size);
     try {
+        var body = $('#previewBody');
+        body.className = 'preview-body';
+        var prog = startProgress(body, t('Preparing download...'));
         await exportToTemp(fpath, '/tmp/.dl', 0);
         var got = 0;
+        prog.set(0, size);
         if (writable) {
             // stream chunk-by-chunk straight to disk - constant memory
             for (;;) {
@@ -533,7 +558,8 @@ async function downloadFile(name, size) {
                 if (!data || data.length === 0) break;
                 await writable.write(data);
                 got += data.length;
-                setPreviewProgress(got, size);
+                prog.text(t('Downloading...') + ' ' + fmtSize(got) + ' / ' + fmtSize(size));
+                prog.set(got, size);
                 if (data.length < CHUNK_SIZE) break;
             }
             await writable.close();
@@ -545,7 +571,8 @@ async function downloadFile(name, size) {
                 if (!data2 || data2.length === 0) break;
                 chunks.push(data2);
                 got += data2.length;
-                setPreviewProgress(got, size);
+                prog.text(t('Downloading...') + ' ' + fmtSize(got) + ' / ' + fmtSize(size));
+                prog.set(got, size);
                 if (data2.length < CHUNK_SIZE) break;
             }
             var link = document.createElement('a');
@@ -554,6 +581,7 @@ async function downloadFile(name, size) {
             link.click();
             setTimeout(function() { URL.revokeObjectURL(link.href); }, 60000);
         }
+        setPreviewStatus(t('Download complete.'));
     } catch (e) {
         showError(t('Export Failed'), String(e));
         if (writable) { try { writable.close(); } catch (e2) {} }
@@ -577,20 +605,20 @@ async function backupFold() {
     var statusEl = $('#buStatus');
     var missing = backupCredMissing();
     if (missing) { statusEl.textContent = missing; return; }
+    var prog = startProgress(statusEl, t('Exiting shell...'));
     try {
-        statusEl.textContent = t('Exiting shell...');
         _shellExited = false;
         var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
         await shellCmd('exit');
         await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
         if (!_shellExited) throw new Error('Shell did not exit');
 
-        statusEl.textContent = t('Creating fold backup...');
+        prog.text(t('Creating fold backup...'));
         var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
         _worker.postMessage({ type: 'callMain', args: ['Backup', '--fold', '--to', '/tmp/fold.bu'].concat(backupCredArgs()).concat(['/disk.img']) });
         await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('backup timeout')); }, 30000); })]);
 
-        statusEl.textContent = t('Reading backup...');
+        prog.text(t('Reading backup...'));
         var fileData = await new Promise(function(resolve, reject) {
             var orig = _worker.onmessage;
             _worker.onmessage = function(e) {
@@ -609,11 +637,11 @@ async function backupFold() {
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
-        statusEl.textContent = t('Backup downloaded. Remounting...');
+        prog.text(t('Backup downloaded. Remounting...'));
         remountShell();
-        statusEl.textContent = t('Backup complete.');
+        prog.text(t('Backup complete.'));
     } catch(e) {
-        statusEl.textContent = tf('Backup failed: %s', e);
+        prog.text(tf('Backup failed: %s', e));
         showError(t('Backup Failed'), String(e));
         remountShell();
     }
@@ -626,21 +654,21 @@ async function showQr() {
     var canvasEl = $('#qrCanvas');
     var missing = backupCredMissing();
     if (missing) { statusEl.textContent = missing; return; }
+    var prog = startProgress(statusEl, t('Exiting shell...'));
     try {
-        statusEl.textContent = t('Exiting shell...');
         _shellExited = false;
         var exitPromise = new Promise(function(r) { _pendingShellExit = r; });
         await shellCmd('exit');
         await Promise.race([exitPromise, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('exit timeout')); }, 10000); })]);
         if (!_shellExited) throw new Error('Shell did not exit');
 
-        statusEl.textContent = t('Generating QR code...');
+        prog.text(t('Generating QR code...'));
         _stdoutAcc = '';
         var backupDone = new Promise(function(r) { _pendingBackupDone = r; });
         _worker.postMessage({ type: 'callMain', args: ['Backup', '--qrcode=/tmp/qr.bmp', '--to', '/tmp/fold.bu'].concat(backupCredArgs()).concat(['/disk.img']) });
         await Promise.race([backupDone, new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 30000); })]);
 
-        statusEl.textContent = t('Reading QR image...');
+        prog.text(t('Reading QR image...'));
         var bmpData = await new Promise(function(resolve, reject) {
             var orig = _worker.onmessage;
             _worker.onmessage = function(e) {
@@ -660,11 +688,11 @@ async function showQr() {
         var ctx = canvasEl.getContext('2d');
         ctx.drawImage(img, 0, 0);
         img.close();
-        statusEl.textContent = t('QR code generated.');
+        prog.text(t('QR code generated.'));
 
         remountShell();
     } catch(e) {
-        statusEl.textContent = tf('QR failed: %s', e);
+        prog.text(tf('QR failed: %s', e));
         showError(t('QR Failed'), String(e));
         remountShell();
     }
@@ -675,7 +703,7 @@ $('#buQrBtn').onclick = showQr;
 async function loadAux() {
     var statusEl = $('#auxStatus');
     var outputEl = $('#auxOutput');
-    outputEl.textContent = t('Loading...');
+    var prog = startProgress(statusEl, t('Loading...'));
     if (!_cachedMasterKey && !_cachedPass) { outputEl.textContent = t('No passphrase available.'); return; }
     try {
         _shellExited = false;
@@ -701,6 +729,7 @@ async function loadAux() {
             filtered.push(l);
         }
         outputEl.textContent = filtered.join('\n').trim() || t('No aux entries found.');
+        prog.done();
 
         remountShell();
         statusEl.textContent = '';
@@ -715,6 +744,7 @@ async function loadAux() {
 async function loadMeta() {
     var statusEl = $('#metaStatus');
     if (!_cachedMasterKey) { statusEl.textContent = t('No master key available.'); return; }
+    var prog = startProgress(statusEl, t('Loading...'));
     try {
         _shellExited = false;
         _pendingMasterKey = null;
@@ -800,9 +830,9 @@ async function loadMeta() {
             }
         }
 
-        statusEl.textContent = t('Remounting...');
+        prog.text(t('Remounting...'));
         remountShell();
-        statusEl.textContent = '';
+        prog.done();
     } catch(e) {
         statusEl.textContent = tf('Failed: %s', e);
         showError(t('Metadata Failed'), String(e));

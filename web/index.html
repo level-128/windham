@@ -123,6 +123,14 @@ body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; 
 .tab-content .form-row .small-btn:hover { background: #444; }
 .tab-content .result { font-size: 13px; color: #aaa; white-space: pre-wrap; margin-top: 8px; font-family: monospace; }
 
+/* ── Progress bar ─────────────────────────────────── */
+.pbar { height: 6px; background: #15152a; border-radius: 3px; overflow: hidden; margin-top: 10px; }
+.pbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,#4fc3f7,#81d4fa); border-radius: 3px; transition: width .15s ease; }
+.pbar.ind i { width: 32%; animation: pslide 1.2s ease-in-out infinite; }
+@keyframes pslide { 0% { margin-left: -32%; } 100% { margin-left: 100%; } }
+.ptext { font-size: 13px; color: #aaa; word-break: break-all; }
+.tab-content .bu-help { font-size: 12px; color: #888; line-height: 1.6; margin: 0 0 14px; }
+
 .drop-overlay { display: none; position: fixed; inset: 0; background: rgba(15,115,119,0.25); z-index: 200; align-items: center; justify-content: center; pointer-events: none; }
 .drop-overlay.active { display: flex; }
 .drop-overlay .box { background: #16213e; border: 2px dashed #4fc3f7; border-radius: 12px; padding: 40px 60px; text-align: center; color: #4fc3f7; font-size: 20px; }
@@ -268,6 +276,7 @@ sudo windham Close your_name</pre>
           <option value="password" data-i18n="Passphrase">Passphrase</option>
         </select>
       </div>
+      <p class="bu-help" data-i18n="backup_cred_help">Passphrase backup stores the full password keyslot: restore with either the passphrase or the master key, and passphrase unlock keeps working. It runs the KDF once, so it is slower. Master key backup stores header metadata only (the keyslot area is random padding): restore with the master key alone, and the disk then unlocks with the master key only — no KDF, instant.</p>
       <button id="buDownloadBtn"><span data-i18n="💾 Download fold backup (.bu)">💾 Download fold backup (.bu)</span></button>
       <button id="buQrBtn"><span data-i18n="📱 Show QR Code">📱 Show QR Code</span></button>
       <canvas id="qrCanvas" class="qr-canvas" style="display:none"></canvas>
