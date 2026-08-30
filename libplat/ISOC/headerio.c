@@ -179,17 +179,34 @@ retry:
 
 
 
-void *device_open(const char *path, bool writable) {
-	struct device_handle *h = malloc(sizeof(*h));
-	if (!h) {
-      return NULL;
-   }
-	h->fp = fopen(path, writable ? "r+b" : "rb");
-	if (!h->fp) { free(h); return NULL; }
-	h->offset = 0;
+static struct device_handle *handle_from_file(FILE *fp) {
+   struct device_handle *h = malloc(sizeof(*h));
+   if (!h) { fclose(fp); return NULL; }
+   h->fp = fp;
+   h->offset = 0;
    h->cur_visit_count = 0;
    h->cache = cache_init();
-	return h;
+   return h;
+}
+
+void *device_open(const char *path, bool writable) {
+   FILE *fp = fopen(path, writable ? "r+b" : "rb");
+   if (!fp) return NULL;
+   return handle_from_file(fp);
+}
+
+bool device_is_exist(const char *path) {
+   FILE *f = fopen(path, "rb");
+   if (f != NULL) { fclose(f); return true; }
+   return false;
+}
+
+/* stdio has no exclusive-create mode; callers normally probe with
+   device_is_exist() first, so plain "w+b" suffices here. */
+void *device_create(const char *path) {
+   FILE *fp = fopen(path, "w+b");
+   if (!fp) return NULL;
+   return handle_from_file(fp);
 }
 
 void device_close(void *handle) {

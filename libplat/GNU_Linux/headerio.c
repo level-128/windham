@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "../../libsrc/srclib.c"
 
@@ -27,6 +28,16 @@ int64_t device_read(void *handle, void *buf, size_t count) {
 
 int64_t device_write(void *handle, const void *buf, size_t count) {
 	return (int64_t)write((int)(intptr_t)handle, buf, count);
+}
+
+bool device_is_exist(const char *path) {
+	return access(path, F_OK) == 0;
+}
+
+void *device_create(const char *path) {
+	int fd = open(path, O_RDWR | O_CREAT | O_EXCL, S_IRUSR);
+	if (fd < 0) return NULL;
+	return (void *)(intptr_t)fd;
 }
 
 

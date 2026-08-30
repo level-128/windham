@@ -17,6 +17,13 @@ int     device_seek(void *handle, int64_t offset);
 int64_t device_read(void *handle, void *buf, size_t count);
 int64_t device_write(void *handle, const void *buf, size_t count);
 
+/* Probe for the existence of a file/device without opening it for I/O. */
+bool device_is_exist(const char *path);
+
+/* Create a new file and return a writable handle for it.
+   Fails if the file already exists.                                     */
+void *device_create(const char *path);
+
 #ifdef WINDHAM_PLAT_GNU_LINUX
 #include "GNU_Linux/headerio.c"
 #else

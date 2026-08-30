@@ -312,80 +312,81 @@ LOCK_AND_WRITE:;
 #endif // #ifndef CFG_TARGET_READONLY
 
 
-void action_backup(const char * device, char * filename, const bool is_decoy, const bool is_qrcode, const char * qrcode_path, const bool is_fold, const Key key, const uint8_t master_key_input[HASHLEN]) {
-   if (is_qrcode) {
-      /* ======= QR CODE OUTPUT ======= */
-      uint8_t qrdata[sizeof(Key_slot) + (offsetof(Data, keypool) - offsetof(Data, uuid_and_salt))];
-      size_t  qrlen = sizeof(qrdata);
+void action_backup(const char * device, char * filename, const bool is_decoy, const bool is_qrcode, const char * qrcode_path, bool is_fold, const Key key, uint8_t master_key_input[HASHLEN]) {
+   uint8_t qrdata[sizeof(Key_slot) + (offsetof(Data, keypool) - offsetof(Data, uuid_and_salt))];
+   size_t  qrlen = sizeof(qrdata);
 
-      if (device != NULL) {
-         /* Do a fold backup from device to memory */
-         Data     data;
-         int64_t  offset;
-         load_header_by_device(device, &data, &offset, is_decoy, false);
+   if (is_qrcode){
+      is_fold = true;
+   }
 
-         uint8_t  master_key[HASHLEN];
-         unsigned ret_key_zone, ret_level;
-         uint16_t ret_key_location;
-         uint8_t  ret_inited_key[HASHLEN];
-         bool     is_mk = (key.key_type == NMOBJ_key_file_type_masterkey);
+   if (is_fold) {
+      /* Do a fold backup from device to memory */
+      Data     data;
+      int64_t  offset;
+      load_header_by_device(device, &data, &offset, is_decoy, false);
 
-         if (is_mk) {
-            memcpy(master_key, master_key_input, HASHLEN);
-            get_master_key(data, master_key, key, device,
-                           SIZE_MAX, DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
-                           KEY_SLOT_EXP_MAX, false,
-                           &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
-            fill_secure_random_bits(qrdata, sizeof(Key_slot));
-            /* Clear metadata */
-            memset(data.metadata.keyslot_key,      0, sizeof(data.metadata.keyslot_key));
-            memset(data.metadata.keyslot_level,    0, sizeof(data.metadata.keyslot_level));
-            memset(data.metadata.keyslot_location, 0, sizeof(data.metadata.keyslot_location));
-            data.metadata.keyslot_location_area = 0;
-         } else {
-            get_master_key(data, master_key, key, device,
-                           SIZE_MAX, DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
-                           KEY_SLOT_EXP_MAX, false,
-                           &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
-            /* Extract matched Key_slot */
-            memcpy(qrdata, get_slot_loc(data, ret_key_zone, ret_key_location), sizeof(Key_slot));
+      unsigned ret_key_zone, ret_level;
+      uint16_t ret_key_location;
+      uint8_t  ret_inited_key[HASHLEN];
+      bool     is_mk = (key.key_type == NMOBJ_key_file_type_masterkey);
 
-            /* Trim metadata: keep matched slot, clear others */
-            uint16_t orig_loc[KEY_SLOT_COUNT];
-            uint8_t  orig_lvl[KEY_SLOT_COUNT];
-            uint64_t orig_area = data.metadata.keyslot_location_area;
-            memcpy(orig_loc, data.metadata.keyslot_location, sizeof(orig_loc));
-            memcpy(orig_lvl, data.metadata.keyslot_level,   sizeof(orig_lvl));
-            unsigned matched = 0;
-            for (unsigned i = 0; i < KEY_SLOT_COUNT; i++) {
-               if (orig_loc[i] == ret_key_location &&
-                   GET_BIT(orig_area, i) == ret_key_zone) { matched = i; break; }
-            }
-            uint8_t  saved_key[HASHLEN];
-            memcpy(saved_key, data.metadata.keyslot_key[matched], HASHLEN);
-            memset(data.metadata.keyslot_key,      0, sizeof(data.metadata.keyslot_key));
-            memset(data.metadata.keyslot_level,    0, sizeof(data.metadata.keyslot_level));
-            memset(data.metadata.keyslot_location, 0, sizeof(data.metadata.keyslot_location));
-            data.metadata.keyslot_location_area = (uint64_t)ret_key_zone << 0;
-            memcpy(data.metadata.keyslot_key[0], saved_key, HASHLEN);
-            data.metadata.keyslot_level[0]    = orig_lvl[matched];
-            data.metadata.keyslot_location[0] = orig_loc[matched];
-         }
-         /* Re-encrypt metadata — QR must contain ciphertext */
-         lock_metadata_using_master_key(&data, master_key);
-         memcpy(qrdata + sizeof(Key_slot), data.uuid_and_salt,
-                offsetof(Data, keypool) - offsetof(Data, uuid_and_salt));
+      get_master_key(data, master_key_input, key, device,
+                     SIZE_MAX, DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
+                     KEY_SLOT_EXP_MAX, false,
+                     &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
+      unlock_metadata_using_master_key(&data, master_key_input);
+      memset(data.metadata.keyslot_key,      0, sizeof(data.metadata.keyslot_key));
+      memset(data.metadata.keyslot_level,    0, sizeof(data.metadata.keyslot_level));
+      memset(data.metadata.keyslot_location, 0, sizeof(data.metadata.keyslot_location));
+      data.metadata.keyslot_location_area = 0;
+      if (is_mk) {
+         /* Master-key backup: header metadata only. The password keyslot
+            material is not included, so the Key_slot area of the backup is
+            random filler — byte-for-byte indistinguishable from a password
+            backup. Restoring it yields a disk that unlocks with the master
+            key alone; slot 0 stays empty. */
+         fill_secure_random_bits(qrdata, sizeof(Key_slot));
       } else {
-         /* Read existing fold backup file */
-         if (filename == NULL)
-            print_error(_("--qrcode without device requires --to <fold-backup-file>"));
-         FILE *in = fopen(filename, "rb");
-         if (!in) print_error(_("Cannot open fold backup %s: %s"), filename, strerror(errno));
-         if (fread(qrdata, 1, qrlen, in) != qrlen)
-            print_error(_("Fold backup file %s is too short"), filename);
-         fclose(in);
+         /* Password backup: keep the matched keyslot alive. qrdata carries
+            the raw Key_slot (hash salt + key mask); metadata slot 0 records
+            the inited key / level / location so the restored disk can be
+            unlocked with the same password — or with the master key. */
+         memcpy(qrdata, get_slot_loc(data, ret_key_zone, ret_key_location), sizeof(Key_slot));
+         memcpy(data.metadata.keyslot_key[0], ret_inited_key, HASHLEN);
+         data.metadata.keyslot_level[0] = ret_level;
+         data.metadata.keyslot_location[0] = ret_key_location;
+         data.metadata.keyslot_location_area = ret_key_zone; // 0 or 1, to the first bit.
       }
+      /* Re-encrypt metadata — QR must contain ciphertext */
+      lock_metadata_using_master_key(&data, master_key_input);
+      memcpy(qrdata + sizeof(Key_slot), data.uuid_and_salt,
+               offsetof(Data, keypool) - offsetof(Data, uuid_and_salt));
+   } else {
+      /* ======= ALL MODE: raw header dump ======= */
+      if (filename == NULL) {
+         filename = "windham_backup";
+      }
+      printf(_("Creating header backup for device %s to %s\n"), device, filename);
+      if (device_is_exist(filename))
+         print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
 
+      Data                alldata;
+      int64_t             alloffset;
+      ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &alldata, &alloffset, is_decoy, false);
+      (void) device_stat;
+
+      void *out = device_create(filename);
+      if (!out)
+         print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
+      if (device_write(out, &alldata, sizeof(Data)) != (int64_t)sizeof(Data))
+         print_error(_("Failed to write backup %s"), filename);
+      device_close(out);
+      printf("BACKUP_DONE\n");
+      fflush(stdout);
+      return;
+   }
+   if (is_qrcode) {
       /* Encode to QR code — auto-select minimum version */
       uint8_t  version = qrcode_getMinimumVersion((uint16_t)qrlen, ECC_MEDIUM);
       if (!version) print_error(_("QR encoding failed — data too large"));
@@ -409,136 +410,26 @@ void action_backup(const char * device, char * filename, const bool is_decoy, co
       printf("BACKUP_DONE\n");
       fflush(stdout);
       return;
-   }
-
-   if (filename == NULL) {
-      filename = "windham_backup";
-   }
-
-   printf(_("Creating header backup for device %s to %s\n"), device, filename);
-
-   /* ---------- file-exists check ---------- */
-#ifdef WINDHAM_PLAT_GNU_LINUX
-   if (access(filename, F_OK) != -1) {
-      print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
-   }
-#else
-   FILE *chk = fopen(filename, "r");
-   if (chk != NULL) { fclose(chk);
-      print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
-   }
-#endif
-
-   if (is_fold) {
-      /* ======= FOLD MODE ======= */
-      Data     data;
-      int64_t  offset;
-      load_header_by_device(device, &data, &offset, is_decoy, false);
-
-      uint8_t  master_key[HASHLEN];
-      unsigned ret_key_zone, ret_level;
-      uint16_t ret_key_location;
-      uint8_t  ret_inited_key[HASHLEN];
-      size_t   ks_size  = sizeof(Key_slot);
-      uint8_t  ks_buf[sizeof(Key_slot)];
-      bool     is_mk_bu = (key.key_type == NMOBJ_key_file_type_masterkey);
-
-      if (is_mk_bu) {
-         memcpy(master_key, master_key_input, HASHLEN);
-         /* Dummy get_master_key call just for consistency; master key is already known */
-         get_master_key(data, master_key, key, device,
-                        SIZE_MAX, DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
-                        KEY_SLOT_EXP_MAX, false,
-                        &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
-         /* Fill Key_slot with random — indistinguishable from password backup */
-         fill_secure_random_bits(ks_buf, ks_size);
-         ret_key_zone    = 0;
-         ret_key_location = 0;
-      } else {
-         get_master_key(data, master_key, key, device,
-                        SIZE_MAX, DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
-                        KEY_SLOT_EXP_MAX, false,
-                        &ret_level, &ret_key_zone, &ret_key_location, ret_inited_key);
-         /* Extract the matched Key_slot */
-         memcpy(ks_buf, get_slot_loc(data, ret_key_zone, ret_key_location), ks_size);
+   } else {
+      /* Fold backup to file: Key_slot + uuid_and_salt..metadata */
+      if (filename == NULL) {
+         filename = "windham_backup";
       }
+      printf(_("Creating header backup for device %s to %s\n"), device, filename);
+      if (device_is_exist(filename))
+         print_error(_("File %s exists. If you want to overwrite the file, you need to delete the file manually."), filename);
 
-      /* Build a trimmed EncMetadata (slot 0 only). */
-      EncMetadata *meta = &data.metadata;
-      uint64_t orig_area = meta->keyslot_location_area;
-      uint16_t orig_loc[KEY_SLOT_COUNT];
-      uint8_t  orig_lvl[KEY_SLOT_COUNT];
-      memcpy(orig_loc, meta->keyslot_location, sizeof(orig_loc));
-      memcpy(orig_lvl, meta->keyslot_level,   sizeof(orig_lvl));
-
-      /* Determine which slot index was matched (password path only) */
-      unsigned matched = 0;
-      if (!is_mk_bu) {
-         for (unsigned i = 0; i < KEY_SLOT_COUNT; i++) {
-            if (orig_loc[i] == ret_key_location &&
-                GET_BIT(orig_area, i) == ret_key_zone) { matched = i; break; }
-         }
-      }
-
-      /* Keep the matched slot; clear all others */
-      uint8_t  saved_key[HASHLEN];
-      uint8_t  saved_level;
-      uint16_t saved_location;
-      if (is_mk_bu) {
-         memset(saved_key, 0, HASHLEN);
-         saved_level    = 0;
-         saved_location = 0;
-      } else {
-         memcpy(saved_key, meta->keyslot_key[matched], HASHLEN);
-         saved_level    = orig_lvl[matched];
-         saved_location = orig_loc[matched];
-      }
-
-      memset(meta->keyslot_key,      0, sizeof(meta->keyslot_key));
-      memset(meta->keyslot_level,    0, sizeof(meta->keyslot_level));
-      memset(meta->keyslot_location, 0, sizeof(meta->keyslot_location));
-      meta->keyslot_location_area = 0;
-
-      /* Slot 0 now holds the single folded key */
-      memcpy(meta->keyslot_key[0], saved_key, HASHLEN);
-      meta->keyslot_level[0]    = saved_level;
-      meta->keyslot_location[0] = saved_location;
-      meta->keyslot_location_area = (uint64_t)(ret_key_zone) << 0;
-
-      /* Re-encrypt metadata before writing — backup must be ciphertext */
-      lock_metadata_using_master_key(&data, master_key);
-
-      /* Write fold backup: Key_slot + uuid_and_salt..metadata */
-      FILE *out = fopen(filename, "wb");
-      if (!out) print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
-      fwrite(ks_buf, 1, ks_size, out);
-      fwrite(data.uuid_and_salt, 1,
-             (size_t)((uint8_t *)(meta + 1) - data.uuid_and_salt),
-             out);
-      fclose(out);
+      void *out = device_create(filename);
+      if (!out)
+         print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
+      if (device_write(out, qrdata, qrlen) != (int64_t)qrlen)
+         print_error(_("Failed to write backup %s"), filename);
+      device_close(out);
       printf("BACKUP_DONE\n");
       fflush(stdout);
-      return;
    }
 
-   /* ======= ALL MODE (original behaviour) ======= */
-   Data                alldata;
-   int64_t             alloffset;
-   ENUM_MAPPER_DEVSTAT device_stat = load_header_by_device(device, &alldata, &alloffset, is_decoy, false);
 
-#ifdef WINDHAM_PLAT_GNU_LINUX
-   int fd = creat(filename, S_IRUSR);
-   if (fd == -1)
-      print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
-   close(fd);
-#else
-   FILE *allfile = fopen(filename, "wb");
-   if (allfile == NULL)
-      print_error(_("Cannot create file %s: %s"), filename, strerror(errno));
-   fclose(allfile);
-#endif
-
-   write_header_to_device(&alldata, filename, 0);
 }
 
 
@@ -561,109 +452,74 @@ void action_restore(const char * device, const char * filename, const bool is_de
          print_error(_("Fold backup file %s is too short"), filename);
       fclose(in);
 
-      uint8_t *mk_mask = backup_meta + 16;
-
-      /* 2. Derive master key and inited_key based on key type */
+      /* 2. Build the new header: random everywhere, then overlay the backup
+            region (uuid/salt, mask, master key check, encrypted metadata). */
       uint8_t inited_key[HASHLEN];
       uint8_t master_key[HASHLEN];
-      bool is_mk   = (key.key_type == NMOBJ_key_file_type_masterkey);
-      bool slot0_empty = true; /* default: assume master-key backup */
+      bool is_mk = (key.key_type == NMOBJ_key_file_type_masterkey);
 
-      if (is_mk) {
-         /* --- master key path --- */
-         memcpy(master_key, master_key_input, HASHLEN);
-         Data tmp; memset(&tmp, 0, sizeof(tmp));
-         memcpy(tmp.uuid_and_salt, backup_meta, meta_len);
-         if (!check_master_key_check(tmp, master_key))
-            print_error(_("Fold restore: master key check failed"));
-         if (!unlock_metadata_using_master_key(&tmp, master_key))
-            print_error(_("Fold restore: metadata decrypt failed"));
-         /* Check if this is a password backup (keyslot_key[0] non-zero) */
-         {
-            uint8_t zero[HASHLEN] = {0};
-            slot0_empty = (memcmp(tmp.metadata.keyslot_key[0], zero, HASHLEN) == 0);
-         }
-         if (!slot0_empty) {
-            /* Password backup restored with master key: use preserved inited_key */
-            memcpy(inited_key, tmp.metadata.keyslot_key[0], HASHLEN);
-         } else {
-            /* Master-key backup: inited_key is irrelevant; will use random placement */
-            memset(inited_key, 0, HASHLEN);
-         }
-      } else {
-         /* --- password path --- */
-         prepare_key(key, inited_key, device, false);
-         /* master_key derived later via read_key_from_data */
-      }
-
-      /* 3. Build Data: fill random, overlay backup fields */
       Data newdata;
       fill_secure_random_bits((uint8_t *)&newdata, sizeof(Data));
       memcpy(newdata.uuid_and_salt, backup_meta, meta_len);
 
-      /* 4. ALWAYS generate random location and zone, regardless of path.
-            Same number of random reads prevents side-channel differentiation. */
+      /* Random placement values are always drawn so that both backup kinds
+         are indistinguishable by entropy consumption. */
       uint16_t volatile rnd_loc;
       fill_secure_random_bits((uint8_t *)&rnd_loc, sizeof(rnd_loc));
       uint8_t volatile rnd_zone;
       fill_secure_random_bits((uint8_t *)&rnd_zone, 1); rnd_zone %= 2;
+      uint8_t zone_idx = rnd_zone;
 
       uint16_t keypool_loc;
-      uint8_t  zone_idx;
 
-      if (slot0_empty) {
-         /* Master-key backup: use random placement */
-         keypool_loc = rnd_loc % sizeof(Keypool);
-         zone_idx    = rnd_zone;
+      if (is_mk) {
+         /* --- master key path: no KDF, decrypt the metadata directly --- */
+         memcpy(master_key, master_key_input, HASHLEN);
+         if (!check_master_key_check(newdata, master_key))
+            print_error(_("Fold restore: master key check failed"));
+         if (!unlock_metadata_using_master_key(&newdata, master_key))
+            print_error(_("Fold restore: metadata decrypt failed"));
+         /* The backup keeps the password slot at index 0: an all-zero
+            keyslot_key[0] marks a master-key-only backup. */
+         uint8_t zero[HASHLEN] = {0};
+         if (memcmp(newdata.metadata.keyslot_key[0], zero, HASHLEN) == 0) {
+            keypool_loc = rnd_loc % sizeof(Keypool);   /* random placement */
+         } else {
+            /* Password backup restored with the master key */
+            memcpy(inited_key, newdata.metadata.keyslot_key[0], HASHLEN);
+            keypool_loc = get_keypool_location_candidate(newdata.master_key_mask, inited_key);
+         }
       } else {
-         /* Password backup (or password→master-key restore):
-            placement is deterministic from inited_key.  Still incur the
-            random calls above so the number of entropy reads is identical. */
+         /* --- password path: place the slot, then derive via KDF ---
+            A master-key backup restored with a password fails here: its
+            Key_slot area is random filler, so no candidate matches. */
+         prepare_key(key, inited_key, device, false);
          keypool_loc = get_keypool_location_candidate(newdata.master_key_mask, inited_key);
-         zone_idx    = rnd_zone;
-      }
-
-      /* 5. Place Key_slot in the keypool */
-      memcpy(get_slot_loc(newdata, zone_idx, keypool_loc), ks_buf, sizeof(Key_slot));
-
-      /* 6. Derive/verify master key.
-            Password restore of a password backup: KDF needed.
-            Master-key restore or master-key backup: master key already known. */
-      if (!is_mk) {
-         /* Password path: derive master key via KDF */
-         Data tmp; memcpy(&tmp, &newdata, sizeof(Data));
+         memcpy(get_slot_loc(newdata, zone_idx, keypool_loc), ks_buf, sizeof(Key_slot));
          unsigned ret_zone, ret_level;
-         uint8_t  ret_inited[HASHLEN];
-         int result = read_key_from_data(tmp, inited_key, keypool_loc,
+         int result = read_key_from_data(newdata, inited_key, keypool_loc,
                                          DEFAULT_TARGET_TIME * MAX_UNLOCK_TIME_FACTOR,
                                          SIZE_MAX, KEY_SLOT_EXP_MAX, false,
                                          &ret_zone, &ret_level, master_key);
          if (result != NMOBJ_Enclib_calc_okay)
             print_error(_("Fold restore: key derivation failed (error %d)"), result);
+         if (!check_master_key_check(newdata, master_key))
+            print_error(_("Fold restore: master key check failed"));
+         if (!unlock_metadata_using_master_key(&newdata, master_key))
+            print_error(_("Fold restore: metadata decrypt failed"));
       }
 
-      if (!check_master_key_check(newdata, master_key))
-         print_error(_("Fold restore: master key check failed"));
-
-      /* 7. Decrypt metadata, set slot 0, re-encrypt */
-      if (!unlock_metadata_using_master_key(&newdata, master_key))
-         print_error(_("Fold restore: metadata decrypt failed"));
-
-      memset(newdata.metadata.keyslot_key[0], 0, HASHLEN);
-      if (!slot0_empty)
-         memcpy(newdata.metadata.keyslot_key[0], inited_key, HASHLEN);
+      /* 3. Place the Key_slot and point metadata slot 0 at it. The slot
+            contents (keyslot_key[0] holds the backup's inited key) are
+            already correct in the decrypted metadata. */
+      memcpy(get_slot_loc(newdata, zone_idx, keypool_loc), ks_buf, sizeof(Key_slot));
       newdata.metadata.keyslot_level[0]    = 0;
       newdata.metadata.keyslot_location[0] = keypool_loc;
       newdata.metadata.keyslot_location_area = (uint64_t)zone_idx << 0;
-      for (unsigned i = 1; i < KEY_SLOT_COUNT; i++) {
-         memset(newdata.metadata.keyslot_key[i], 0, HASHLEN);
-         newdata.metadata.keyslot_level[i]    = 0;
-         newdata.metadata.keyslot_location[i] = 0;
-      }
 
       lock_metadata_using_master_key(&newdata, master_key);
 
-      /* 8. Write to device */
+      /* 4. Write to device */
       ask_for_conformation(_("Restoring fold backup to device \"%s\". Continue?"), device);
       write_header_to_device(&newdata, device, 0);
       printf(_("Fold restore complete.\n"));
