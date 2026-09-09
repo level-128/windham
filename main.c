@@ -7,6 +7,7 @@
 #include "include/windham_const.h"
 #include "include/getopt.h"
 #include "libplat/headerio.c"
+#include "libplat/shellexec.c"
 
 // gettext only works when frontend.c as cmake target
 #ifndef IS_FRONTEND_ENTRY
@@ -76,6 +77,7 @@ enum {
 	NMOBJ_is_noadmin,
 	NMOBJ_is_no_map_partition,
 	NMOBJ_is_deffered_remove,
+	NMOBJ_is_aux_exec,
 
 	/* -- Bool flags: interaction ---------------- */
 	NMOBJ_yes,
@@ -212,6 +214,7 @@ const struct option long_options[] = {
 
 	/* -- Bool flags: system / isolation ---------- */
 	{"allow-swap", no_argument, &options[NMOBJ_is_allow_swap], 1},
+	{"aux-exec", no_argument, &options[NMOBJ_is_aux_exec], 1},
 	{"systemd-dialog", no_argument, &options[NMOBJ_is_systemd], 1},
 	{"nokeyring", no_argument, &options[NMOBJ_is_nokeyring], 1},
 	{"nofail", no_argument, &options[NMOBJ_is_nofail], 1},
@@ -691,7 +694,8 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 				options[NMOBJ_is_nofail],
 				options[NMOBJ_windhamtab_pass],
 				options[NMOBJ_is_no_aux],
-				params[NMOBJ_aux_link_paths]);
+				params[NMOBJ_aux_link_paths],
+				options[NMOBJ_is_aux_exec]);
 
 			break;
 		case NMOBJ_action_close:
@@ -736,7 +740,8 @@ void frontend_check_validity_and_execute(int action_num, const char *device, cha
 					max_unlock_time,
 					max_unlock_level,
 					options[NMOBJ_is_allow_swap],
-					options[NMOBJ_target_decoy]);
+					options[NMOBJ_target_decoy],
+					options[NMOBJ_is_aux_exec]);
 #ifndef CFG_TARGET_READONLY
 			} else if (options[NMOBJ_aux_add]) {
 				action_aux_add(

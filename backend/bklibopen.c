@@ -188,6 +188,7 @@ typedef struct {
     bool is_nokeyring, is_no_aux;
     bool is_dry_run;
     bool is_show_master_key;
+    bool is_aux_exec;
     unsigned timeout;
 } FifoEntry;
 
@@ -638,14 +639,23 @@ static bool action_open_single(
                           db_add(&out_links->entries, &le_copy);
                        }
                      } else if (aux_type == NMOBJ_AUX_TYPE_SHELL && !entry->is_dry_run) {
-                        // Queue shell command for execution after cascade completes
-                        uint16_t slot_size_le;
-                        memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
-                        size_t content_bytes = le16toh(slot_size_le) - sizeof(AuxSlot);
-                        if (content_bytes >= sizeof(AuxContentShell)) {
-                           AuxContentShell sh;
-                           memcpy(&sh, slot->content_char32_be, sizeof(sh));
-                           shell_queue_add(slot, sh.flags);
+                        if (entry->is_aux_exec) {
+                           // Queue shell command for execution after cascade completes
+                           uint16_t slot_size_le;
+                           memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
+                           size_t content_bytes = le16toh(slot_size_le) - sizeof(AuxSlot);
+                           if (content_bytes >= sizeof(AuxContentShell)) {
+                              AuxContentShell sh;
+                              memcpy(&sh, slot->content_char32_be, sizeof(sh));
+                              shell_queue_add(slot, sh.flags);
+                           }
+                        } else {
+                           // Aux commands run as root: never auto-execute without
+                           // the explicit opt-in. Show what was skipped instead.
+                           char *cmd = aux_shell_command_to_mb(slot, NULL);
+                           printf(_("Aux command skipped (pass --aux-exec to run): %s\n"),
+                                  cmd ? cmd : "?");
+                           free(cmd);
                         }
                      } else {
                        print_aux_entry(slot, slot_offset, is_public, aux_count);
@@ -748,7 +758,8 @@ void action_open(
    bool is_no_write_workqueue,
    bool is_no_map_partition,
    bool is_nokeyring,
-   bool is_no_aux) {
+   bool is_no_aux,
+   bool is_aux_exec) {
 
    if (STR_device->is_block == true) {
       CHECK_DEVICE_TOPOLOGY(
@@ -826,6 +837,7 @@ void action_open(
    init_entry.is_no_aux          = is_no_aux;
     init_entry.is_dry_run         = is_dry_run;
     init_entry.is_show_master_key = is_show_master_key;
+    init_entry.is_aux_exec  = is_aux_exec;
     init_entry.timeout            = timeout;
    fifo_push_front(init_entry);
 
@@ -891,10 +903,11 @@ void action_open(
          child.is_no_read_wq      = entry.is_no_read_wq;
          child.is_no_write_wq     = entry.is_no_write_wq;
          child.is_no_map_partition = entry.is_no_map_partition;
-         child.is_nokeyring       = true; 
+         child.is_nokeyring       = true;
          child.is_no_aux          = entry.is_no_aux;
           child.is_dry_run         = entry.is_dry_run;
           child.is_show_master_key = entry.is_show_master_key;
+          child.is_aux_exec  = entry.is_aux_exec;
           child.timeout            = entry.timeout;
 
          // init_device for the linked device
@@ -952,7 +965,8 @@ void action_open_(
    bool is_nofail,
    bool is_selected_windhamtab_pass,
    bool is_no_aux,
-   const char * aux_link_paths) {
+   const char * aux_link_paths,
+   bool is_aux_exec) {
 
    aux_link_paths_global = aux_link_paths;
 
@@ -1040,7 +1054,7 @@ void action_open_(
             HAS_FLGI(NMOBJ_windhamtab_no_read_wq) || is_no_read_workqueue,
             HAS_FLGI(NMOBJ_windhamtab_no_write_wq) || is_no_write_workqueue,
             HAS_FLGI(NMOBJ_windhamtab_is_no_map_partition),
-            true, is_no_aux);
+            true, is_no_aux, is_aux_exec);
       }
 #undef HAS_FLGI
 #else
@@ -1055,7 +1069,7 @@ void action_open_(
          is_allow_nolock, is_decoy,
          is_dry_run, is_show_master_key, is_target_readonly, is_allow_discards,
          is_no_read_workqueue, is_no_write_workqueue,
-         is_no_map_partition, is_nokeyring, is_no_aux);
+         is_no_map_partition, is_nokeyring, is_no_aux, is_aux_exec);
    }
 }
 

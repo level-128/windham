@@ -78,8 +78,9 @@ filesystem, but secretly holding encrypted data at its end. See
 [docs/decoy.md](decoy.md).
 
 **Aux zone (auxiliary data zone)** — An optional metadata area after the header,
-storing per-key encrypted entries: plaintext notes, shell commands executed on
-open, and LINK_OPEN references to other encrypted devices. See [docs/auxzone.md](auxzone.md).
+storing per-key encrypted entries: plaintext notes, shell commands (executed on
+open only when `--aux-exec` is given), and LINK_OPEN references to other encrypted
+devices. See [docs/auxzone.md](auxzone.md).
 
 **LINK_OPEN cascade** — When you open one device with `--aux-link`, any LINK_OPEN aux entries it
 contains cause linked devices to be automatically unlocked in a priority-ordered

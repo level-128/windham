@@ -22,7 +22,7 @@ passphrases are registered.
   in a configurable priority tree. Supports `SHORTCUT` flag to prune sibling branches,
   enabling fault-tolerant RAID setups with surviving path discovery
 - **Auxiliary data zone** — per-key encrypted metadata: plaintext notes, shell commands
-  executed after open, and LINK_OPEN entries. Survives header re-transforms
+  (executed on demand with `--aux-exec`), and LINK_OPEN entries. Survives header re-transforms
 - **Tamper resistance** — any modification to the header is detected; multiple built-in
   integrity markers prevent tampering even while suspended in plaintext
 - **Self-correlated metadata** — header re-transform changes most bits to obscure

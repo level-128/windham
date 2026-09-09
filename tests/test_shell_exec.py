@@ -12,6 +12,8 @@ def _new(device):
 
 def _open(device, **kw):
     cmd = ["Open", device, "--key=123"] + _UNLOCK + _FLAGS
+    if kw.get("exec"):
+        cmd.append("--aux-exec")
     if kw.get("dry_run"):
         cmd.append("--dry-run")
     return cmd
@@ -46,8 +48,17 @@ def test_shell_exec_basic(binary, device):
         ["Aux", device, "--aux-probe", "--key=123"] + _UNLOCK + _FLAGS, binary)
     assert "SHELL" in so, f"probe output missing SHELL: {so[:200]}"
 
-    # Open — should execute the command
+    # Open without --aux-exec — command must be skipped, only printed
     rc, so, se = run_windham(_open(device), binary)
+    if rc != 0:
+        raise TestFailure(f"Open failed: {so[-300:]}\n{se[-200:]}")
+    if os.path.exists(outfile):
+        raise TestFailure("SHELL command executed without --aux-exec")
+    if "skipped" not in so:
+        raise TestFailure(f"Open output does not mention the skipped command: {so[-300:]}")
+
+    # Open with --aux-exec — should execute the command
+    rc, so, se = run_windham(_open(device, exec=True), binary)
     if rc != 0:
         raise TestFailure(f"Open failed: {so[-300:]}\n{se[-200:]}")
 
@@ -73,8 +84,8 @@ def test_shell_command_dry_run(binary, device):
         ["Aux", device, "--aux-add-command=echo should_not_run >> " + outfile,
          "--key=123"] + _UNLOCK + _FLAGS, binary)
 
-    # Dry-run should NOT execute the command
-    rc, so, se = run_windham(_open(device, dry_run=True), binary)
+    # Dry-run should NOT execute the command even with --aux-exec
+    rc, so, se = run_windham(_open(device, exec=True, dry_run=True), binary)
     if rc != 0:
         raise TestFailure(f"Dry-run Open failed: {so[-200:]}")
 
@@ -104,7 +115,7 @@ def test_shell_flag_blckopen(binary, device):
         ["Aux", device, "--aux-add-command=echo second >> " + out2,
          "--key=123"] + _UNLOCK + _FLAGS, binary)
 
-    rc, so, se = run_windham(_open(device), binary)
+    rc, so, se = run_windham(_open(device, exec=True), binary)
     if rc != 0:
         raise TestFailure(f"Open failed: {so[-300:]}")
 
@@ -164,7 +175,7 @@ def test_shell_at_replacement(binary, device):
              "--key=123"] + _UNLOCK + _FLAGS, binary, timeout=60)
 
         # Open disk 0 — cascade opens disk 1, then SHELL executes
-        rc, so, se = run_windham(_open(loops[0]), binary, timeout=60)
+        rc, so, se = run_windham(_open(loops[0], exec=True), binary, timeout=60)
         if rc != 0:
             raise TestFailure(f"Open failed: {so[-300:]}\n{se[-200:]}")
 

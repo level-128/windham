@@ -317,7 +317,8 @@ void action_aux_del(
 // aux_slot_key = ret_inited_key: derived key from keyslot, or zero for --master-key.
 void action_aux_probe(
 	const char * device,
-	PARAMS_FOR_KEY) {
+	PARAMS_FOR_KEY,
+	bool is_aux_exec) {
 
 	Data    data;
 	int64_t offset;
@@ -348,6 +349,12 @@ void action_aux_probe(
 	int count = 0;
 	uint32_t pointer = 0;
 
+	// With --aux-exec, SHELL entries are collected here and executed
+	// (printed first) after the listing completes.
+	AuxSlot **exec_queue = NULL;
+	size_t exec_count = 0, exec_cap = 0;
+	const bool do_exec = is_aux_exec;
+
 	while (true) {
 		bool is_public = false;
 		uint32_t slot_offset = 0;
@@ -359,6 +366,21 @@ void action_aux_probe(
 			print_link_open_entry(slot, slot_offset, is_public, count);
 		} else if (aux_type == NMOBJ_AUX_TYPE_SHELL) {
 			print_shell_entry(slot, slot_offset, is_public, count);
+			if (do_exec) {
+				uint16_t slot_size_le;
+				memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
+				size_t total_bytes = le16toh(slot_size_le);
+				AuxSlot *copy = malloc(total_bytes);
+				if (copy) {
+					memcpy(copy, slot, total_bytes);
+					if (exec_count == exec_cap) {
+						exec_cap = exec_cap ? exec_cap * 2 : 4;
+						exec_queue = realloc(exec_queue, exec_cap * sizeof(*exec_queue));
+					}
+					if (exec_queue) exec_queue[exec_count++] = copy;
+					else free(copy);
+				}
+			}
 		} else {
 			print_aux_entry(slot, slot_offset, is_public, count);
 		}
@@ -370,6 +392,16 @@ void action_aux_probe(
    } else {
       printf(_("Found %d aux entry(ies).\n"), count);
    }
+
+	if (do_exec) {
+		for (size_t i = 0; i < exec_count; i++) {
+			// prints "exec: <command>" then runs it (no mapper names to
+			// substitute under a standalone probe, so "@" stays literal)
+			exec_aux_cmd_from_probed_aux(exec_queue[i], NULL, 0);
+			free(exec_queue[i]);
+		}
+		free(exec_queue);
+	}
 
    free(aux_zone);
    printf("AUXPROBE_OK\n");

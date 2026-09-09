@@ -224,7 +224,7 @@ echo
 echo "=== Setup complete ==="
 echo
 echo "To unlock and auto-assemble:"
-echo "  sudo windham Open $OPEN_FIRST --key=\"$CASCADE_KEY\""
+echo "  sudo windham Open $OPEN_FIRST --key=\"$CASCADE_KEY\" --aux-exec"
 echo
 echo "Or with your password:"
-echo "  sudo windham Open $OPEN_FIRST"
+echo "  sudo windham Open $OPEN_FIRST --aux-exec"

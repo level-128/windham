@@ -33,9 +33,16 @@ windham Aux /dev/sda --key=mypass --aux-add="Backup passphrase hint: blue elepha
 
 ### SHELL (type 1)
 
-A shell command executed when the device is opened. Added via `--aux-add-command=<cmd>`.
+A shell command stored on the device and executed on demand. Added via
+`--aux-add-command=<cmd>`.
 The `@` character in the command is replaced by the device name(s) opened in the
 current operation. If multiple devices are opened, they are comma-separated.
+
+**Execution is opt-in**: `Open` runs SHELL entries only when `--aux-exec` is passed;
+without it they are printed as `Aux command skipped (pass --aux-exec to run): ...`.
+`--aux-probe --aux-exec` executes each listed command right after listing it (the
+command is printed first). Aux commands run as root, which is why they are never
+executed implicitly.
 
 **Struct**: `AuxContentShell` — type marker, flags, timeout (seconds), command length,
 command string (char32_t).
@@ -209,7 +216,7 @@ The script handles:
 After setup, opening the first disk cascades and assembles automatically:
 
 ```bash
-sudo windham Open /dev/sdb
+sudo windham Open /dev/sdb --aux-exec
 # All disks unlock → SHELL runs → /dev/md0 ready
 ```
 
@@ -228,7 +235,7 @@ sudo windham Open /dev/sdb
 | `--aux-add-command=<cmd> --aux-flag=<flag>` | Add a SHELL entry |
 | `--aux-add-link=<path> --aux-target-key=...` | Add a LINK_OPEN entry |
 | `--aux-del` | Delete all entries matching the current key |
-| `--aux-probe` | List entries matching the current key + all public entries |
+| `--aux-probe` | List entries matching the current key + all public entries; add `--aux-exec` to execute listed SHELL entries |
 
 All commands require unlocking the aux zone first — use `--key`, `--key-file`, or
 `--keystdin`.

@@ -815,35 +815,36 @@ static char *parse_char32_to_mb(const char32_t *input, size_t input_size) {
 }
 
 
-// Thread argument for shell command execution
-typedef struct { const char *cmd; int result; } ShellThreadArg;
-
-static int shell_thread_fn(void *a) {
-    ShellThreadArg *ta = (ShellThreadArg *)a;
-    ta->result = system(ta->cmd);
-    return 0;
-}
 // opened_names[]: list of /dev/mapper names currently opened by this cascade;
 //   "@" in the command is replaced with these names joined by commas.
-// Returns true if the command executed successfully, false otherwise.
-bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], size_t opened_names_len) {
-    assert(slot && "slot is NULL");
-
+// Extract the raw (unsubstituted) SHELL command of an aux slot as a multibyte
+// string. timeout_secs (optional) receives the per-command timeout.
+// Returns NULL on failure; caller frees.
+char *aux_shell_command_to_mb(const AuxSlot *slot, uint16_t *timeout_secs) {
     uint16_t slot_size_le;
     memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
     size_t content_bytes = le16toh(slot_size_le) - sizeof(AuxSlot);
 
-    if (content_bytes < sizeof(AuxContentShell)) return false;
+    if (content_bytes < sizeof(AuxContentShell)) return NULL;
 
     AuxContentShell shell_header;
-    memcpy(&shell_header, slot->content_char32_be, sizeof(AuxContentShell));
-    if (shell_header.aux_type != NMOBJ_AUX_TYPE_SHELL) return false;
+    memcpy(&shell_header, slot->content_char32_be, sizeof(shell_header));
+    if (shell_header.aux_type != NMOBJ_AUX_TYPE_SHELL) return NULL;
 
     uint16_t command_len = le16toh(shell_header.command_len);
-    assert(command_len > 0 && "command is empty.");
+    if (command_len == 0) return NULL;
+
+    if (timeout_secs) *timeout_secs = le16toh(shell_header.timeout);
 
     const char32_t *command_data = slot->content_char32_be + sizeof(AuxContentShell) / sizeof(char32_t);
-    char *mb_cmd = parse_char32_to_mb(command_data, command_len);
+    return parse_char32_to_mb(command_data, command_len);
+}
+
+// Returns true if the command executed successfully, false otherwise.
+bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], size_t opened_names_len) {
+    assert(slot && "slot is NULL");
+
+    char *mb_cmd = aux_shell_command_to_mb(slot, NULL);
     if (!mb_cmd) {
         print_warning(_("Failed to convert command to multibyte. Your system is using "
             "an encoding that is a subset of Unicode. The provided command contains Non-ASCII "
@@ -888,63 +889,17 @@ bool exec_aux_cmd_from_probed_aux(const AuxSlot *slot, char * opened_names[], si
 
     printf(_("exec: %s\n"), mb_cmd);
 
+    // Re-read the header for the timeout (command string is already parsed)
+    AuxContentShell shell_header;
+    memcpy(&shell_header, slot->content_char32_be, sizeof(shell_header));
     uint16_t timeout_secs = le16toh(shell_header.timeout);
+
     bool timed_out = false;
-    int ret;
-
-    if (timeout_secs > 0) {
-#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
-        print_warning(_("Shell command timeout (%u sec) requested but ISO C threads unavailable. "
-                        "Command will run without timeout."), timeout_secs);
-        ret = system(mb_cmd);
-#else
-        // Run system() in a separate thread, join with timeout
-        ShellThreadArg *arg = malloc(sizeof(ShellThreadArg));
-        if (!arg) {
-            print_warning(_("Failed to allocate memory for shell thread."));
-            ret = system(mb_cmd);
-        } else {
-            arg->cmd = mb_cmd;
-            arg->result = -1;
-
-            thrd_t thr;
-            if (thrd_create(&thr, shell_thread_fn, arg) != thrd_success) {
-                print_warning(_("Failed to create thread for shell command execution."));
-                ret = system(mb_cmd);
-                free(arg);
-            } else {
-                // Poll with thrd_sleep for timeout
-                struct timespec start, now;
-                timespec_get(&start, TIME_UTC);
-                int join_result;
-                while (true) {
-                    timespec_get(&now, TIME_UTC);
-                    if ((now.tv_sec - start.tv_sec) >= timeout_secs) {
-                        // Timeout: stop waiting, return failure (thread may still run)
-                        print_warning(_("Shell command timed out after %u seconds."), timeout_secs);
-                        ret = -1;
-                        timed_out = true;
-                        break;
-                    }
-                    join_result = thrd_join(thr, NULL);
-                    if (join_result != thrd_busy) {
-                        ret = arg->result;
-                        break;
-                    }
-                    thrd_sleep(&(struct timespec){.tv_sec = 0, .tv_nsec = 100000000}, NULL);
-                }
-                if (!timed_out) {
-                    free(arg);
-                }
-            }
-        }
-        if (timed_out) {
-            // Don't free mb_cmd — the still-running thread may be using it
-            return false;
-        }
-#endif
-    } else {
-        ret = system(mb_cmd);
+    int ret = shell_exec(mb_cmd, timeout_secs, &timed_out);
+    if (timed_out) {
+        print_warning(_("Shell command timed out after %u seconds."), timeout_secs);
+        free(mb_cmd);   // safe: shell_exec never references cmd after returning
+        return false;
     }
 
     free(mb_cmd);

@@ -24,8 +24,12 @@ windham Aux /dev/sda --aux-add="密码提示：哈基米曼波"
 
 ### 命令条目
 
-在设备打开时执行的一段 Shell 命令。通过 `--aux-add-command=<命令>` 添加。在命令中可以
+存储在设备上、按需执行的 Shell 命令。通过 `--aux-add-command=<命令>` 添加。在命令中可以
 使用 `@` 字符来代表本次打开操作的已打开设备的名称。如果本次打开操作了多个设备，则以逗号分隔。
+
+**执行需显式授权**：`Open` 只有传入 `--aux-exec` 时才会运行 SHELL 条目；否则只打印
+`Aux command skipped (pass --aux-exec to run): ...`。`--aux-probe --aux-exec` 会在列出
+每条命令后立即执行它（执行前先打印）。由于 aux 命令以 root 权限运行，因此绝不会隐式执行。
 
 **内部结构**：类型标记、标志位、超时秒数、命令长度、命令字符串。
 
@@ -93,7 +97,7 @@ windham Aux /dev/sda --key=我的密码 \
 | `--aux-add-command=<命令> --aux-flag=<标志>` | 添加一条 Shell 命令条目 |
 | `--aux-add-link=<路径> --aux-target-key=...` | 添加一条链接解锁条目 |
 | `--aux-del` | 删除当前密钥对应的所有条目 |
-| `--aux-probe` | 列出当前密钥对应的条目 + 所有公开条目 |
+| `--aux-probe` | 列出当前密钥对应的条目 + 所有公开条目；加 `--aux-exec` 可在列出后执行 SHELL 条目 |
 
 所有操作都需要先解锁辅助数据区——用 `--key`、`--key-file` 或 `--keystdin`。
 
@@ -145,7 +149,7 @@ sudo ./scripts/windham-raid-setup.sh --pass=我的密码 /dev/sd{a,b,c}
 配置完成后，打开第一块盘即可解锁并自动组装：
 
 ```bash
-sudo windham Open /dev/sdb
+sudo windham Open /dev/sdb --aux-exec
 # 全部盘级联解锁 → SHELL 执行 → /dev/md0 就绪
 ```
 
