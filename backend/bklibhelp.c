@@ -114,7 +114,7 @@ void frontend_help(const char * the_3rd_argv) {
       }
 
       printf(_("\nFunctionality:\n"));
-#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
+#ifdef WINDHAM_NO_ISOC_THREAD
    	printf(_("\tMultithread Support: No\n"));
 #else
       printf(_("\tMultithread Support: Yes\n"));

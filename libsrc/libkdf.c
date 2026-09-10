@@ -70,17 +70,11 @@ typedef enum {
 
 /* thread_local result storage; falls back to plain globals
    when C11 threads are not available.  */
-#ifndef __STDC_NO_THREADS__
 #ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>
 thread_local Kdf_step Kdf_step_result;
 thread_local bool     is_allow_nolock;
 
-#else
-Kdf_step Kdf_step_result;
-bool is_allow_nolock;
-
-#endif
 #else
 Kdf_step Kdf_step_result;
 bool is_allow_nolock;

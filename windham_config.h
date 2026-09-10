@@ -201,8 +201,9 @@
 
 // #define WINDHAM_NO_ISOC_THREAD
 // Disable multithreading (threads.h). Unlocking runs up to 2× slower.
-// Maps to ARGON2_NO_THREADS. Windham auto-disables it when the platform
-// lacks working ISO C threads.
+// Maps to ARGON2_NO_THREADS. CMake and the web build define it when the
+// platform lacks working ISO C threads; direct compiles must define it
+// manually on such platforms (e.g. Apple/macOS).
 
 // #define WINDHAM_NO_SHEBANG_ENTRY
 // Disable the shebang entry point ("#!/bin/windham <device> ...").
@@ -262,7 +263,7 @@
 # endif
 #endif
 
-#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
+#ifdef WINDHAM_NO_ISOC_THREAD
 # ifndef ARGON2_NO_THREADS
 #  define ARGON2_NO_THREADS
 # endif
@@ -284,6 +285,10 @@
 
 #if defined(WINDHAM_PLAT_GNU_LINUX) && defined(WINDHAM_PLAT_EMSCRIPTEN)
 #error "WINDHAM_PLAT_GNU_LINUX and WINDHAM_PLAT_EMSCRIPTEN are mutually exclusive. Enable exactly one platform."
+#endif
+
+#if !defined(WINDHAM_NO_ISOC_THREAD) && defined(__STDC_NO_THREADS__)
+#error "This compiler defines __STDC_NO_THREADS__ (no ISO C threads). Define WINDHAM_NO_ISOC_THREAD to build without multithreading."
 #endif
 
 #endif /* WINDHAM_CONFIG_H */

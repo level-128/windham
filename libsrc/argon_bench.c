@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
-#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>
 #endif
 
@@ -41,7 +41,7 @@ void argon2_compute(uint32_t m_cost, uint8_t *hash, struct timespec *start, stru
     }
 }
 
-#ifndef __STDC_NO_THREADS__
+#ifndef WINDHAM_NO_ISOC_THREAD
 int argon2_thread(void *arg) {
     typedef struct {
         uint32_t m_cost;
@@ -88,7 +88,7 @@ void benchmark() {
         printf("Single-threaded time cost:  %.3f ms\n", time1);
 
 
-#if !defined(__STDC_NO_THREADS__) && !defined(WINDHAM_NO_ISOC_THREAD)
+#ifndef WINDHAM_NO_ISOC_THREAD
         printf("Multi-threaded mode:\n");
         struct timespec global_start, global_end;
 

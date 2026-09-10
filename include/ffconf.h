@@ -260,8 +260,8 @@
 #define FF_FS_REENTRANT	0
 #define FF_FS_TIMEOUT	1000
 /* The option FF_FS_REENTRANT switches the re-entrancy (thread safe) of the FatFs
-/  module itself. It is automatically set based on C11 thread support
-/  (__STDC_NO_THREADS__). When threads are unavailable, re-entrancy is disabled.
+/  module itself. It is automatically set based on ISO C thread support
+/  (WINDHAM_NO_ISOC_THREAD). When threads are unavailable, re-entrancy is disabled.
 /  Note that regardless of this option, file access to different volume is always
 /  re-entrant and volume control functions, f_mount(), f_mkfs() and f_fdisk(),
 /  are always not re-entrant. Only file/directory access to the same volume is

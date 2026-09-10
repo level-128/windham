@@ -15,7 +15,7 @@
 
 #if defined(CFG_FF_SHELL_NOINTERACTIVE)
 #ifndef WINDHAM_PLAT_EMSCRIPTEN
-#if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_THREADS__)
+#if __STDC_VERSION__ >= 201112L && !defined(WINDHAM_NO_ISOC_THREAD)
 #include <threads.h>
 #define SHELL_HAS_THREADS 1
 #elif defined(__unix__) || defined(__APPLE__)

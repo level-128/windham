@@ -8,10 +8,8 @@
 #include <float.h>
 /* C11 threads for parallel KDF key search; single-thread fallback
    at read_key_from_data_one_level_dispatch() when unavailable.  */
-#ifndef __STDC_NO_THREADS__
 #ifndef WINDHAM_NO_ISOC_THREAD
 #include <threads.h>
-#endif
 #endif
 
 #include "endian.c"
@@ -169,7 +167,7 @@ bool read_key_from_data_one_level_dispatch(
    uint8_t    ret_master_key[HASHLEN],
    unsigned * ret_key_zone,
    int *      ret_result) {
-#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
+#ifdef WINDHAM_NO_ISOC_THREAD
    int st_ret = read_key_from_data_one_level_st(
    data,
    inited_keys_cpy,

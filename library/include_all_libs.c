@@ -3,9 +3,9 @@
 #error "GNU/Linux should use cmake to include all libs"
 #endif
 
-// Map compiler thread-disabled state to Argon2's no-threads macro.
+// Map the thread-disabled switch to Argon2's no-threads macro.
 // CMake handles this via -D; direct compiles need the fallback.
-#if defined(__STDC_NO_THREADS__) || defined(WINDHAM_NO_ISOC_THREAD)
+#ifdef WINDHAM_NO_ISOC_THREAD
 #ifndef ARGON2_NO_THREADS
 #define ARGON2_NO_THREADS
 #endif
