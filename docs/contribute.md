@@ -16,6 +16,37 @@ The Debug build:
 
 ## Running tests
 
+The suite is split into two blocks by target platform:
+
+- **ISO C baseline** (`REQUIRES = "isoc"`, or `"any"`): runs against a directly
+  compiled ISO C binary. Pure userspace — regular files, no root, no kernel
+  device-mapper. This is the block that must pass everywhere.
+- **GNU/Linux backend** (`REQUIRES = "gnu-linux"`): exercises the kernel
+  dm-crypt backend (loop devices, `/dev/mapper`, cascade unlock). Requires
+  root and a CMake build.
+
+The runner auto-detects the platform from the binary (override with
+`--platform=isoc|gnu-linux`) and skips tests whose `REQUIRES` does not match.
+
+### ISO C baseline block
+
+Compile `frontend.c` directly (no build system), then pass the binary path:
+
+```bash
+cc -std=c11 -O2 frontend.c -lm -o windham_isoc
+
+# Full ISOC suite — no root needed
+python3 tests/run_tests.py --binary ./windham_isoc
+
+# Single test module
+python3 tests/run_tests.py --binary ./windham_isoc test_aux
+```
+
+Real `Open`s in platform-neutral tests pass `--print-encryption` (the no-op
+print driver) so they behave identically without a kernel mapper.
+
+### GNU/Linux backend block
+
 Build with the Test profile, which configures the binary for testing and
 finds the Python interpreter:
 
@@ -24,20 +55,16 @@ cmake -B cmake-build-test -DCMAKE_BUILD_TYPE=Test -DCFG_USE_SWAP=TRUE
 cmake --build cmake-build-test
 ```
 
-Run the test suite via the `check` target:
+Run the suite via the `check` target, or manually:
 
 ```bash
 cmake --build cmake-build-test --target check
-```
 
-Or run manually:
-
-```bash
-# Full suite
-sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test
+# Full suite (elevates via pkexec automatically)
+python3 tests/run_tests.py --binary cmake-build-test/windham_test
 
 # Single test module
-sudo python3 tests/run_tests.py --binary cmake-build-test/windham_test test_link_open
+python3 tests/run_tests.py --binary cmake-build-test/windham_test test_link_open
 
 # Without root elevation (file-based operations only)
 python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate test_probe
@@ -47,33 +74,36 @@ python3 tests/run_tests.py --binary cmake-build-test/windham_test --no-elevate -
 ```
 
 Tests are Python files under `tests/`. Each `def test_*()` function is a separate
-test case. Tests spawn `windham_test` via `subprocess` and capture stdin/stdout/stderr.
+test case. Tests spawn the binary via `subprocess` and capture stdin/stdout/stderr.
 
 ### Test infrastructure
 
 - `utils.py`: `create_test_device()`, `run_windham()`, `assert_success()`, `assert_error()`
-- Tests requiring root automatically elevate via `pkexec`
+- Platform gating: module-level `REQUIRES` attribute gates a whole file; a
+  function attribute (`test_x.requires = "gnu-linux"`) gates a single test;
+  `"any"` runs on both blocks
+- Root elevation via `pkexec` is attempted only for the `gnu-linux` block
 - Loop device tests create disk files and use `losetup`
 - dm-crypt tests create mapper devices and verify them in `/dev/mapper`
 
 ### Test modules
 
-| Module | Covers |
-|---|---|
-| `test_creation.py` | New, Open (dry-run), wrong password |
-| `test_keymgmt.py` | AddKey, DelKey, header transform, rapid add |
-| `test_keymgmt_variants.py` | Anonymous keys, anonymous conversion |
-| `test_aux.py` | Aux add/probe/delete |
-| `test_aux_variants.py` | Aux type, no-aux flag |
-| `test_link_open.py` | 5-device LINK_OPEN cascade, dangling UUID |
-| `test_link_open_flags.py` | 8-device tree with SHORTCUT pruning |
-| `test_shell_exec.py` | SHELL aux command execution, `@` replacement, BLCKOPEN |
-| `test_decrypt.py` | Offline full-disk decryption (`--decrypt`) |
-| `test_fat.py` | FatFs shell / `--create-exfat` |
-| `test_suspend.py` | Suspend / Resume cycle |
-| `test_params.py` | Block size, encrypt type, key file, target memory/level |
-| `test_probe.py` | Probe --dir, --probe-linux, nonexistent |
-| `test_backup.py` | Backup / Restore / Destroy |
+| Module | Block | Covers |
+|---|---|---|
+| `test_creation.py` | any | New, Open (dry-run), wrong password |
+| `test_keymgmt.py` | any | AddKey, DelKey, header transform, rapid add |
+| `test_keymgmt_variants.py` | any | Anonymous keys, anonymous conversion |
+| `test_aux.py` | any | Aux add/probe/delete; `--aux-probe --aux-exec`; public entries via `--master-key`; DelKey aux cleanup; LINK_OPEN entry lifecycle; `--aux-rm` |
+| `test_aux_variants.py` | any | Aux type, no-aux flag |
+| `test_shell_exec.py` | any + one gnu-linux test | SHELL execution opt-in (`--aux-exec`), BLCKOPEN, single-device `@` replacement; cascade `@` replacement (gnu-linux only) |
+| `test_suspend.py` | any | Suspend / Resume cycle |
+| `test_params.py` | any | Block size, encrypt type, key file, target memory/level; `Bench`; `--show-master-key`; negative opens (nonexistent, `UUID=` prefix); Close of unmapped name |
+| `test_probe.py` | any | Probe --dir, --probe-linux, nonexistent |
+| `test_backup.py` | any | Backup / Destroy; Backup→Destroy→Restore roundtrip with aux survival; fold backup/restore roundtrip; QR backup (terminal + BMP) |
+| `test_decrypt.py` | any + one gnu-linux test | Userspace decrypt roundtrip (`--create-exfat` → `--decrypt` → exFAT signature); dm-crypt write-path e2e (gnu-linux only) |
+| `test_fat.py` | any + one gnu-linux test | ff driver FatFs shell on Open (stdin); dm-crypt mapper superblock check (gnu-linux only) |
+| `test_link_open.py` | gnu-linux | 5-device LINK_OPEN cascade, dangling UUID |
+| `test_link_open_flags.py` | gnu-linux | 8-device tree with SHORTCUT pruning |
 
 ## Code structure
 

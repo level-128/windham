@@ -1,4 +1,6 @@
 """SHELL aux command execution test — verify commands execute on Open."""
+
+REQUIRES = "any"  # test block: isoc | gnu-linux | any
 import os, sys, subprocess
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import assert_success, create_test_device, TestFailure, run_windham
@@ -16,6 +18,11 @@ def _open(device, **kw):
         cmd.append("--aux-exec")
     if kw.get("dry_run"):
         cmd.append("--dry-run")
+    else:
+        # Real opens go through the no-op "print" driver: identical behavior
+        # on the ISO C baseline (no dm-crypt) and no kernel mapping here.
+        # SHELL queue execution is driver-independent either way.
+        cmd.append("--print-encryption")
     return cmd
 
 def _losetup_find_free():
@@ -206,4 +213,41 @@ def test_shell_at_replacement(binary, device):
                 os.remove(d)
         if os.path.exists(outfile):
             os.remove(outfile)
+
+
+test_shell_at_replacement.requires = "gnu-linux"  # cascade needs kernel UUID resolution
+
+
+def test_shell_at_single_device(binary, device):
+    """'@' in SHELL command replaced with the opened device name (no cascade)."""
+    outfile = "/tmp/windham_shell_at_single"
+    if os.path.exists(outfile):
+        os.remove(outfile)
+
+    create_test_device(device)
+    assert_success(_new(device), binary)
+
+    assert_success(
+        ["Aux", device, "--aux-add-command=echo @ > " + outfile,
+         "--key=123"] + _UNLOCK + _FLAGS, binary)
+
+    rc, so, se = run_windham(_open(device, exec=True), binary)
+    if rc != 0:
+        raise TestFailure(f"Open failed: {so[-300:]}\n{se[-200:]}")
+
+    # The print driver echoes the mapping name that "@" expanded to
+    name = None
+    for line in so.split("\n"):
+        if line.startswith("would create mapping:"):
+            name = line.split(":", 1)[1].strip()
+    if not name:
+        raise TestFailure(f"no mapping name in Open output: {so[-300:]}")
+
+    if not os.path.exists(outfile):
+        raise TestFailure(f"Output file {outfile} was not created")
+    with open(outfile) as f:
+        content = f.read().strip()
+    if content != "/dev/mapper/" + name:
+        raise TestFailure(f"@ expanded to '{content}', expected '/dev/mapper/{name}'")
+    os.remove(outfile)
 

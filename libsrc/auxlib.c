@@ -650,7 +650,9 @@ void compose_link_open_content(char32_t target_key[], uint16_t target_key_len,
 
 
 // Print a single aux entry returned by probe_aux_from_aux_zone.
-// Only handles PLAINTEXT — used during Open to display aux notes.
+// PLAINTEXT entries store raw char32_t content with no type byte, so the
+// caller's byte-level SHELL/LINK dispatch is the only type gate — anything
+// reaching here is printed as-is (used by --aux-probe and Open).
 void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int index) {
     uint16_t slot_size_le;
     memcpy(&slot_size_le, &slot->size, sizeof(slot_size_le));
@@ -662,9 +664,6 @@ void print_aux_entry(const AuxSlot * slot, uint32_t offset, bool is_public, int 
         assert(false && "content_count == 0");
         return;
     }
-
-    uint8_t aux_type = ((uint8_t *)slot->content_char32_be)[0];
-    if (aux_type != NMOBJ_AUX_TYPE_PLAINTEXT) return;
 
     printf(_("Aux entry %d: %zu bytes, offset %u, %s\n"),
     index, content_bytes, offset,

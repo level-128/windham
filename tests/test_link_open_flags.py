@@ -1,4 +1,6 @@
 """LINK_OPEN STOP_EXEC cascade test: verify flag-based link pruning."""
+
+REQUIRES = "gnu-linux"  # test block: isoc | gnu-linux | any
 import os, sys, subprocess, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import assert_success, create_test_device, TestFailure, run_windham

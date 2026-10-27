@@ -1,4 +1,6 @@
 """Probe action tests."""
+
+REQUIRES = "any"  # test block: isoc | gnu-linux | any
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import run_windham, assert_success, create_test_device

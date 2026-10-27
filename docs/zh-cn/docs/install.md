@@ -221,8 +221,11 @@ CC=musl-gcc CFLAGS="-I$HOME/musl-kernhdrs" \
 基础模式只需直接编译 `frontend.c`，不需要 CMake 构建系统——任何 C11 编译器都可以：
 
 ```bash
-cc -std=c11 frontend.c -lm -o windham
+cc -std=c11 -O2 frontend.c -lm -o windham
 ```
+
+该二进制也是 ISO C 基准测试块的目标——测试框架用法见
+[docs/contribute.md](contribute.md)（`python3 tests/run_tests.py --binary ./windham`）。
 
 ### 基础模式的要求
 

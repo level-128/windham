@@ -51,6 +51,7 @@ opt_allow(NMOBJ_action_open,
   NMOBJ_is_no_map_partition,
   NMOBJ_is_no_aux,
   NMOBJ_is_aux_exec,
+  NMOBJ_print_encryption,
   NMOBJ_windhamtab_location,
   NMOBJ_windhamtab_pass,
   NMOBJ_aux_link_paths,
@@ -62,6 +63,7 @@ opt_allow(NMOBJ_action_open,
 opt_allow(NMOBJ_action_close,
   NMOBJ_is_deffered_remove,
   NMOBJ_close_all,
+  NMOBJ_print_encryption,
   ALLOW_COMMON)
 
 opt_allow(NMOBJ_action_new,
@@ -81,6 +83,7 @@ opt_allow(NMOBJ_action_new,
 #ifndef CFG_NO_FF_CREATE
   NMOBJ_create_exfat,
 #endif
+  NMOBJ_print_encryption,
   ALLOW_COMMON)
 
 opt_allow(NMOBJ_action_addkey,

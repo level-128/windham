@@ -28,6 +28,20 @@
 
 #define MIN_KEY_CHAR 7
 
+/* terminal_read_char() wrapper. EOF (closed or drained stdin) returns
+   immediately and forever, and none of the input paths below recognize it —
+   the invalid-byte handlers would ring the bell in a tight loop until the
+   process is killed. Exit cleanly instead. */
+static int password_read_char(void) {
+	int ch = terminal_read_char();
+	if (ch == EOF) {
+		terminal_restore_echo();
+		print_error(_("stdin closed while waiting for password input. "
+			"Provide the key with --key, --key-file, or --keystdin instead."));
+	}
+	return ch;
+}
+
 static int bklibkey_check_hex(int ch) {
 	if (ch >= 'A' && ch <= 'F') {
 		return ch - 'A' + 10;
@@ -109,7 +123,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 			int hex_len = 0;
 
 			while (1) {
-				int ch = terminal_read_char();
+				int ch = password_read_char();
 
 				if (ch == '\n') {
 					if (hex_len == 0) {
@@ -131,7 +145,9 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 						fflush(stdout);
 
 						/* Wait for Enter to dismiss */
-						while (terminal_read_char() != '\n') {}
+						for (;;) {
+							if (password_read_char() == '\n') break;
+						}
 
 						/* Replace current line with U+ prompt */
 						printf("\r\033[K");
@@ -146,7 +162,9 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 						fflush(stdout);
 
 						/* Wait for Enter (canonical mode: consume entire line) */
-						while (terminal_read_char() != '\n') {}
+						for (;;) {
+							if (password_read_char() == '\n') break;
+						}
 						break;
 #endif
 					}
@@ -259,7 +277,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 
 		/* ---- TEXT MODE ---- */
 
-		int ch = terminal_read_char();
+		int ch = password_read_char();
 
 		if (ch == '\n') {
 			if (index == 0) {
@@ -284,7 +302,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 
 			printf("%s", msg);
 			fflush(stdout);
-			ch = terminal_read_char();
+			ch = password_read_char();
 
 			printf("\r");
 			for (unsigned i = 0; i < strlen(msg); i++) {
@@ -355,7 +373,7 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 		char utf8_buf[5] = {(char)ch, 0, 0, 0, 0};
 
 		for (int j = 1; j < utf8_len; j++) {
-			int next = terminal_read_char();
+			int next = password_read_char();
 			if (next == '\n') {
 				putchar(7);
 				continue;
@@ -407,7 +425,9 @@ unsigned get_password_input(char32_t password[MAX_PASSWORD_INPUT_LEN], bool *out
 		_("The max password input size is %i characters. No new input will be accepted. Consider key file instead."),
 		MAX_PASSWORD_INPUT_LEN - 1);
 	printf(_("press enter to proceed."));
-	while (terminal_read_char() != '\n') {}
+	for (;;) {
+		if (password_read_char() == '\n') break;
+	}
 	password[MAX_PASSWORD_INPUT_LEN - 1] = 0;
 
 END:

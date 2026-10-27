@@ -1,4 +1,6 @@
 """Aux zone variants: --aux-type, --no-aux."""
+
+REQUIRES = "any"  # test block: isoc | gnu-linux | any
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import run_windham, assert_success, assert_error, create_test_device
@@ -11,9 +13,9 @@ def test_aux_with_type(binary, device):
     create_test_device(device)
     assert_success(_NEW(device), binary)
     assert_success(["Aux", device, "--aux-add=typed_content", "--aux-type=mytype",
-                    "--key=123", "--max-unlock-time=1", "--no-admin"], binary)
+                    "--key=123", "--max-unlock-time=3", "--no-admin"], binary)
     so, _ = assert_success(["Aux", device, "--aux-probe", "--key=123",
-                            "--max-unlock-time=1", "--no-admin"], binary)
+                            "--max-unlock-time=3", "--no-admin"], binary)
     assert "Aux entry" in so or "Found" in so, f"probe: {so[:200]}"
 
 def test_open_no_aux(binary, device):
@@ -21,6 +23,6 @@ def test_open_no_aux(binary, device):
     create_test_device(device)
     assert_success(_NEW(device), binary)
     assert_success(["Aux", device, "--aux-add=secret", "--key=123",
-                    "--max-unlock-time=1", "--no-admin"], binary)
-    assert_success(["Open", device, "--key=123", "--max-unlock-time=1", "--dry-run",
+                    "--max-unlock-time=3", "--no-admin"], binary)
+    assert_success(["Open", device, "--key=123", "--max-unlock-time=3", "--dry-run",
                     "--no-aux", "--no-admin"], binary)

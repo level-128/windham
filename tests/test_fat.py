@@ -1,5 +1,7 @@
 """Test --create-exfat: New with --create-exfat, Open, verify exFAT filesystem."""
 
+REQUIRES = "any"  # test block: isoc | gnu-linux | any; per-test overrides below
+
 import os, sys, subprocess, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -69,3 +71,28 @@ def test_create_exfat(binary, device):
 
     # 5. Cleanup
     run_windham(["Close", mapper_name, "--no-admin"], binary, timeout=10)
+
+
+test_create_exfat.requires = "gnu-linux"  # reads the superblock through a dm-crypt mapper
+
+
+def test_ff_shell(binary, device):
+    """Open with the default ff driver runs the FatFs shell reading stdin."""
+    if os.path.exists(device):
+        os.remove(device)
+    with open(device, "wb") as f:
+        f.seek(32 * 1024 * 1024 - 1)
+        f.write(b"\0")
+    rc, so, se = run_windham(
+        ["New", device, "--key=123", "--target-level=3",
+         "--target-time=0.1", "--create-exfat"] + _FLAGS,
+        binary, timeout=60)
+    if rc != 0:
+        raise TestFailure(f"New --create-exfat failed: rc={rc}\nstderr: {se}")
+
+    rc, so, se = run_windham(
+        ["Open", device, "--key=123"] + _UNLOCK + _FLAGS, binary,
+        stdin_text="help\nls\nexit\n", timeout=30)
+    if rc != 0:
+        raise TestFailure(f"ff shell Open failed: rc={rc}\nstdout: {so[-300:]}\nstderr: {se}")
+    assert "Filesystem type: exFAT" in so, f"ff shell output: {so[-500:]}"

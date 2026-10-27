@@ -1,4 +1,6 @@
 """LINK_OPEN cascade test: create linked partitions and verify cascade opening."""
+
+REQUIRES = "gnu-linux"  # test block: isoc | gnu-linux | any
 import os, sys, subprocess
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests.utils import assert_success, create_test_device, TestFailure, run_windham

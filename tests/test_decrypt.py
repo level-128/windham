@@ -1,5 +1,7 @@
 """End-to-end encrypt-then-decrypt test: dd zero → Open → decrypt → verify all-zero."""
 
+REQUIRES = "any"  # test block: isoc | gnu-linux | any; per-test overrides below
+
 import os, sys, uuid, subprocess, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -71,4 +73,32 @@ def test_decrypt_zero(binary, device):
     ok_bytes = len(data)
     total = os.path.getsize(output_file)
     print(f"  {ok_bytes}/{total} bytes verified all-zero", file=sys.stderr)
+    os.remove(output_file)
+
+
+test_decrypt_zero.requires = "gnu-linux"  # write path goes through a dm-crypt mapper
+
+
+def test_decrypt_roundtrip(binary, device):
+    """New --create-exfat → Open --decrypt=<file> → verify exFAT signature.
+
+    The exFAT filesystem is written through userspace AES-XTS at creation,
+    so encrypt+decrypt is verified end-to-end without a kernel mapper —
+    runs on the ISO C baseline and GNU/Linux alike."""
+    output_file = device + ".decrypted"
+    if os.path.exists(device):
+        os.remove(device)
+    with open(device, "wb") as f:
+        f.seek(32 * 1024 * 1024 - 1)
+        f.write(b"\0")
+    assert_success(
+        ["New", device, "--key=123", "--target-level=3", "--target-time=0.1",
+         "--create-exfat"] + _FLAGS, binary, timeout=60)
+    assert_success(
+        ["Open", device, "--decrypt=" + output_file, "--key=123"] + _UNLOCK + _FLAGS,
+        binary, timeout=60)
+    with open(output_file, "rb") as f:
+        header = f.read(512)
+    if header[3:11] != b"EXFAT   ":
+        raise TestFailure(f"decrypted data is not exFAT, sig={header[3:11]!r}")
     os.remove(output_file)

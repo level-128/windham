@@ -3,6 +3,14 @@ import subprocess, os
 
 SIZE_MB = 8  # 8 MB disk file for tests
 
+# Target platform of the binary under test: "isoc" or "gnu-linux".
+# Set by run_tests.py before any test executes; tests must read it at
+# call time (not import time).
+PLATFORM = "isoc"
+
+def is_isoc():
+    return PLATFORM == "isoc"
+
 class TestFailure(Exception):
     pass
 
